@@ -5,27 +5,27 @@ import { GetStaticPaths, GetStaticProps } from 'next'
 import Container from '../../components/container'
 import PostBody from '../../components/post-body'
 import MoreStories from '../../components/more-stories'
-import Header from '../../components/header'
 import PostHeader from '../../components/post-header'
 import SectionSeparator from '../../components/section-separator'
 import Layout from '../../components/layout'
 import PostTitle from '../../components/post-title'
 import Tags from '../../components/tags'
-import { getAllPostsWithSlug, getPostAndMorePosts } from '../../lib/api'
-import { CMS_NAME } from '../../lib/constants'
+import { getPostsByCategoryUri, getMenu, getAllCategoriesWithUri } from '../../lib/api'
+import ShareBtns from '../../components/share-btns'
+import Breadcrumbs from '../../components/breadcrumbs'
 
-export default function Post({ post, posts, preview }) {
+export default function CategoryPosts({ posts, menu, preview }) {
+  debugger;
   const router = useRouter()
-  const morePosts = posts?.edges
+  const morePosts = posts?.edges;
+  const menuItems = menu?.menuItems?.edges;
 
-  if (!router.isFallback && !post?.slug) {
-    return <ErrorPage statusCode={404} />
-  }
+  debugger;
 
   return (
-    <Layout preview={preview}>
+    <Layout menu={menuItems} preview={preview}>
       <Container>
-        <Header />
+        {/* <Header /> */}
         {router.isFallback ? (
           <PostTitle>Loading…</PostTitle>
         ) : (
@@ -33,13 +33,14 @@ export default function Post({ post, posts, preview }) {
             <article>
               <Head>
                 <title>
-                  {post.title} | Next.js Blog Example with {CMS_NAME}
+                  List - Dieta na luzie
                 </title>
-                <meta
+                {/* <meta
                   property="og:image"
                   content={post.featuredImage?.node.sourceUrl}
-                />
+                /> */}
               </Head>
+              {/* <Breadcrumbs categories={post?.categories?.edges} title={post.title} />
               <PostHeader
                 title={post.title}
                 coverImage={post.featuredImage}
@@ -51,9 +52,9 @@ export default function Post({ post, posts, preview }) {
               <footer>
                 {post.tags.edges.length > 0 && <Tags tags={post.tags} />}
               </footer>
+              <ShareBtns url={post.link} mediaUrl={post.featuredImage.node.sourceUrl} title={post.title} /> */}
             </article>
 
-            <SectionSeparator />
             {morePosts.length > 0 && <MoreStories posts={morePosts} />}
           </>
         )}
@@ -67,23 +68,29 @@ export const getStaticProps: GetStaticProps = async ({
   preview = false,
   previewData,
 }) => {
-  const data = await getPostAndMorePosts(params?.slug, preview, previewData)
+  console.log("params: ", JSON.stringify(params));
+  const uri = Array.isArray(params.uri) ? params.uri.join('/') : params.uri[0];
+  const data = await getPostsByCategoryUri(uri);
+  console.log(JSON.stringify(data.posts));
+  const menu = await getMenu();
 
   return {
     props: {
       preview,
-      post: data.post,
       posts: data.posts,
+      menu,
     },
     revalidate: 10,
   }
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const allPosts = await getAllPostsWithSlug()
+  const allCategories = await getAllCategoriesWithUri();
+  const paths = allCategories.edges.map(({ node }) => node.uri.slice(0, -1)) || []
+  console.log(paths);
 
   return {
-    paths: allPosts.edges.map(({ node }) => `/posts/${node.slug}`) || [],
+    paths: allCategories.edges.map(({ node }) => `${node.uri.slice(0, -1)}`) || [],
     fallback: true,
   }
 }

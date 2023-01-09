@@ -5,21 +5,21 @@ import MoreStories from '../components/more-stories'
 import HeroPost from '../components/hero-post'
 import Intro from '../components/intro'
 import Layout from '../components/layout'
-import { getAllPostsForHome } from '../lib/api'
-import { CMS_NAME } from '../lib/constants'
+import { getAllPostsForHome, getMenu } from '../lib/api'
+import { SITE_DESCRIPTION, SITE_TITLE } from '../lib/constants'
 
-export default function Index({ allPosts: { edges }, preview }) {
+export default function Index({ allPosts: { edges }, menu, preview }) {
   const heroPost = edges[0]?.node
   const morePosts = edges.slice(1)
+  const menuItems = menu?.menuItems?.edges;
 
   return (
-    <Layout preview={preview}>
+    <Layout menu={menuItems} preview={preview}>
       <Head>
-        <title>Next.js Blog Example with {CMS_NAME}</title>
+        <title>{SITE_TITLE} - {SITE_DESCRIPTION}</title>
       </Head>
       <Container>
-        <Intro />
-        {heroPost && (
+        {/* {heroPost && (
           <HeroPost
             title={heroPost.title}
             coverImage={heroPost.featuredImage}
@@ -28,8 +28,8 @@ export default function Index({ allPosts: { edges }, preview }) {
             slug={heroPost.slug}
             excerpt={heroPost.excerpt}
           />
-        )}
-        {morePosts.length > 0 && <MoreStories posts={morePosts} />}
+        )} */}
+        {morePosts.length > 0 && <MoreStories posts={edges} />}
       </Container>
     </Layout>
   )
@@ -37,9 +37,10 @@ export default function Index({ allPosts: { edges }, preview }) {
 
 export const getStaticProps: GetStaticProps = async ({ preview = false }) => {
   const allPosts = await getAllPostsForHome(preview)
+  const menu = await getMenu();
 
   return {
-    props: { allPosts, preview },
+    props: { allPosts, menu, preview },
     revalidate: 10,
   }
 }
