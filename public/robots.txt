@@ -1,0 +1,5 @@
+# Mirrors the live WordPress robots.txt (Yoast defaults)
+User-agent: *
+Disallow:
+
+Sitemap: https://dietanaluzie.pl/sitemap.xml

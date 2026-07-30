@@ -27,6 +27,55 @@ async function fetchAPI(query = "", { variables }: Record<string, any> = {}) {
   return json.data;
 }
 
+const POST_FIELDS_FRAGMENT = `
+  fragment AuthorFields on User {
+    name
+    firstName
+    lastName
+    avatar {
+      url
+    }
+  }
+  fragment PostFields on Post {
+    title
+    excerpt
+    slug
+    uri
+    date
+    modified
+    id
+    featuredImage {
+      node {
+        sourceUrl
+      }
+    }
+    author {
+      node {
+        ...AuthorFields
+      }
+    }
+    link
+    categories {
+      edges {
+        node {
+          name
+          link
+          id
+          uri
+          parentId
+        }
+      }
+    }
+    tags {
+      edges {
+        node {
+          name
+        }
+      }
+    }
+  }
+`;
+
 export async function getPreviewPost(id, idType = "DATABASE_ID") {
   const data = await fetchAPI(
     `
@@ -34,6 +83,7 @@ export async function getPreviewPost(id, idType = "DATABASE_ID") {
       post(id: $id, idType: $idType) {
         databaseId
         slug
+        uri
         status
       }
     }`,
@@ -44,28 +94,48 @@ export async function getPreviewPost(id, idType = "DATABASE_ID") {
   return data.post;
 }
 
-export async function getAllPostsWithSlug() {
-  const data = await fetchAPI(`
-    {
-      posts(first: 10000) {
-        edges {
-          node {
-            slug
+export async function getAllPostUris() {
+  // WPGraphQL caps a single page at 100 items, so walk the cursor
+  const edges = [];
+  let after = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const data = await fetchAPI(
+      `
+      query AllPostUris($after: String) {
+        posts(first: 100, after: $after) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              uri
+              modified
+            }
           }
         }
       }
-    }
-  `);
-  return data?.posts;
+    `,
+      { variables: { after } }
+    );
+    edges.push(...data.posts.edges);
+    hasNextPage = data.posts.pageInfo.hasNextPage;
+    after = data.posts.pageInfo.endCursor;
+  }
+
+  return { edges };
 }
 
 export async function getAllCategoriesWithUri() {
   const data = await fetchAPI(`
     {
-      categories(first: 10000) {
+      categories(first: 100) {
         edges {
           node {
             uri
+            count
           }
         }
       }
@@ -84,6 +154,7 @@ export async function getAllPostsForHome(preview) {
             title
             excerpt
             slug
+            uri
             date
             featuredImage {
               node {
@@ -116,16 +187,16 @@ export async function getAllPostsForHome(preview) {
   return data?.posts;
 }
 
-export async function getPostsByCategoryUri(uri) {
-  console.log("uri: ", uri);
+export async function getPostsByCategorySlug(slug) {
   const data = await fetchAPI(`
-  query GET_POSTS_BY_CATEGORY($uri: String) {
-    posts(where: {categoryName: $uri}) {
+  query GET_POSTS_BY_CATEGORY($slug: String, $slugs: [String]) {
+    posts(first: 100, where: {categoryName: $slug, orderby: { field: DATE, order: DESC }}) {
       edges {
         node {
           title
           excerpt
           slug
+          uri
           date
           featuredImage {
             node {
@@ -144,97 +215,34 @@ export async function getPostsByCategoryUri(uri) {
           }
         }
       }
+    },
+    categories(where: {slug: $slugs}) {
+      edges {
+        node {
+          name
+          uri
+          slug
+        }
+      }
     }
   }
   `, {
     variables: {
-      uri: uri,
+      slug,
+      slugs: [slug],
     },
   })
   return data;
 }
 
-export async function getPostAndMorePosts(slug, preview, previewData) {
-  const postPreview = preview && previewData?.post;
-  // The slug may be the id of an unpublished post
-  const isId = Number.isInteger(Number(slug));
-  const isSamePost = isId
-    ? Number(slug) === postPreview.id
-    : slug === postPreview.slug;
-  const isDraft = isSamePost && postPreview?.status === "draft";
-  const isRevision = isSamePost && postPreview?.status === "publish";
-  debugger;
+export async function getPostByUri(uri) {
   const data = await fetchAPI(
     `
-    fragment AuthorFields on User {
-      name
-      firstName
-      lastName
-      avatar {
-        url
-      }
-    }
-    fragment PostFields on Post {
-      title
-      excerpt
-      slug
-      date
-      id
-      featuredImage {
-        node {
-          sourceUrl
-        }
-      }
-      author {
-        node {
-          ...AuthorFields
-        }
-      }
-      link
-      categories {
-        edges {
-          node {
-            name
-            link
-            id
-            uri
-            parentId
-          }
-        }
-      }
-      tags {
-        edges {
-          node {
-            name
-          }
-        }
-      }
-    }
-    query PostBySlug($id: ID!, $idType: PostIdType!) {
-      post(id: $id, idType: $idType) {
+    ${POST_FIELDS_FRAGMENT}
+    query PostByUri($id: ID!) {
+      post(id: $id, idType: URI) {
         ...PostFields
         content
-        ${
-          // Only some of the fields of a revision are considered as there are some inconsistencies
-          isRevision
-            ? `
-        revisions(first: 1, where: { orderby: { field: MODIFIED, order: DESC } }) {
-          edges {
-            node {
-              title
-              excerpt
-              content
-              author {
-                node {
-                  ...AuthorFields
-                }
-              }
-            }
-          }
-        }
-        `
-            : ""
-        }
       }
       posts(first: 5, where: { orderby: { field: DATE, order: DESC } }) {
         edges {
@@ -246,27 +254,16 @@ export async function getPostAndMorePosts(slug, preview, previewData) {
     }
   `,
     {
-      variables: {
-        id: isDraft ? postPreview.id : slug,
-        idType: isDraft ? "DATABASE_ID" : "SLUG",
-      },
+      variables: { id: uri },
     }
   );
 
-  // Draft posts may not have an slug
-  if (isDraft) data.post.slug = postPreview.id;
-  // Apply a revision (changes in a published post)
-  if (isRevision && data.post.revisions) {
-    const revision = data.post.revisions.edges[0]?.node;
-
-    if (revision) Object.assign(data.post, revision);
-    delete data.post.revisions;
+  if (data?.post) {
+    // Drop the current post from the "more posts" list
+    data.posts.edges = data.posts.edges
+      .filter(({ node }) => node.uri !== data.post.uri)
+      .slice(0, 4);
   }
-
-  // Filter out the main post
-  data.posts.edges = data.posts.edges.filter(({ node }) => node.slug !== slug);
-  // If there are still 3 posts, remove the last one
-  if (data.posts.edges.length > 2) data.posts.edges.pop();
 
   return data;
 }

@@ -1,63 +1,28 @@
-import { useRouter } from 'next/router'
-import ErrorPage from 'next/error'
-import Head from 'next/head'
 import { GetStaticPaths, GetStaticProps } from 'next'
 import Container from '../../components/container'
-import PostBody from '../../components/post-body'
 import MoreStories from '../../components/more-stories'
-import PostHeader from '../../components/post-header'
-import SectionSeparator from '../../components/section-separator'
 import Layout from '../../components/layout'
 import PostTitle from '../../components/post-title'
-import Tags from '../../components/tags'
-import { getPostsByCategoryUri, getMenu, getAllCategoriesWithUri } from '../../lib/api'
-import ShareBtns from '../../components/share-btns'
-import Breadcrumbs from '../../components/breadcrumbs'
+import { getPostsByCategorySlug, getMenu, getAllCategoriesWithUri } from '../../lib/api'
+import { getYoastForCategory } from '../../lib/seo'
+import WpSeo from '../../components/wp-seo'
 
-export default function CategoryPosts({ posts, menu, preview }) {
-  debugger;
-  const router = useRouter()
-  const morePosts = posts?.edges;
-  const menuItems = menu?.menuItems?.edges;
-
-  debugger;
+export default function CategoryPosts({ posts, category, menu, seo, preview }) {
+  const morePosts = posts?.edges ?? []
+  const menuItems = menu?.menuItems?.edges
 
   return (
     <Layout menu={menuItems} preview={preview}>
       <Container>
-        {/* <Header /> */}
-        {router.isFallback ? (
-          <PostTitle>Loading…</PostTitle>
-        ) : (
-          <>
-            <article>
-              <Head>
-                <title>
-                  List - Dieta na luzie
-                </title>
-                {/* <meta
-                  property="og:image"
-                  content={post.featuredImage?.node.sourceUrl}
-                /> */}
-              </Head>
-              {/* <Breadcrumbs categories={post?.categories?.edges} title={post.title} />
-              <PostHeader
-                title={post.title}
-                coverImage={post.featuredImage}
-                date={post.date}
-                author={post.author}
-                categories={post.categories}
-              />
-              <PostBody content={post.content} />
-              <footer>
-                {post.tags.edges.length > 0 && <Tags tags={post.tags} />}
-              </footer>
-              <ShareBtns url={post.link} mediaUrl={post.featuredImage.node.sourceUrl} title={post.title} /> */}
-            </article>
-
-            {morePosts.length > 0 && <MoreStories posts={morePosts} />}
-          </>
-        )}
+        <WpSeo
+          seo={seo}
+          fallbackTitle={`${category?.name} - Dieta na luzie`}
+          fallbackPath={category?.uri}
+        />
+        <article>
+          <PostTitle>{category?.name}</PostTitle>
+          {morePosts.length > 0 && <MoreStories posts={morePosts} />}
+        </article>
       </Container>
     </Layout>
   )
@@ -66,31 +31,44 @@ export default function CategoryPosts({ posts, menu, preview }) {
 export const getStaticProps: GetStaticProps = async ({
   params,
   preview = false,
-  previewData,
 }) => {
-  console.log("params: ", JSON.stringify(params));
-  const uri = Array.isArray(params.uri) ? params.uri.join('/') : params.uri[0];
-  const data = await getPostsByCategoryUri(uri);
-  console.log(JSON.stringify(data.posts));
-  const menu = await getMenu();
+  const segments = Array.isArray(params.uri) ? params.uri : [params.uri]
+  // Category slug is the last path segment; the full uri check below
+  // rejects made-up parent paths so each category has exactly one URL.
+  const slug = segments[segments.length - 1]
+  const data = await getPostsByCategorySlug(slug)
+  const category = data?.categories?.edges?.[0]?.node
+
+  if (!category || category.uri !== `/kategoria/${segments.join('/')}/`) {
+    return { notFound: true, revalidate: 10 }
+  }
+
+  const [menu, seo] = await Promise.all([
+    getMenu(),
+    getYoastForCategory(slug),
+  ])
 
   return {
     props: {
       preview,
       posts: data.posts,
+      category,
       menu,
+      seo,
     },
     revalidate: 10,
   }
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const allCategories = await getAllCategoriesWithUri();
-  const paths = allCategories.edges.map(({ node }) => node.uri.slice(0, -1)) || []
-  console.log(paths);
+  const allCategories = await getAllCategoriesWithUri()
 
   return {
-    paths: allCategories.edges.map(({ node }) => `${node.uri.slice(0, -1)}`) || [],
-    fallback: true,
+    paths: allCategories.edges.map(({ node }) => ({
+      params: {
+        uri: node.uri.replace(/^\/kategoria\//, '').split('/').filter(Boolean),
+      },
+    })),
+    fallback: 'blocking',
   }
 }

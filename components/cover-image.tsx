@@ -9,24 +9,24 @@ interface Props {
       sourceUrl: string;
     };
   };
-  slug?: string;
+  uri?: string;
 }
 
-export default function CoverImage({ title, coverImage, slug }: Props) {
+export default function CoverImage({ title, coverImage, uri }: Props) {
   const image = (
       <Image
       fill
         alt={`Zdjęcie poglądowe dla ${title}`}
         src={coverImage?.node.sourceUrl}
-        className={cn(`shadow-small ${!slug ? "object-cover contrast-125 rounded-lg" : ""}`, {
-          "hover:shadow-medium transition-shadow duration-200 rounded-lg object-cover contrast-125": slug,
+        className={cn(`shadow-small ${!uri ? "object-cover contrast-125 rounded-lg" : ""}`, {
+          "hover:shadow-medium transition-shadow duration-200 rounded-lg object-cover contrast-125": uri,
         })}
       />
   );
   return (
-    <div className={`sm:mx-0 ${!slug ? "relative flex w-full h-[100vw] sm:h-[50vw] md:h-[31vw] lg:h-[22vw]" : ""} `}>
-      {slug ? (
-        <Link className="relative flex h-[100vw] sm:h-[50vw] md:h-[31vw] lg:h-[22vw]" href={`/przepis/${slug}`} aria-label={title}>
+    <div className={`sm:mx-0 ${!uri ? "relative flex w-full h-[100vw] sm:h-[50vw] md:h-[31vw] lg:h-[22vw]" : ""} `}>
+      {uri ? (
+        <Link className="relative flex h-[100vw] sm:h-[50vw] md:h-[31vw] lg:h-[22vw]" href={uri} aria-label={title}>
           {image}
         </Link>
       ) : (
