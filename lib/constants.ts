@@ -6,3 +6,10 @@ export const HOME_OG_IMAGE_URL =
   export const SITE_TITLE = 'Dieta na luzie';
   export const SITE_DESCRIPTION = 'Jak jeść i nie zwariować?';
   export const SITE_URL = 'https://dietanaluzie.pl';
+  // Page sizes mirror the live theme ("Strona 2 z 9" for 113 posts -> 13/page,
+  // category "Strona 2 z 6" for 48 posts -> 9/page)
+  export const HOME_POSTS_PER_PAGE = 13;
+  export const CATEGORY_POSTS_PER_PAGE = 9;
+  // WooCommerce app pages need a cart session — not part of the headless site (yet).
+  // /strona-glowna/ is the WP front page and would duplicate /.
+  export const EXCLUDED_PAGE_URIS = ['/koszyk/', '/moje-konto/', '/zamowienie/', '/sklep/', '/strona-glowna/'];

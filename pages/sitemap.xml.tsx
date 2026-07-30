@@ -1,6 +1,6 @@
 import { GetServerSideProps } from 'next'
-import { getAllPostUris, getAllCategoriesWithUri } from '../lib/api'
-import { SITE_URL } from '../lib/constants'
+import { getAllPostUris, getAllCategoriesWithUri, getAllPageUris } from '../lib/api'
+import { SITE_URL, EXCLUDED_PAGE_URIS } from '../lib/constants'
 
 // Serves /sitemap.xml with the same URL set as the live WordPress sitemap
 // (homepage + all posts at their permalinks + category archives).
@@ -15,9 +15,10 @@ function urlEntry(loc: string, lastmod?: string) {
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  const [posts, categories] = await Promise.all([
+  const [posts, categories, pages] = await Promise.all([
     getAllPostUris(),
     getAllCategoriesWithUri(),
+    getAllPageUris(),
   ])
 
   const entries = [
@@ -25,6 +26,9 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     ...posts.edges.map(({ node }) => urlEntry(`${SITE_URL}${node.uri}`, node.modified)),
     ...categories.edges
       .filter(({ node }) => node.count > 0)
+      .map(({ node }) => urlEntry(`${SITE_URL}${node.uri}`)),
+    ...pages.edges
+      .filter(({ node }) => node.uri !== '/' && !EXCLUDED_PAGE_URIS.includes(node.uri))
       .map(({ node }) => urlEntry(`${SITE_URL}${node.uri}`)),
   ]
 

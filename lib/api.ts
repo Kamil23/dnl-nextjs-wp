@@ -144,30 +144,113 @@ export async function getAllCategoriesWithUri() {
   return data?.categories;
 }
 
-export async function getAllPostsForHome(preview) {
-  const data = await fetchAPI(
-    `
-    query AllPosts {
-      posts(first: 20, where: { orderby: { field: DATE, order: DESC } }) {
+const LISTING_NODE_FIELDS = `
+  title
+  excerpt
+  slug
+  uri
+  date
+  featuredImage {
+    node {
+      sourceUrl
+    }
+  }
+  author {
+    node {
+      name
+      firstName
+      lastName
+      avatar {
+        url
+      }
+    }
+  }
+`;
+
+// Walks the cursor to collect every matching post (WPGraphQL caps a page at 100)
+async function getAllListingPosts(categorySlug: string | null = null) {
+  const edges = [];
+  let after = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const data = await fetchAPI(
+      `
+      query ListingPosts($after: String, $categoryName: String) {
+        posts(first: 100, after: $after, where: { categoryName: $categoryName, orderby: { field: DATE, order: DESC } }) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              ${LISTING_NODE_FIELDS}
+            }
+          }
+        }
+      }
+    `,
+      { variables: { after, categoryName: categorySlug } }
+    );
+    edges.push(...data.posts.edges);
+    hasNextPage = data.posts.pageInfo.hasNextPage;
+    after = data.posts.pageInfo.endCursor;
+  }
+
+  return edges;
+}
+
+// All posts for the homepage listing, paginated in the page components
+export async function getAllPostsForHome() {
+  const edges = await getAllListingPosts();
+  return { edges };
+}
+
+export async function getPostsByCategorySlug(slug) {
+  const [edges, catData] = await Promise.all([
+    getAllListingPosts(slug),
+    fetchAPI(
+      `
+      query GET_CATEGORY($slugs: [String]) {
+        categories(where: {slug: $slugs}) {
+          edges {
+            node {
+              name
+              uri
+              slug
+            }
+          }
+        }
+      }
+    `,
+      { variables: { slugs: [slug] } }
+    ),
+  ]);
+
+  return { posts: { edges }, categories: catData.categories };
+}
+
+export async function getPostsForFeed() {
+  const data = await fetchAPI(`
+    {
+      posts(first: 10, where: { orderby: { field: DATE, order: DESC } }) {
         edges {
           node {
             title
             excerpt
+            content
             slug
             uri
             date
-            featuredImage {
-              node {
-                sourceUrl
-              }
-            }
             author {
               node {
                 name
-                firstName
-                lastName
-                avatar {
-                  url
+              }
+            }
+            categories {
+              edges {
+                node {
+                  name
                 }
               }
             }
@@ -175,74 +258,30 @@ export async function getAllPostsForHome(preview) {
         }
       }
     }
-  `,
-    {
-      variables: {
-        onlyEnabled: !preview,
-        preview,
-      },
-    }
-  );
-
+  `);
   return data?.posts;
 }
 
-export async function getPostsByCategorySlug(slug) {
-  const data = await fetchAPI(`
-  query GET_POSTS_BY_CATEGORY($slug: String, $slugs: [String]) {
-    posts(first: 100, where: {categoryName: $slug, orderby: { field: DATE, order: DESC }}) {
-      edges {
-        node {
-          title
-          excerpt
-          slug
-          uri
-          date
-          featuredImage {
-            node {
-              sourceUrl
-            }
-          }
-          author {
-            node {
-              name
-              firstName
-              lastName
-              avatar {
-                url
-              }
-            }
-          }
-        }
-      }
-    },
-    categories(where: {slug: $slugs}) {
-      edges {
-        node {
-          name
-          uri
-          slug
-        }
-      }
-    }
-  }
-  `, {
-    variables: {
-      slug,
-      slugs: [slug],
-    },
-  })
-  return data;
-}
-
-export async function getPostByUri(uri) {
+// Resolves a WP permalink to either a Post or a static Page
+export async function getContentByUri(uri) {
   const data = await fetchAPI(
     `
     ${POST_FIELDS_FRAGMENT}
-    query PostByUri($id: ID!) {
-      post(id: $id, idType: URI) {
-        ...PostFields
-        content
+    query ContentByUri($uri: String!) {
+      nodeByUri(uri: $uri) {
+        __typename
+        ... on Post {
+          ...PostFields
+          content
+        }
+        ... on Page {
+          title
+          content
+          slug
+          uri
+          date
+          modified
+        }
       }
       posts(first: 5, where: { orderby: { field: DATE, order: DESC } }) {
         edges {
@@ -254,18 +293,35 @@ export async function getPostByUri(uri) {
     }
   `,
     {
-      variables: { id: uri },
+      variables: { uri },
     }
   );
 
-  if (data?.post) {
+  const node = data?.nodeByUri;
+
+  if (node?.__typename === "Post") {
     // Drop the current post from the "more posts" list
     data.posts.edges = data.posts.edges
-      .filter(({ node }) => node.uri !== data.post.uri)
+      .filter(({ node: n }) => n.uri !== node.uri)
       .slice(0, 4);
   }
 
-  return data;
+  return { node, posts: data?.posts };
+}
+
+export async function getAllPageUris() {
+  const data = await fetchAPI(`
+    {
+      pages(first: 100) {
+        edges {
+          node {
+            uri
+          }
+        }
+      }
+    }
+  `);
+  return data?.pages;
 }
 
 export const getMenu = async () => {
