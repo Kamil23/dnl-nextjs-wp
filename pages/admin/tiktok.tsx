@@ -188,7 +188,8 @@ export default function AdminTikTok({ imports: initial }) {
 
       <p className="text-xs text-gray-400 mt-8">
         Worker: <code>npm run imports:process</code> (na serwerze odpala go cron co kilka minut).
-        Wymaga <code>ANTHROPIC_API_KEY</code> w env; transkrypcja audio dodatkowo <code>OPENAI_API_KEY</code>.
+        Silnik AI: <code>OPENAI_API_KEY</code> (gpt-4o + Whisper) — alternatywnie Gemini, Claude
+        lub dowolne API zgodne z OpenAI (szczegóły w .env.example).
       </p>
     </AdminShell>
   );
