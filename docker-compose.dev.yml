@@ -1,0 +1,16 @@
+# Local development database. Prod runs the same image on the Hetzner VPS.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dnl-db
+    environment:
+      POSTGRES_USER: dnl
+      POSTGRES_PASSWORD: dnl
+      POSTGRES_DB: dietanaluzie
+    ports:
+      - "5433:5432"
+    volumes:
+      - dnl-pgdata:/var/lib/postgresql/data
+
+volumes:
+  dnl-pgdata:
