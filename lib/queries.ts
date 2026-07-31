@@ -1,7 +1,7 @@
 // Data layer over Postgres — the only place pages read content from.
 // Mappers return the legacy WPGraphQL-ish shapes so existing components
 // (MoreStories, PostHeader, Breadcrumbs…) keep working unchanged.
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, dbSchema } from "./db";
 
 const { recipes, ingredientGroups, ingredients, steps, categories, recipeCategories, tags, recipeTags, pages, ratings } = dbSchema;
@@ -127,7 +127,7 @@ async function loadRecipeRelations(recipe: RecipeRow) {
         sum: sql<number>`coalesce(sum(${ratings.value}), 0)::int`,
       })
       .from(ratings)
-      .where(eq(ratings.recipeId, recipe.id)),
+      .where(and(eq(ratings.recipeId, recipe.id), eq(ratings.status, "approved"))),
   ]);
 
   // Combined aggregate: legacy WP votes + new native votes

@@ -166,6 +166,10 @@ export const ratings = pgTable(
       .references(() => recipes.id, { onDelete: "cascade" }),
     value: smallint("value").notNull(),
     fingerprint: text("fingerprint").notNull(),
+    // Every vote is moderated in the admin before it counts publicly
+    status: text("status", { enum: ["pending", "approved", "rejected"] })
+      .notNull()
+      .default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (t) => [uniqueIndex("ratings_recipe_fp_idx").on(t.recipeId, t.fingerprint)]

@@ -12,6 +12,8 @@ import IngredientsCard from '../components/recipe/ingredients-card'
 import StepsList from '../components/recipe/steps-list'
 import MacroTable from '../components/recipe/macro-table'
 import TikTokEmbed from '../components/recipe/tiktok-embed'
+import ShareCard from '../components/recipe/share-card'
+import RatingWidget from '../components/recipe/rating-widget'
 import { stripRecipeBlocks } from '../lib/recipe-parser'
 import {
   getRecipeByUri,
@@ -63,6 +65,8 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
                   <StepsList steps={recipe.steps} />
                   <MacroTable recipe={recipe} />
                   {recipe.videoUrl && <TikTokEmbed url={recipe.videoUrl} title={recipe.title} />}
+                  <RatingWidget recipeId={recipe.id} rating={recipe.rating} />
+                  <ShareCard url={post.link} mediaUrl={post.featuredImage?.node.sourceUrl} title={post.title} />
                 </div>
               </section>
 
@@ -79,7 +83,6 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
                 <footer>
                   {post.tags.edges.length > 0 && <Tags tags={post.tags} />}
                 </footer>
-                <ShareBtns url={post.link} mediaUrl={post.featuredImage?.node.sourceUrl} title={post.title} />
               </div>
             </article>
 
