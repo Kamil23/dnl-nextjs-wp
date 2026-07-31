@@ -33,29 +33,41 @@ const sql = postgres(process.env.DATABASE_URL!, { max: 2 });
 const db = drizzle(sql, { schema });
 const { imports } = schema;
 
+// Modele bywają niesforne wobec schematu: pomijają nullable pola,
+// zwracają liczby jako stringi itd. — walidacja jest więc liberalna
+// w tym, co przyjmuje, i ścisła w tym, co zwraca.
+const optStr = z
+  .string()
+  .nullish()
+  .transform((v) => v ?? null);
+const optNum = z.preprocess(
+  (v) => (typeof v === "string" ? parseFloat(v.replace(",", ".")) || null : v),
+  z.number().nullish().transform((v) => v ?? null)
+);
+
 const RecipeDraft = z.object({
   title: z.string(),
   lead: z.string().describe("Krótki, apetyczny opis przepisu (2-3 zdania), po polsku"),
   ingredientGroups: z.array(
     z.object({
-      title: z.string().nullable().describe("Nazwa sekcji np. 'Ciasto'; null gdy jedna sekcja"),
+      title: optStr.describe("Nazwa sekcji np. 'Ciasto'; null gdy jedna sekcja"),
       items: z.array(z.string()).describe("Składnik z ilością, np. 'pół szklanki płatków owsianych'"),
     })
   ),
   steps: z.array(
     z.object({
-      title: z.string().nullable(),
+      title: optStr,
       body: z.string(),
-      tip: z.string().nullable(),
+      tip: optStr,
     })
   ),
-  prepTimeMin: z.number().nullable(),
-  totalTimeMin: z.number().nullable(),
-  servings: z.number().nullable(),
-  kcal: z.number().nullable().describe("Szacunkowe kcal na porcję ze składników"),
-  protein: z.number().nullable(),
-  fat: z.number().nullable(),
-  carbs: z.number().nullable(),
+  prepTimeMin: optNum,
+  totalTimeMin: optNum,
+  servings: optNum,
+  kcal: optNum.describe("Szacunkowe kcal na porcję ze składników"),
+  protein: optNum,
+  fat: optNum,
+  carbs: optNum,
   seoTitle: z.string().describe("Tytuł SEO do 60 znaków, kończy się na ' - Dieta na luzie'"),
   seoDescription: z.string().describe("Opis SEO 140-160 znaków, po polsku, zachęcający"),
   // Modele czasem zwracają tablicę mimo instrukcji — normalizujemy do stringa
@@ -65,7 +77,7 @@ const RecipeDraft = z.object({
   ),
   tags: z.array(z.string()),
   confidence: z.enum(["high", "medium", "low"]).describe("Pewność odczytu przepisu z materiału"),
-  notes: z.string().nullable().describe("Wątpliwości dla operatora, np. niepewne ilości"),
+  notes: optStr.describe("Wątpliwości dla operatora, np. niepewne ilości"),
 });
 
 async function downloadVideo(url: string, dir: string) {
