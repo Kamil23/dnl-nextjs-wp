@@ -59,6 +59,23 @@ export function parseTotalTimeMinutes(content: string): number | null {
   return (hours ? parseInt(hours, 10) * 60 : 0) + (minutes ? parseInt(minutes, 10) : 0);
 }
 
+// Removes the raw ingredient list and the Yoast How-To block from old
+// WP content, so the article intro can be shown next to the new structured
+// recipe UI without duplicating ingredients/steps.
+export function stripRecipeBlocks(content: string): string {
+  let out = content;
+  // the how-to block (steps + total time)
+  out = out.replace(/<div class="schema-how-to wp-block-yoast-how-to-block">[\s\S]*?<\/ol><\/div>/g, "");
+  // the ingredients heading + its list
+  out = out.replace(
+    /<h[1-6][^>]*>[^<]*składniki[^<]*<\/h[1-6]>\s*(?:<ul class="wp-block-list">[\s\S]*?<\/ul>)?/gi,
+    ""
+  );
+  // a bare "Sposób przygotowania" heading left above the removed block
+  out = out.replace(/<h[1-6][^>]*>\s*spos[óo]b przygotowania\s*<\/h[1-6]>/gi, "");
+  return out;
+}
+
 export function minutesToIso8601(minutes: number | null): string | null {
   if (!minutes) return null;
   const h = Math.floor(minutes / 60);
