@@ -58,7 +58,11 @@ const RecipeDraft = z.object({
   carbs: z.number().nullable(),
   seoTitle: z.string().describe("Tytuł SEO do 60 znaków, kończy się na ' - Dieta na luzie'"),
   seoDescription: z.string().describe("Opis SEO 140-160 znaków, po polsku, zachęcający"),
-  keywords: z.string(),
+  // Modele czasem zwracają tablicę mimo instrukcji — normalizujemy do stringa
+  keywords: z.preprocess(
+    (v) => (Array.isArray(v) ? v.join(", ") : v),
+    z.string()
+  ),
   tags: z.array(z.string()),
   confidence: z.enum(["high", "medium", "low"]).describe("Pewność odczytu przepisu z materiału"),
   notes: z.string().nullable().describe("Wątpliwości dla operatora, np. niepewne ilości"),
@@ -369,48 +373,69 @@ function pickProvider(): Provider | null {
   return null;
 }
 
+const TOTAL_STEPS = 5;
+
+// Progress lands in the DB (live view in /admin/tiktok) and in the terminal
+async function setProgress(impId: number, step: number, label: string) {
+  const bar = "▓".repeat(step) + "░".repeat(TOTAL_STEPS - step);
+  console.log(`[${impId}] ${bar} ${step}/${TOTAL_STEPS} ${label}`);
+  await db
+    .update(imports)
+    .set({ progress: { step, total: TOTAL_STEPS, label } })
+    .where(eq(imports.id, impId));
+}
+
 async function processOne(provider: Provider, imp: typeof imports.$inferSelect) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dnl-import-"));
   try {
     await db.update(imports).set({ status: "processing" }).where(eq(imports.id, imp.id));
 
-    console.log(`[${imp.id}] Pobieram ${imp.tiktokUrl}...`);
+    await setProgress(imp.id, 1, "Pobieranie wideo z TikToka...");
     const { videoPath, caption } = await downloadVideo(imp.tiktokUrl, dir);
 
-    console.log(`[${imp.id}] Klatki + audio...`);
+    await setProgress(imp.id, 2, "Wyciąganie klatek z wideo...");
     const frames = await extractFrames(videoPath, dir);
 
     let draft;
     let transcript: string | null = null;
     if (provider.kind === "gemini") {
+      await setProgress(imp.id, 3, "Przygotowanie ścieżki audio...");
       const audioPath = await extractAudio(videoPath, dir).catch(() => null);
-      console.log(`[${imp.id}] Gemini analizuje (${frames.length} klatek + audio)...`);
+      await setProgress(imp.id, 4, "Gemini ogląda i słucha rolki...");
       draft = await draftRecipeGemini(frames, audioPath, caption);
     } else {
+      await setProgress(imp.id, 3, "Transkrypcja audio (Whisper)...");
       transcript = await transcribe(videoPath, dir).catch((e) => {
         console.warn(`[${imp.id}] Transkrypcja nieudana: ${e.message}`);
         return null;
       });
+      const modelName = provider.kind === "claude" ? "Claude" : provider.cfg.model;
+      await setProgress(imp.id, 4, `${modelName} analizuje ${frames.length} klatek i transkrypcję...`);
       if (provider.kind === "claude") {
-        console.log(`[${imp.id}] Claude analizuje (${frames.length} klatek)...`);
         draft = await draftRecipe(provider.client, frames, transcript, caption);
       } else {
-        console.log(`[${imp.id}] ${provider.cfg.model} analizuje (${frames.length} klatek)...`);
         draft = await draftRecipeOpenAICompat(provider.cfg, frames, transcript, caption);
       }
     }
 
+    await setProgress(imp.id, 5, "Zapisywanie draftu...");
     const frameUrls = publishFrames(imp.id, frames);
     await db
       .update(imports)
-      .set({ status: "ready", aiDraft: { ...draft, frames: frameUrls }, transcript, videoPath: null })
+      .set({
+        status: "ready",
+        aiDraft: { ...draft, frames: frameUrls },
+        transcript,
+        videoPath: null,
+        progress: null,
+      })
       .where(eq(imports.id, imp.id));
     console.log(`[${imp.id}] ✓ Draft gotowy: "${draft.title}" (confidence: ${draft.confidence})`);
   } catch (e: any) {
     console.error(`[${imp.id}] ✗ ${e.message}`);
     await db
       .update(imports)
-      .set({ status: "failed", operatorNotes: String(e.message).slice(0, 500) })
+      .set({ status: "failed", operatorNotes: String(e.message).slice(0, 500), progress: null })
       .where(eq(imports.id, imp.id));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

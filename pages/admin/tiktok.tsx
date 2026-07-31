@@ -1,7 +1,7 @@
 import { GetServerSideProps } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { desc } from "drizzle-orm";
 import AdminShell from "../../components/admin/admin-shell";
 import { isAdminRequest } from "../../lib/admin-auth";
@@ -90,6 +90,18 @@ export default function AdminTikTok({ imports: initial }) {
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [heroFrames, setHeroFrames] = useState<Record<number, string>>({});
+
+  // Auto-refresh while anything is queued or processing, so the progress
+  // bar written by the worker shows up live
+  const hasActive = rows.some((r) => r.status === "pending" || r.status === "processing");
+  useEffect(() => {
+    if (!hasActive) return;
+    const t = setInterval(async () => {
+      const res = await fetch("/api/admin/imports/");
+      if (res.ok) setRows(await res.json());
+    }, 2500);
+    return () => clearInterval(t);
+  }, [hasActive]);
 
   async function addImport(e: React.FormEvent) {
     e.preventDefault();
@@ -203,6 +215,25 @@ export default function AdminTikTok({ imports: initial }) {
                 )}
               </div>
             </div>
+            {imp.status === "processing" && imp.progress && (
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>{imp.progress.label}</span>
+                  <span>krok {imp.progress.step}/{imp.progress.total}</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                    style={{ width: `${(imp.progress.step / imp.progress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {imp.status === "pending" && (
+              <div className="mt-2 text-xs text-gray-400">
+                Czeka na workera (<code>npm run imports:process</code>)
+              </div>
+            )}
             {expanded === imp.id && (
               <DraftPreview
                 draft={imp.aiDraft}

@@ -201,6 +201,8 @@ export const imports = pgTable("imports", {
   })
     .notNull()
     .default("pending"),
+  // Live progress while processing: { step, total, label }
+  progress: jsonb("progress"),
   recipeId: integer("recipe_id").references(() => recipes.id),
   operatorNotes: text("operator_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
