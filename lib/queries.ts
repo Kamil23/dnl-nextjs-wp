@@ -56,7 +56,37 @@ export async function getAllRecipeUris() {
 export async function getRecipeByUri(uri: string) {
   const [recipe] = await db.select().from(recipes).where(eq(recipes.uri, uri));
   if (!recipe || recipe.status !== "published") return null;
+  return loadRecipeRelations(recipe);
+}
 
+// Admin variant: any status, by id
+export async function getRecipeById(id: number) {
+  const [recipe] = await db.select().from(recipes).where(eq(recipes.id, id));
+  if (!recipe) return null;
+  return loadRecipeRelations(recipe);
+}
+
+export async function listRecipesAdmin() {
+  return db
+    .select({
+      id: recipes.id,
+      title: recipes.title,
+      uri: recipes.uri,
+      status: recipes.status,
+      source: recipes.source,
+      publishedAt: recipes.publishedAt,
+      legacyRatingValue: recipes.legacyRatingValue,
+      legacyRatingCount: recipes.legacyRatingCount,
+    })
+    .from(recipes)
+    .orderBy(desc(recipes.publishedAt));
+}
+
+export async function listAllCategories() {
+  return db.select().from(categories).orderBy(categories.name);
+}
+
+async function loadRecipeRelations(recipe: RecipeRow) {
   const [groups, stepRows, catRows, tagRows, ratingAgg] = await Promise.all([
     db
       .select({
