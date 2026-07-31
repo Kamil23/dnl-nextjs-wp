@@ -1,35 +1,35 @@
 import { GetServerSideProps } from 'next'
-import { getAllPostUris, getAllCategoriesWithUri, getAllPageUris } from '../lib/api'
+import { getAllRecipeUris, getCategoriesWithCounts, getAllPageUris } from '../lib/queries'
 import { SITE_URL, EXCLUDED_PAGE_URIS } from '../lib/constants'
 
-// Serves /sitemap.xml with the same URL set as the live WordPress sitemap
-// (homepage + all posts at their permalinks + category archives).
+// Serves /sitemap.xml with the same URL set as the old WordPress sitemap
+// (homepage + all recipes/articles at their permalinks + categories + pages).
 export default function Sitemap() {
   return null
 }
 
-function urlEntry(loc: string, lastmod?: string) {
+function urlEntry(loc: string, lastmod?: Date | string | null) {
   return `  <url>
     <loc>${loc}</loc>${lastmod ? `\n    <lastmod>${new Date(lastmod).toISOString()}</lastmod>` : ''}
   </url>`
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  const [posts, categories, pages] = await Promise.all([
-    getAllPostUris(),
-    getAllCategoriesWithUri(),
+  const [recipeUris, categories, pageUris] = await Promise.all([
+    getAllRecipeUris(),
+    getCategoriesWithCounts(),
     getAllPageUris(),
   ])
 
   const entries = [
     urlEntry(`${SITE_URL}/`),
-    ...posts.edges.map(({ node }) => urlEntry(`${SITE_URL}${node.uri}`, node.modified)),
-    ...categories.edges
-      .filter(({ node }) => node.count > 0)
-      .map(({ node }) => urlEntry(`${SITE_URL}${node.uri}`)),
-    ...pages.edges
-      .filter(({ node }) => node.uri !== '/' && !EXCLUDED_PAGE_URIS.includes(node.uri))
-      .map(({ node }) => urlEntry(`${SITE_URL}${node.uri}`)),
+    ...recipeUris.map(({ uri, updatedAt }) => urlEntry(`${SITE_URL}${uri}`, updatedAt)),
+    ...categories
+      .filter((c) => c.count > 0)
+      .map((c) => urlEntry(`${SITE_URL}${c.uri}`)),
+    ...pageUris
+      .filter(({ uri }) => uri !== '/' && !EXCLUDED_PAGE_URIS.includes(uri))
+      .map(({ uri }) => urlEntry(`${SITE_URL}${uri}`)),
   ]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

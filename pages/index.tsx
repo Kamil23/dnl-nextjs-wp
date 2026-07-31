@@ -4,14 +4,13 @@ import Container from '../components/container'
 import MoreStories from '../components/more-stories'
 import Pagination from '../components/pagination'
 import Layout from '../components/layout'
-import { getAllPostsForHome, getMenu } from '../lib/api'
+import { listPublishedRecipes, toListingEdge } from '../lib/queries'
+import { MENU_EDGES } from '../lib/menu'
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL, HOME_POSTS_PER_PAGE } from '../lib/constants'
 
-export default function Index({ posts, totalPages, menu, preview }) {
-  const menuItems = menu?.menuItems?.edges;
-
+export default function Index({ posts, totalPages }) {
   return (
-    <Layout menu={menuItems} preview={preview}>
+    <Layout menu={MENU_EDGES} preview={false}>
       <Head>
         <title>{`${SITE_TITLE} - ${SITE_DESCRIPTION}`}</title>
         <meta name="description" content={SITE_DESCRIPTION} />
@@ -36,17 +35,14 @@ export default function Index({ posts, totalPages, menu, preview }) {
   )
 }
 
-export const getStaticProps: GetStaticProps = async ({ preview = false }) => {
-  const allPosts = await getAllPostsForHome()
-  const menu = await getMenu();
+export const getStaticProps: GetStaticProps = async () => {
+  const all = await listPublishedRecipes()
 
   return {
     props: {
-      posts: allPosts.edges.slice(0, HOME_POSTS_PER_PAGE),
-      totalPages: Math.ceil(allPosts.edges.length / HOME_POSTS_PER_PAGE),
-      menu,
-      preview,
+      posts: all.slice(0, HOME_POSTS_PER_PAGE).map(toListingEdge),
+      totalPages: Math.ceil(all.length / HOME_POSTS_PER_PAGE),
     },
-    revalidate: 10,
+    revalidate: 60,
   }
 }

@@ -5,23 +5,24 @@ import MoreStories from '../../components/more-stories'
 import Pagination from '../../components/pagination'
 import Layout from '../../components/layout'
 import PostTitle from '../../components/post-title'
-import { getPostsByCategorySlug, getMenu, getAllCategoriesWithUri } from '../../lib/api'
-import { getYoastForCategory, pagedSeo } from '../../lib/seo'
+import {
+  getCategoryByUri,
+  getCategoriesWithCounts,
+  listRecipesInCategoryTree,
+  toListingEdge,
+} from '../../lib/queries'
+import { buildSeoForCategory, pagedSeo } from '../../lib/seo'
+import { MENU_EDGES } from '../../lib/menu'
 import { SITE_URL, CATEGORY_POSTS_PER_PAGE as PER_PAGE } from '../../lib/constants'
 import WpSeo from '../../components/wp-seo'
 
-export default function CategoryPosts({ posts, category, page, totalPages, menu, seo, preview }) {
-  const menuItems = menu?.menuItems?.edges
+export default function CategoryPosts({ posts, category, page, totalPages, seo }) {
   const baseUrl = `${SITE_URL}${category?.uri}`
 
   return (
-    <Layout menu={menuItems} preview={preview}>
+    <Layout menu={MENU_EDGES} preview={false}>
       <Container>
-        <WpSeo
-          seo={seo}
-          fallbackTitle={`${category?.name} - Dieta na luzie`}
-          fallbackPath={category?.uri}
-        />
+        <WpSeo seo={seo} />
         <Head>
           {page > 1 && (
             <link rel="prev" href={page === 2 ? baseUrl : `${baseUrl}page/${page - 1}/`} />
@@ -38,10 +39,7 @@ export default function CategoryPosts({ posts, category, page, totalPages, menu,
   )
 }
 
-export const getStaticProps: GetStaticProps = async ({
-  params,
-  preview = false,
-}) => {
+export const getStaticProps: GetStaticProps = async ({ params }) => {
   let segments = Array.isArray(params.uri) ? [...params.uri] : [params.uri]
 
   // Trailing /page/N/ selects an archive page, e.g. /kategoria/przepisy/sniadania/page/2/
@@ -49,57 +47,53 @@ export const getStaticProps: GetStaticProps = async ({
   if (segments.length >= 2 && segments[segments.length - 2] === 'page') {
     page = parseInt(segments[segments.length - 1], 10)
     if (!Number.isInteger(page) || page < 2) {
-      return { notFound: true, revalidate: 10 }
+      return { notFound: true, revalidate: 60 }
     }
     segments = segments.slice(0, -2)
   }
 
-  // Category slug is the last path segment; the full uri check below
-  // rejects made-up parent paths so each category has exactly one URL.
-  const slug = segments[segments.length - 1]
-  const data = await getPostsByCategorySlug(slug)
-  const category = data?.categories?.edges?.[0]?.node
-
-  if (!category || category.uri !== `/kategoria/${segments.join('/')}/`) {
-    return { notFound: true, revalidate: 10 }
+  const uri = `/kategoria/${segments.join('/')}/`
+  const category = await getCategoryByUri(uri)
+  if (!category) {
+    return { notFound: true, revalidate: 60 }
   }
 
-  const allEdges = data.posts.edges
-  const totalPages = Math.max(1, Math.ceil(allEdges.length / PER_PAGE))
-  const posts = allEdges.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-
-  if (page > 1 && posts.length === 0) {
-    return { notFound: true, revalidate: 10 }
+  const allRecipes = await listRecipesInCategoryTree(category.id)
+  if (allRecipes.length === 0) {
+    return { notFound: true, revalidate: 60 }
   }
 
-  const [menu, seo] = await Promise.all([
-    getMenu(),
-    getYoastForCategory(slug),
-  ])
+  const totalPages = Math.max(1, Math.ceil(allRecipes.length / PER_PAGE))
+  const pageRecipes = allRecipes.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  if (page > 1 && pageRecipes.length === 0) {
+    return { notFound: true, revalidate: 60 }
+  }
 
   return {
     props: {
-      preview,
-      posts,
-      category,
+      posts: pageRecipes.map(toListingEdge),
+      category: JSON.parse(JSON.stringify(category)),
       page,
       totalPages,
-      menu,
-      seo: pagedSeo(seo, page, totalPages),
+      seo: JSON.parse(
+        JSON.stringify(pagedSeo(buildSeoForCategory(category), page, totalPages))
+      ),
     },
-    revalidate: 10,
+    revalidate: 60,
   }
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const allCategories = await getAllCategoriesWithUri()
+  const allCategories = await getCategoriesWithCounts()
 
   return {
-    paths: allCategories.edges.map(({ node }) => ({
-      params: {
-        uri: node.uri.replace(/^\/kategoria\//, '').split('/').filter(Boolean),
-      },
-    })),
+    paths: allCategories
+      .filter((c) => c.count > 0)
+      .map((c) => ({
+        params: {
+          uri: c.uri.replace(/^\/kategoria\//, '').split('/').filter(Boolean),
+        },
+      })),
     fallback: 'blocking',
   }
 }

@@ -1,8 +1,7 @@
-// Yoast SEO data fetched over the WP REST API (yoast_head_json).
-// WPGraphQL does not expose Yoast fields without an extra plugin,
-// but Yoast >= 14 attaches yoast_head_json to REST responses out of the box.
-
-const WP_BASE = (process.env.WORDPRESS_API_URL || "").replace(/\/graphql\/?$/, "");
+// SEO head data builders. Values imported from Yoast live in the DB
+// (seo_title / seo_description); these builders reproduce the same head
+// the old site rendered, from our own data.
+import { SITE_TITLE, SITE_URL } from "./constants";
 
 export type YoastHeadJson = {
   title?: string;
@@ -20,40 +19,71 @@ export type YoastHeadJson = {
   og_image?: { url: string; width?: number; height?: number; type?: string }[];
   author?: string;
   twitter_card?: string;
-  schema?: Record<string, any>;
+  schema?: Record<string, any> | null;
 };
 
-async function fetchYoastHead(url: string): Promise<YoastHeadJson | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const items = await res.json();
-    return items?.[0]?.yoast_head_json ?? null;
-  } catch (e) {
-    console.error("Yoast REST fetch failed:", e);
-    return null;
-  }
+const DEFAULT_ROBOTS = {
+  index: "index",
+  follow: "follow",
+  "max-snippet": "max-snippet:-1",
+  "max-image-preview": "max-image-preview:large",
+  "max-video-preview": "max-video-preview:-1",
+};
+
+type SeoSource = {
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  uri: string;
+  title: string;
+};
+
+function baseSeo(src: SeoSource): YoastHeadJson {
+  const title = src.seoTitle || `${src.title} - ${SITE_TITLE}`;
+  const canonical = `${SITE_URL}${src.uri}`;
+  return {
+    title,
+    description: src.seoDescription || undefined,
+    robots: DEFAULT_ROBOTS,
+    canonical,
+    og_locale: "pl_PL",
+    og_title: title,
+    og_description: src.seoDescription || undefined,
+    og_url: canonical,
+    og_site_name: SITE_TITLE,
+  };
 }
 
-export function getYoastForPost(slug: string) {
-  return fetchYoastHead(
-    `${WP_BASE}/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_fields=yoast_head_json`
-  );
+export function buildSeoForRecipe(recipe: SeoSource & {
+  heroImage?: string | null;
+  publishedAt?: Date | null;
+  updatedAt?: Date | null;
+  authorName?: string | null;
+}): YoastHeadJson {
+  return {
+    ...baseSeo(recipe),
+    og_type: "article",
+    article_published_time: recipe.publishedAt?.toISOString(),
+    article_modified_time: recipe.updatedAt?.toISOString(),
+    og_image: recipe.heroImage ? [{ url: recipe.heroImage }] : undefined,
+    author: recipe.authorName || undefined,
+  };
 }
 
-export function getYoastForCategory(slug: string) {
-  return fetchYoastHead(
-    `${WP_BASE}/wp-json/wp/v2/categories?slug=${encodeURIComponent(slug)}&_fields=yoast_head_json`
-  );
+export function buildSeoForCategory(category: Omit<SeoSource, "title"> & { name: string }): YoastHeadJson {
+  return {
+    ...baseSeo({ ...category, title: category.name }),
+    og_type: "article",
+  };
 }
 
-export function getYoastForPage(slug: string) {
-  return fetchYoastHead(
-    `${WP_BASE}/wp-json/wp/v2/pages?slug=${encodeURIComponent(slug)}&_fields=yoast_head_json`
-  );
+export function buildSeoForPage(page: SeoSource): YoastHeadJson {
+  return {
+    ...baseSeo(page),
+    og_type: "article",
+  };
 }
 
-// Yoast titles/canonicals for paged archives: ".../page/N/" + "Strona N z X"
+// Paged archives: ".../page/N/" + "Strona N z X" (matches the old Yoast pattern)
 export function pagedSeo(
   seo: YoastHeadJson | null,
   page: number,

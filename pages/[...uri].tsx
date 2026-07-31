@@ -7,48 +7,47 @@ import PostTitle from '../components/post-title'
 import SectionSeparator from '../components/section-separator'
 import Layout from '../components/layout'
 import Tags from '../components/tags'
-import { getAllPostUris, getAllPageUris, getMenu, getContentByUri } from '../lib/api'
-import { getYoastForPost, getYoastForPage } from '../lib/seo'
-import { EXCLUDED_PAGE_URIS } from '../lib/constants'
+import {
+  getRecipeByUri,
+  getPageByUri,
+  getAllRecipeUris,
+  getAllPageUris,
+  listPublishedRecipes,
+  toLegacyPost,
+  toListingEdge,
+} from '../lib/queries'
+import { buildSeoForRecipe, buildSeoForPage } from '../lib/seo'
+import { MENU_EDGES } from '../lib/menu'
+import { SITE_URL } from '../lib/constants'
 import ShareBtns from '../components/share-btns'
 import Breadcrumbs from '../components/breadcrumbs'
 import RecipeSchema from '../components/recipe-schema'
 import WpSeo from '../components/wp-seo'
 
-// Posts and static pages live at their WordPress permalinks, e.g.
-// /przepisy/owsianka-kokosowa-z-mango/ or /polityka-prywatnosci/.
-// Keeping these URLs identical to the live site is required for the SEO migration.
-export default function Content({ node, posts, menu, seo, preview }) {
-  const morePosts = posts?.edges ?? []
-  const menuItems = menu?.menuItems?.edges
-  const isPost = node.__typename === 'Post'
-
+// Recipes and static pages live at their original WordPress permalinks —
+// the URL set is the SEO contract with Google and never changes.
+export default function Content({ kind, recipe, post, page, morePosts, seo }) {
   return (
-    <Layout menu={menuItems} preview={preview}>
+    <Layout menu={MENU_EDGES} preview={false}>
       <Container>
-        <WpSeo
-          seo={seo}
-          fallbackTitle={`${node.title} - Dieta na luzie`}
-          fallbackPath={node.uri}
-          fallbackOgImage={node.featuredImage?.node.sourceUrl}
-        />
-        {isPost ? (
+        <WpSeo seo={seo} />
+        {kind === 'recipe' ? (
           <>
             <article>
-              <RecipeSchema post={node} description={seo?.description} />
-              <Breadcrumbs categories={node?.categories?.edges} title={node.title} />
+              <RecipeSchema recipe={recipe} />
+              <Breadcrumbs categories={post.categories.edges} title={post.title} />
               <PostHeader
-                title={node.title}
-                coverImage={node.featuredImage}
-                date={node.date}
-                author={node.author}
-                categories={node.categories}
+                title={post.title}
+                coverImage={post.featuredImage}
+                date={post.date}
+                author={post.author}
+                categories={post.categories}
               />
-              <PostBody content={node.content} />
+              <PostBody content={post.content} />
               <footer>
-                {node.tags.edges.length > 0 && <Tags tags={node.tags} />}
+                {post.tags.edges.length > 0 && <Tags tags={post.tags} />}
               </footer>
-              <ShareBtns url={node.link} mediaUrl={node.featuredImage?.node.sourceUrl} title={node.title} />
+              <ShareBtns url={post.link} mediaUrl={post.featuredImage?.node.sourceUrl} title={post.title} />
             </article>
 
             <SectionSeparator />
@@ -56,8 +55,8 @@ export default function Content({ node, posts, menu, seo, preview }) {
           </>
         ) : (
           <article>
-            <PostTitle>{node.title}</PostTitle>
-            <PostBody content={node.content} />
+            <PostTitle>{page.title}</PostTitle>
+            <PostBody content={page.contentHtml} />
           </article>
         )}
       </Container>
@@ -65,58 +64,54 @@ export default function Content({ node, posts, menu, seo, preview }) {
   )
 }
 
-export const getStaticProps: GetStaticProps = async ({
-  params,
-  preview = false,
-}) => {
+export const getStaticProps: GetStaticProps = async ({ params }) => {
   const segments = Array.isArray(params.uri) ? params.uri : [params.uri]
   const uri = `/${segments.join('/')}/`
-  const { node, posts } = await getContentByUri(uri)
 
-  // WPGraphQL can resolve URIs loosely, so require an exact permalink match —
-  // otherwise content would render under many paths (duplicate content).
-  if (!node || node.uri !== uri) {
-    return { notFound: true, revalidate: 10 }
+  const recipe = await getRecipeByUri(uri)
+  if (recipe) {
+    const all = await listPublishedRecipes()
+    const morePosts = all
+      .filter((r) => r.uri !== recipe.uri)
+      .slice(0, 4)
+      .map(toListingEdge)
+
+    return {
+      props: {
+        kind: 'recipe',
+        recipe: JSON.parse(JSON.stringify(recipe)),
+        post: JSON.parse(JSON.stringify(toLegacyPost(recipe, SITE_URL))),
+        morePosts,
+        seo: JSON.parse(JSON.stringify(buildSeoForRecipe(recipe))),
+      },
+      revalidate: 60,
+    }
   }
 
-  // WooCommerce app pages (cart, checkout, account) need a session and
-  // can't work headlessly — keep them 404 until the shop scope is decided
-  if (node.__typename === 'Page' && EXCLUDED_PAGE_URIS.includes(node.uri)) {
-    return { notFound: true, revalidate: 10 }
+  const page = await getPageByUri(uri)
+  if (page) {
+    return {
+      props: {
+        kind: 'page',
+        page: JSON.parse(JSON.stringify(page)),
+        morePosts: [],
+        seo: JSON.parse(JSON.stringify(buildSeoForPage(page))),
+      },
+      revalidate: 60,
+    }
   }
 
-  const [menu, seo] = await Promise.all([
-    getMenu(),
-    node.__typename === 'Post'
-      ? getYoastForPost(node.slug)
-      : getYoastForPage(node.slug),
-  ])
-
-  return {
-    props: {
-      preview,
-      node,
-      posts: node.__typename === 'Post' ? posts : null,
-      menu,
-      seo,
-    },
-    revalidate: 10,
-  }
+  return { notFound: true, revalidate: 60 }
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const [allPosts, allPages] = await Promise.all([
-    getAllPostUris(),
+  const [recipeUris, pageUris] = await Promise.all([
+    getAllRecipeUris(),
     getAllPageUris(),
   ])
 
-  const uris = [
-    ...allPosts.edges.map(({ node }) => node.uri),
-    ...allPages.edges.map(({ node }) => node.uri),
-  ].filter((uri) => uri && uri !== '/')
-
   return {
-    paths: uris.map((uri) => ({
+    paths: [...recipeUris, ...pageUris].map(({ uri }) => ({
       params: { uri: uri.split('/').filter(Boolean) },
     })),
     fallback: 'blocking',

@@ -1,8 +1,8 @@
 import { GetServerSideProps } from 'next'
-import { getPostsForFeed } from '../lib/api'
+import { listFeedRecipes } from '../lib/queries'
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from '../lib/constants'
 
-// Serves /feed/ — same address as the WordPress RSS feed
+// Serves /feed/ — same address as the old WordPress RSS feed
 export default function Feed() {
   return null
 }
@@ -18,28 +18,24 @@ function escapeXml(value: string = '') {
     .replace(/>/g, '&gt;')
 }
 
-function stripTags(html: string = '') {
-  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-}
-
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  const posts = await getPostsForFeed()
+  const recipes = await listFeedRecipes(10)
 
-  const items = posts.edges
-    .map(({ node }) => {
-      const link = `${SITE_URL}${node.uri}`
-      const categories = (node.categories?.edges || [])
-        .map(({ node: c }) => `      <category>${cdata(c.name)}</category>`)
+  const items = recipes
+    .map((r) => {
+      const link = `${SITE_URL}${r.uri}`
+      const categories = r.categoryNames
+        .map((name) => `      <category>${cdata(name)}</category>`)
         .join('\n')
       return `    <item>
-      <title>${escapeXml(stripTags(node.title))}</title>
+      <title>${escapeXml(r.title)}</title>
       <link>${link}</link>
       <guid isPermaLink="true">${link}</guid>
-      <pubDate>${new Date(node.date).toUTCString()}</pubDate>
-      <dc:creator>${cdata(node.author?.node?.name || '')}</dc:creator>
+      <pubDate>${(r.publishedAt ?? new Date()).toUTCString()}</pubDate>
+      <dc:creator>${cdata(r.authorName || 'Roksana')}</dc:creator>
 ${categories}
-      <description>${cdata(stripTags(node.excerpt))}</description>
-      <content:encoded>${cdata(node.content || '')}</content:encoded>
+      <description>${cdata(r.lead || '')}</description>
+      <content:encoded>${cdata(r.contentHtml || '')}</content:encoded>
     </item>`
     })
     .join('\n')
