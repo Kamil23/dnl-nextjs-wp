@@ -11,6 +11,17 @@ const WP_ORIGIN = process.env.WORDPRESS_API_URL.replace(/\/graphql\/?$/, '')
 module.exports = {
   // WordPress permalinks end with a slash — keep identical URLs after migration
   trailingSlash: true,
+  async redirects() {
+    // The WooCommerce shop is gone and won't return — permanent redirects
+    // so any indexed/linked shop URLs pass their signals to the homepage
+    return ['/sklep', '/koszyk', '/moje-konto', '/zamowienie', '/strona-glowna'].map(
+      (path) => ({
+        source: `${path}/:path*`,
+        destination: '/',
+        permanent: true,
+      })
+    )
+  },
   async rewrites() {
     // Media URLs must survive the migration (Google Images traffic) — proxy
     // them to wherever WordPress lives (WORDPRESS_API_URL host)
