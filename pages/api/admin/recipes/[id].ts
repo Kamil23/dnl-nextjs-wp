@@ -42,8 +42,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "DELETE") {
     const recipe = await getRecipeById(id);
     if (!recipe) return res.status(404).json({ error: "Not found" });
+    // Published recipes are indexed and linked — they must never be deletable
+    if (recipe.status === "published") {
+      return res
+        .status(403)
+        .json({ error: "Opublikowanych przepisów nie można usunąć" });
+    }
     await db.delete(recipes).where(eq(recipes.id, id));
-    await revalidatePaths(res, [recipe.uri, "/", ...recipe.categories.map((c) => c.uri)]);
     return res.json({ ok: true });
   }
 

@@ -99,9 +99,14 @@ export default function RecipeEditor({ initial, allCategories }) {
   }
 
   async function remove() {
-    if (!confirm(`Usunąć przepis „${form.title}"? Tej operacji nie można cofnąć.`)) return;
+    if (!confirm(`Usunąć szkic „${form.title}"? Tej operacji nie można cofnąć.`)) return;
     const res = await fetch(`/api/admin/recipes/${initial.id}`, { method: "DELETE" });
-    if (res.ok) router.push("/admin");
+    if (res.ok) {
+      router.push("/admin");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setMessage({ ok: false, text: err.error || "Nie udało się usunąć" });
+    }
   }
 
   return (
@@ -403,9 +408,16 @@ export default function RecipeEditor({ initial, allCategories }) {
             </div>
           </Section>
 
-          <button onClick={remove} className="text-sm text-red-500 hover:text-red-700 mb-12">
-            Usuń przepis
-          </button>
+          {form.status === "published" ? (
+            <p className="text-xs text-gray-400 mb-12">
+              Opublikowanych przepisów nie można usunąć — najpierw zmień status
+              na szkic, jeśli chcesz go wycofać ze strony.
+            </p>
+          ) : (
+            <button onClick={remove} className="text-sm text-red-500 hover:text-red-700 mb-12">
+              Usuń szkic
+            </button>
+          )}
         </div>
       </div>
     </AdminShell>

@@ -12,14 +12,21 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   review: { label: "Do akceptacji", cls: "bg-yellow-100 text-yellow-800" },
 };
 
-export default function AdminRecipes({ recipes }) {
+export default function AdminRecipes({ recipes: initial }) {
   const router = useRouter();
+  const [recipes, setRecipes] = useState(initial);
   const [filter, setFilter] = useState<string>("all");
   const [newTitle, setNewTitle] = useState("");
   const [busy, setBusy] = useState(false);
 
   const filtered =
     filter === "all" ? recipes : recipes.filter((r) => r.status === filter);
+
+  async function removeDraft(r: { id: number; title: string }) {
+    if (!confirm(`Usunąć szkic „${r.title}"? Tej operacji nie można cofnąć.`)) return;
+    const res = await fetch(`/api/admin/recipes/${r.id}/`, { method: "DELETE" });
+    if (res.ok) setRecipes((rs) => rs.filter((x) => x.id !== r.id));
+  }
 
   async function createRecipe(e: React.FormEvent) {
     e.preventDefault();
@@ -104,10 +111,19 @@ export default function AdminRecipes({ recipes }) {
                   {r.publishedAt ? new Date(r.publishedAt).toLocaleDateString("pl-PL") : "—"}
                 </td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{r.source}</td>
-                <td className="px-4 py-3 text-right">
-                  <Link href={r.uri} target="_blank" className="text-gray-400 hover:text-gray-700 text-xs">
+                <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <Link href={`/admin/przepisy/${r.id}/podglad`} target="_blank" className="text-gray-400 hover:text-gray-700 text-xs mr-3">
                     podgląd ↗
                   </Link>
+                  {r.status !== "published" && (
+                    <button
+                      onClick={() => removeDraft(r)}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                      title="Usuń szkic"
+                    >
+                      usuń
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
