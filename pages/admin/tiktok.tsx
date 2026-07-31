@@ -16,10 +16,31 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   failed: { label: "Błąd", cls: "bg-red-100 text-red-700" },
 };
 
-function DraftPreview({ draft }: { draft: any }) {
+function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame: string | null; onPickFrame: (url: string) => void }) {
   if (!draft) return null;
   return (
     <div className="mt-3 bg-gray-50 rounded-lg p-4 text-sm space-y-2">
+      {draft.frames?.length > 0 && (
+        <div>
+          <div className="font-medium text-gray-500 text-xs uppercase mb-2">
+            Zdjęcie główne — kliknij klatkę, aby wybrać
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {draft.frames.map((f: string) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={f}
+                src={f}
+                alt=""
+                onClick={() => onPickFrame(f)}
+                className={`h-32 rounded-lg cursor-pointer border-4 transition ${
+                  (heroFrame ?? draft.frames[0]) === f ? "border-amber-500" : "border-transparent hover:border-gray-300"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <strong>{draft.title}</strong>
         <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -68,6 +89,7 @@ export default function AdminTikTok({ imports: initial }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [heroFrames, setHeroFrames] = useState<Record<number, string>>({});
 
   async function addImport(e: React.FormEvent) {
     e.preventDefault();
@@ -93,7 +115,7 @@ export default function AdminTikTok({ imports: initial }) {
     const res = await fetch(`/api/admin/imports/${id}/`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, heroImage: heroFrames[id] ?? null }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -181,7 +203,13 @@ export default function AdminTikTok({ imports: initial }) {
                 )}
               </div>
             </div>
-            {expanded === imp.id && <DraftPreview draft={imp.aiDraft} />}
+            {expanded === imp.id && (
+              <DraftPreview
+                draft={imp.aiDraft}
+                heroFrame={heroFrames[imp.id] ?? null}
+                onPickFrame={(url) => setHeroFrames((h) => ({ ...h, [imp.id]: url }))}
+              />
+            )}
           </div>
         ))}
       </div>

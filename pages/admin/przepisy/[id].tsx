@@ -119,9 +119,14 @@ export default function RecipeEditor({ initial, allCategories }) {
               {message.text}
             </span>
           )}
-          <Link href={form.uri} target="_blank" className="text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg px-4 py-2">
+          <Link href={`/admin/przepisy/${initial.id}/podglad`} target="_blank" className="text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg px-4 py-2">
             Podgląd ↗
           </Link>
+          {form.status === "published" && (
+            <Link href={form.uri} target="_blank" className="text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg px-4 py-2">
+              Na stronie ↗
+            </Link>
+          )}
           <button
             onClick={() => save()}
             disabled={saving}

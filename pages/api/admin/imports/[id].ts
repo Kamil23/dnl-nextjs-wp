@@ -39,6 +39,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const d = imp.aiDraft as any;
     const slug = slugify(d.title || `tiktok-${id}`);
+    const heroImage =
+      (typeof req.body?.heroImage === "string" && req.body.heroImage) ||
+      d.frames?.[0] ||
+      null;
 
     const recipeId = await db.transaction(async (tx) => {
       const [recipe] = await tx
@@ -49,6 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           uri: `/przepisy/${slug}/`,
           status: "draft",
           source: "tiktok",
+          heroImage,
           lead: d.lead ?? null,
           videoUrl: imp.tiktokUrl,
           authorName: "Roksana",

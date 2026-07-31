@@ -90,11 +90,23 @@ async function extractFrames(videoPath: string, dir: string, maxFrames = 8) {
   ]);
   const duration = Math.max(1, parseFloat(stdout.trim()) || 30);
   const fps = maxFrames / duration;
+  // 1080px wide: good enough for the model AND as hero-image candidates
   await run("ffmpeg", [
-    "-i", videoPath, "-vf", `fps=${fps},scale=720:-2`, "-frames:v", String(maxFrames),
-    "-q:v", "4", path.join(framesDir, "frame-%02d.jpg"),
+    "-i", videoPath, "-vf", `fps=${fps},scale=1080:-2`, "-frames:v", String(maxFrames),
+    "-q:v", "3", path.join(framesDir, "frame-%02d.jpg"),
   ], { timeout: 120_000 });
   return fs.readdirSync(framesDir).sort().map((f) => path.join(framesDir, f));
+}
+
+// Frames double as hero-image candidates — publish them under /uploads
+function publishFrames(importId: number, frames: string[]): string[] {
+  const publicDir = path.join(process.cwd(), "public", "uploads", "imports", String(importId));
+  fs.mkdirSync(publicDir, { recursive: true });
+  return frames.map((f) => {
+    const name = path.basename(f);
+    fs.copyFileSync(f, path.join(publicDir, name));
+    return `/uploads/imports/${importId}/${name}`;
+  });
 }
 
 async function extractAudio(videoPath: string, dir: string): Promise<string> {
@@ -388,9 +400,10 @@ async function processOne(provider: Provider, imp: typeof imports.$inferSelect) 
       }
     }
 
+    const frameUrls = publishFrames(imp.id, frames);
     await db
       .update(imports)
-      .set({ status: "ready", aiDraft: draft, transcript, videoPath: null })
+      .set({ status: "ready", aiDraft: { ...draft, frames: frameUrls }, transcript, videoPath: null })
       .where(eq(imports.id, imp.id));
     console.log(`[${imp.id}] ✓ Draft gotowy: "${draft.title}" (confidence: ${draft.confidence})`);
   } catch (e: any) {

@@ -37,3 +37,6 @@ next-env.d.ts
 
 # local env files (contains WP endpoint)
 .env
+
+# TikTok import frames (generated at runtime)
+/public/uploads
