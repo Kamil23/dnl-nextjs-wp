@@ -49,6 +49,9 @@ export const recipes = pgTable(
     seoDescription: text("seo_description"),
     legacyRatingValue: numeric("legacy_rating_value"),
     legacyRatingCount: integer("legacy_rating_count"),
+    // Paid collaboration shown (and legally marked) on the recipe page:
+    // { brand, code, note }
+    sponsor: jsonb("sponsor"),
     source: text("source", { enum: ["manual", "tiktok", "wp_import"] })
       .notNull()
       .default("manual"),

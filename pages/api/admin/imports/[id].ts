@@ -54,6 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: "draft",
           source: "tiktok",
           heroImage,
+          sponsor: d.sponsor ?? null,
           lead: d.lead ?? null,
           videoUrl: imp.tiktokUrl,
           authorName: "Roksana",

@@ -14,6 +14,7 @@ import MacroTable from '../components/recipe/macro-table'
 import TikTokEmbed from '../components/recipe/tiktok-embed'
 import ShareCard from '../components/recipe/share-card'
 import RatingWidget from '../components/recipe/rating-widget'
+import SponsorCard from '../components/recipe/sponsor-card'
 import { stripRecipeBlocks } from '../lib/recipe-parser'
 import {
   getRecipeByUri,
@@ -60,6 +61,7 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
               >
                 <div className="lg:sticky lg:top-6">
                   <IngredientsCard recipe={recipe} />
+                  <SponsorCard sponsor={recipe.sponsor} />
                 </div>
                 <div>
                   <StepsList steps={recipe.steps} />

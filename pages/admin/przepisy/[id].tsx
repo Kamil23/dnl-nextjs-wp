@@ -41,6 +41,9 @@ export default function RecipeEditor({ initial, allCategories }) {
     keywords: initial.keywords ?? "",
     seoTitle: initial.seoTitle ?? "",
     seoDescription: initial.seoDescription ?? "",
+    sponsorBrand: initial.sponsor?.brand ?? "",
+    sponsorCode: initial.sponsor?.code ?? "",
+    sponsorNote: initial.sponsor?.note ?? "",
     ingredientGroups: initial.ingredientGroups?.length
       ? initial.ingredientGroups
       : [{ title: "", items: [""] }],
@@ -351,6 +354,25 @@ export default function RecipeEditor({ initial, allCategories }) {
                 <input inputMode="decimal" value={form.carbs} onChange={(e) => set("carbs", e.target.value)} className={inputCls} />
               </label>
             </div>
+          </Section>
+
+          <Section title="Współpraca reklamowa">
+            <label className={labelCls}>
+              Marka (puste = brak współpracy)
+              <input value={form.sponsorBrand} onChange={(e) => set("sponsorBrand", e.target.value)} className={inputCls} placeholder="np. Kol-Pol" />
+            </label>
+            <label className={`${labelCls} mt-3`}>
+              Kod rabatowy
+              <input value={form.sponsorCode} onChange={(e) => set("sponsorCode", e.target.value)} className={inputCls} placeholder="np. ROKSANA15" />
+            </label>
+            <label className={`${labelCls} mt-3`}>
+              Notatka (czego dotyczy)
+              <input value={form.sponsorNote} onChange={(e) => set("sponsorNote", e.target.value)} className={inputCls} placeholder="np. -15% na przyprawy" />
+            </label>
+            <p className="text-xs text-gray-400 mt-2">
+              Wyświetla się pod składnikami jako oznaczony box "Współpraca reklamowa"
+              z kodem do skopiowania.
+            </p>
           </Section>
 
           <Section title="Kategorie i tagi">

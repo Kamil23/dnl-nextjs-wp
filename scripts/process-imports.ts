@@ -78,6 +78,15 @@ const RecipeDraft = z.object({
   tags: z.array(z.string()),
   confidence: z.enum(["high", "medium", "low"]).describe("Pewność odczytu przepisu z materiału"),
   notes: optStr.describe("Wątpliwości dla operatora, np. niepewne ilości"),
+  sponsor: z
+    .object({
+      brand: z.string().describe("Nazwa marki, np. 'Kol-Pol'"),
+      code: optStr.describe("Kod rabatowy, np. 'ROKSANA15'"),
+      note: optStr.describe("Krótka informacja, czego dotyczy współpraca/kod"),
+    })
+    .nullish()
+    .transform((v) => v ?? null)
+    .describe("Współpraca reklamowa z materiału; null gdy brak"),
 });
 
 async function downloadVideo(url: string, dir: string) {
@@ -157,7 +166,8 @@ const SYSTEM_PROMPT =
   "przenieś je wiernie, co do jednostki. Transkrypcja i klatki służą głównie do odtworzenia kroków i technik. " +
   "Pisz naturalnym, ciepłym stylem bloga. Ilości składników podawaj po polsku ('pół szklanki', '2 łyżki'). " +
   "Jeśli czegoś nie widać ani nie słychać — nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence. " +
-  "Pomijaj treści reklamowe, kody rabatowe i oznaczenia współprac — nie należą do przepisu.";
+  "Treści reklamowych (marka, kod rabatowy, współpraca) NIE mieszaj ze składnikami ani krokami — " +
+  "wyciągnij je do pola sponsor, żeby można je było uczciwie oznaczyć na stronie.";
 
 // ---------- Gemini path (free tier; understands the audio track natively) ----------
 
@@ -203,6 +213,16 @@ const GEMINI_SCHEMA = {
     tags: { type: "ARRAY", items: { type: "STRING" } },
     confidence: { type: "STRING", enum: ["high", "medium", "low"] },
     notes: { type: "STRING", nullable: true },
+    sponsor: {
+      type: "OBJECT",
+      nullable: true,
+      properties: {
+        brand: { type: "STRING" },
+        code: { type: "STRING", nullable: true },
+        note: { type: "STRING", nullable: true },
+      },
+      required: ["brand"],
+    },
   },
   required: ["title", "lead", "ingredientGroups", "steps", "seoTitle", "seoDescription", "keywords", "tags", "confidence"],
 };
@@ -285,7 +305,8 @@ async function draftRecipeOpenAICompat(
       "Odpowiedz WYŁĄCZNIE poprawnym JSON-em o polach: title, lead, ingredientGroups " +
       "[{title|null, items[]}], steps [{title|null, body, tip|null}], prepTimeMin|null, " +
       "totalTimeMin|null, servings|null, kcal|null, protein|null, fat|null, carbs|null, " +
-      "seoTitle, seoDescription, keywords, tags[], confidence ('high'|'medium'|'low'), notes|null.",
+      "seoTitle, seoDescription, keywords, tags[], confidence ('high'|'medium'|'low'), notes|null, " +
+      "sponsor|null ({brand, code|null, note|null} — współpraca reklamowa, jeśli występuje).",
   });
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
