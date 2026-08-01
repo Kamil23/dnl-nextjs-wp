@@ -16,6 +16,33 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   failed: { label: "Błąd", cls: "bg-red-100 text-red-700" },
 };
 
+function SourceMaterials({ caption, transcript }: { caption?: string | null; transcript?: string | null }) {
+  if (!caption && !transcript) return null;
+  return (
+    <div className="border-t border-gray-200 pt-3 mt-3 space-y-2">
+      <div className="font-medium text-gray-500 text-xs uppercase">
+        Materiały źródłowe (z nich powstał draft)
+      </div>
+      {caption && (
+        <details>
+          <summary className="cursor-pointer text-gray-600 hover:text-gray-900">
+            📝 Opis spod filmu ({caption.length} znaków)
+          </summary>
+          <p className="mt-1 whitespace-pre-wrap text-gray-600 bg-white rounded p-3 border border-gray-100">{caption}</p>
+        </details>
+      )}
+      {transcript && (
+        <details>
+          <summary className="cursor-pointer text-gray-600 hover:text-gray-900">
+            🎙 Transkrypcja audio ({transcript.length} znaków)
+          </summary>
+          <p className="mt-1 whitespace-pre-wrap text-gray-600 bg-white rounded p-3 border border-gray-100">{transcript}</p>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame: string | null; onPickFrame: (url: string) => void }) {
   if (!draft) return null;
   return (
@@ -235,11 +262,14 @@ export default function AdminTikTok({ imports: initial }) {
               </div>
             )}
             {expanded === imp.id && (
-              <DraftPreview
-                draft={imp.aiDraft}
-                heroFrame={heroFrames[imp.id] ?? null}
-                onPickFrame={(url) => setHeroFrames((h) => ({ ...h, [imp.id]: url }))}
-              />
+              <>
+                <DraftPreview
+                  draft={imp.aiDraft}
+                  heroFrame={heroFrames[imp.id] ?? null}
+                  onPickFrame={(url) => setHeroFrames((h) => ({ ...h, [imp.id]: url }))}
+                />
+                <SourceMaterials caption={imp.caption} transcript={imp.transcript} />
+              </>
             )}
           </div>
         ))}

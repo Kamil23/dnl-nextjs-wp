@@ -194,6 +194,7 @@ export const imports = pgTable("imports", {
   id: serial("id").primaryKey(),
   tiktokUrl: text("tiktok_url").notNull(),
   videoPath: text("video_path"),
+  caption: text("caption"),
   transcript: text("transcript"),
   aiDraft: jsonb("ai_draft"),
   status: text("status", {

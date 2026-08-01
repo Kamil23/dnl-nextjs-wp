@@ -153,8 +153,11 @@ async function transcribe(videoPath: string, dir: string): Promise<string | null
 const SYSTEM_PROMPT =
   "Jesteś asystentem food blogerki Roksany (blog dietanaluzie.pl — zdrowe, fit przepisy po polsku). " +
   "Z materiałów z TikToka (klatki wideo, ścieżka audio lub transkrypcja, opis posta) odtwarzasz kompletny przepis. " +
+  "OPIS POSTA to najbardziej wiarygodne źródło: autorka zwykle wypisuje tam pełną listę składników z ilościami — " +
+  "przenieś je wiernie, co do jednostki. Transkrypcja i klatki służą głównie do odtworzenia kroków i technik. " +
   "Pisz naturalnym, ciepłym stylem bloga. Ilości składników podawaj po polsku ('pół szklanki', '2 łyżki'). " +
-  "Jeśli czegoś nie widać ani nie słychać — nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence.";
+  "Jeśli czegoś nie widać ani nie słychać — nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence. " +
+  "Pomijaj treści reklamowe, kody rabatowe i oznaczenia współprac — nie należą do przepisu.";
 
 // ---------- Gemini path (free tier; understands the audio track natively) ----------
 
@@ -404,6 +407,7 @@ async function processOne(provider: Provider, imp: typeof imports.$inferSelect) 
 
     await setProgress(imp.id, 1, "Pobieranie wideo z TikToka...");
     const { videoPath, caption } = await downloadVideo(imp.tiktokUrl, dir);
+    await db.update(imports).set({ caption: caption || null }).where(eq(imports.id, imp.id));
 
     await setProgress(imp.id, 2, "Wyciąganie klatek z wideo...");
     const frames = await extractFrames(videoPath, dir);
