@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   EmailShareButton,
   EmailIcon,
@@ -14,6 +14,13 @@ import {
 // + round social buttons + copy-link, inside a warm gradient card.
 export default function ShareCard({ url, mediaUrl, title }) {
   const [copied, setCopied] = useState(false);
+  // navigator is browser-only: deciding during render causes a hydration
+  // mismatch (SSR has no button, client does) which breaks React's event
+  // binding for the whole page — detect after mount instead
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  useEffect(() => {
+    setCanNativeShare(typeof navigator.share === "function");
+  }, []);
 
   async function nativeShare() {
     try {
@@ -28,9 +35,6 @@ export default function ShareCard({ url, mediaUrl, title }) {
       setTimeout(() => setCopied(false), 2000);
     } catch {}
   }
-
-  const canNativeShare =
-    typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   return (
     <div className="mt-8 rounded-3xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100 p-6 text-center print:hidden">
