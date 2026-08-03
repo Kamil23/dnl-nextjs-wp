@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { scaleIngredient } from "../../lib/quantity";
+import { addRecipe } from "../../lib/shopping-list";
+import CookMode from "./cook-mode";
 
 // Interactive ingredients: check-off (persisted per recipe in localStorage),
 // servings scaler and a screen wake lock for cooking.
@@ -8,7 +11,23 @@ export default function IngredientsCard({ recipe }) {
   const [servings, setServings] = useState(baseServings ?? 1);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [wakeLockOn, setWakeLockOn] = useState(false);
+  const [cookMode, setCookMode] = useState(false);
+  const [addedToList, setAddedToList] = useState(false);
   const storageKey = `dnl-ingredients-${recipe.slug}`;
+
+  function addToShoppingList() {
+    addRecipe({
+      recipeId: recipe.id,
+      title: recipe.title,
+      uri: recipe.uri,
+      servings: baseServings ? servings : null,
+      items: recipe.ingredientGroups.flatMap((g) =>
+        g.items.map((i) => scaleIngredient(i, factor))
+      ),
+    });
+    setAddedToList(true);
+    setTimeout(() => setAddedToList(false), 3000);
+  }
 
   useEffect(() => {
     try {
@@ -119,6 +138,38 @@ export default function IngredientsCard({ recipe }) {
           liczby zostawiliśmy bez zmian.
         </p>
       )}
+
+      {recipe.steps.length > 0 && (
+        <button
+          onClick={() => setCookMode(true)}
+          className="mt-5 w-full rounded-2xl bg-gray-900 hover:bg-amber-500 text-white font-semibold py-3 transition print:hidden"
+        >
+          🍳 Tryb gotowania — krok po kroku
+        </button>
+      )}
+      {cookMode && (
+        <CookMode recipe={recipe} factor={factor} onClose={() => setCookMode(false)} />
+      )}
+
+      <button
+        onClick={addToShoppingList}
+        className={`mt-3 w-full rounded-2xl border-2 font-semibold py-3 transition print:hidden ${
+          addedToList
+            ? "border-green-500 text-green-600 bg-green-50"
+            : "border-gray-200 text-gray-700 hover:border-amber-400"
+        }`}
+      >
+        {addedToList ? (
+          <>
+            ✓ Dodano!{" "}
+            <Link href="/lista-zakupow/" className="underline">
+              Zobacz listę
+            </Link>
+          </>
+        ) : (
+          "🛒 Dodaj składniki do listy zakupów"
+        )}
+      </button>
 
       <div className="border-t border-gray-100 mt-5 pt-4 flex items-center justify-between gap-3 print:hidden">
         <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import { SITE_TITLE, SITE_DESCRIPTION } from "../lib/constants";
+import { itemCount, SHOPPING_EVENT } from "../lib/shopping-list";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBook, faNewspaper, faCalculator, faDownload } from "@fortawesome/free-solid-svg-icons";
 import { faInstagram, faTiktok } from "@fortawesome/free-brands-svg-icons";
@@ -27,6 +29,7 @@ export default function Intro({ menu }) {
       <nav className="flex flex-wrap mb-4 box-border justify-center border-b">
         <WPMenu menu={menu} />
         <SocialMenu items={socialItems} />
+        <ShoppingListLink />
       </nav>
     </div>
   );
@@ -51,6 +54,32 @@ const WPMenu = ({ menu }) => {
       );
     }
   });
+};
+
+// Count is read from localStorage AFTER mount (SSR renders no badge) —
+// deciding during render would cause a hydration mismatch
+const ShoppingListLink = () => {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const refresh = () => setCount(itemCount());
+    refresh();
+    window.addEventListener(SHOPPING_EVENT, refresh);
+    return () => window.removeEventListener(SHOPPING_EVENT, refresh);
+  }, []);
+  return (
+    <Link
+      className="relative flex flex-col-reverse mr-4 p-2 md:p-4 transition justify-center items-center w-fit text-sm text-gray-600 hover:text-gray-900 border-b border-b-white hover:border-b-gray-300"
+      href="/lista-zakupow/"
+    >
+      <span className="mt-2 text-center">Lista zakupów</span>
+      <span className="text-xl leading-6" aria-hidden>🛒</span>
+      {count > 0 && (
+        <span className="absolute top-1 right-0 bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          {count}
+        </span>
+      )}
+    </Link>
+  );
 };
 
 const SocialMenu = ({ items }) => {
