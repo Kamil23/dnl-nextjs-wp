@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import { useState } from 'react'
 import { GetStaticProps } from 'next'
 import Container from '../components/container'
 import MoreStories from '../components/more-stories'
@@ -35,6 +36,9 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 }
 
 export default function Index({ latest, topRated, seasonal, tiles, totalPages }) {
+  // While the visitor types a query, the tile results own the page —
+  // everything else steps aside so the choice is purely visual
+  const [searchActive, setSearchActive] = useState(false)
   return (
     <Layout menu={MENU_EDGES} preview={false}>
       <Head>
@@ -54,27 +58,32 @@ export default function Index({ latest, topRated, seasonal, tiles, totalPages })
         <meta property="og:site_name" content={SITE_TITLE} />
       </Head>
       <Container>
-        <SearchHero />
-        <CategoryTiles tiles={tiles} />
+        <SearchHero onActiveChange={setSearchActive} />
 
-        {topRated.length > 0 && (
-          <Section title="Hity czytelników ⭐" subtitle="Najlepiej oceniane przepisy wszech czasów">
-            <MoreStories posts={topRated} />
-          </Section>
+        {!searchActive && (
+          <>
+            <CategoryTiles tiles={tiles} />
+
+            {topRated.length > 0 && (
+              <Section title="Hity czytelników ⭐" subtitle="Najlepiej oceniane przepisy wszech czasów">
+                <MoreStories posts={topRated} />
+              </Section>
+            )}
+
+            {seasonal.length > 0 && (
+              <Section title={SEASONAL_COLLECTION.title} subtitle={SEASONAL_COLLECTION.description}>
+                <MoreStories posts={seasonal} />
+              </Section>
+            )}
+
+            <Section title="Najnowsze przepisy">
+              <MoreStories posts={latest} />
+              <Pagination basePath="/" page={1} totalPages={totalPages} />
+            </Section>
+
+            <AboutBox />
+          </>
         )}
-
-        {seasonal.length > 0 && (
-          <Section title={SEASONAL_COLLECTION.title} subtitle={SEASONAL_COLLECTION.description}>
-            <MoreStories posts={seasonal} />
-          </Section>
-        )}
-
-        <Section title="Najnowsze przepisy">
-          <MoreStories posts={latest} />
-          <Pagination basePath="/" page={1} totalPages={totalPages} />
-        </Section>
-
-        <AboutBox />
       </Container>
     </Layout>
   )
