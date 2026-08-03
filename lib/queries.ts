@@ -6,9 +6,7 @@ import { db, dbSchema } from "./db";
 
 const { recipes, ingredientGroups, ingredients, steps, categories, recipeCategories, tags, recipeTags, pages, ratings } = dbSchema;
 
-// Roksana's avatar from the old site — Avatar component requires a URL
-export const AUTHOR_AVATAR_URL =
-  "https://secure.gravatar.com/avatar/b29dfe79402ff90e5d9443eac21c3613?s=96&d=mm&r=g";
+import { AUTHOR_AVATAR_URL } from "./constants";
 
 export type RecipeRow = typeof recipes.$inferSelect;
 
@@ -226,6 +224,90 @@ export async function listRecipesInCategoryTree(categoryId: number) {
     .filter((r) => r.status === "published");
 }
 
+export async function listTopRatedRecipes(limit = 4) {
+  return db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.status, "published"), sql`${recipes.legacyRatingCount} > 0`))
+    .orderBy(
+      desc(recipes.legacyRatingValue),
+      desc(recipes.legacyRatingCount)
+    )
+    .limit(limit);
+}
+
+// Homepage category tiles: children of "przepisy" with a cover photo
+// taken from the freshest recipe in each subtree
+export async function getCategoryTiles() {
+  const [parent] = await db.select().from(categories).where(eq(categories.slug, "przepisy"));
+  if (!parent) return [];
+  const children = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.parentId, parent.id))
+    .orderBy(categories.name);
+
+  const tiles = [];
+  for (const c of children) {
+    const inTree = await listRecipesInCategoryTree(c.id);
+    const withImage = inTree.find((r) => r.heroImage);
+    if (inTree.length === 0) continue;
+    tiles.push({
+      name: c.name,
+      uri: c.uri,
+      count: inTree.length,
+      image: withImage?.heroImage ?? null,
+    });
+  }
+  return tiles;
+}
+
+export type SearchParams = {
+  q?: string;
+  maxTime?: number;
+  categorySlug?: string;
+  sort?: "najnowsze" | "oceny" | "najszybsze";
+};
+
+export async function searchRecipes({ q, maxTime, categorySlug, sort }: SearchParams) {
+  const conditions = [eq(recipes.status, "published")];
+
+  if (q?.trim()) {
+    const like = `%${q.trim()}%`;
+    conditions.push(
+      sql`(${recipes.title} ILIKE ${like} OR ${recipes.keywords} ILIKE ${like} OR ${recipes.lead} ILIKE ${like}
+        OR EXISTS (SELECT 1 FROM ${recipeTags} rt JOIN ${tags} t ON t.id = rt.tag_id
+                   WHERE rt.recipe_id = ${recipes.id} AND t.name ILIKE ${like}))` as any
+    );
+  }
+  if (maxTime) {
+    conditions.push(sql`${recipes.totalTimeMin} <= ${maxTime}` as any);
+  }
+  if (categorySlug) {
+    const [cat] = await db.select().from(categories).where(eq(categories.slug, categorySlug));
+    if (cat) {
+      const inTree = await listRecipesInCategoryTree(cat.id);
+      const ids = inTree.map((r) => r.id);
+      if (ids.length === 0) return [];
+      conditions.push(inArray(recipes.id, ids));
+    }
+  }
+
+  const order =
+    sort === "oceny"
+      ? [sql`${recipes.legacyRatingValue} DESC NULLS LAST` as any, desc(recipes.legacyRatingCount)]
+      : sort === "najszybsze"
+        ? [sql`${recipes.totalTimeMin} ASC NULLS LAST` as any]
+        : [desc(recipes.publishedAt)];
+
+  return db
+    .select()
+    .from(recipes)
+    .where(and(...conditions))
+    .orderBy(...order)
+    .limit(60);
+}
+
 export async function getTagBySlug(slug: string) {
   const [tag] = await db.select().from(tags).where(eq(tags.slug, slug));
   return tag ?? null;
@@ -239,6 +321,19 @@ export async function listRecipesByTagSlug(slug: string) {
     .innerJoin(tags, eq(tags.id, recipeTags.tagId))
     .where(eq(tags.slug, slug))
     .orderBy(desc(recipes.publishedAt));
+  return rows.map((r) => r.recipe).filter((r) => r.status === "published");
+}
+
+export async function listRecipesByTagSlugs(slugs: string[], limit = 4) {
+  if (slugs.length === 0) return [];
+  const rows = await db
+    .selectDistinct({ recipe: recipes })
+    .from(recipes)
+    .innerJoin(recipeTags, eq(recipeTags.recipeId, recipes.id))
+    .innerJoin(tags, eq(tags.id, recipeTags.tagId))
+    .where(inArray(tags.slug, slugs))
+    .orderBy(desc(recipes.publishedAt))
+    .limit(limit);
   return rows.map((r) => r.recipe).filter((r) => r.status === "published");
 }
 

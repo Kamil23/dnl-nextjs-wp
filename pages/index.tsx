@@ -4,11 +4,37 @@ import Container from '../components/container'
 import MoreStories from '../components/more-stories'
 import Pagination from '../components/pagination'
 import Layout from '../components/layout'
-import { listPublishedRecipes, toListingEdge } from '../lib/queries'
+import SearchHero from '../components/home/search-hero'
+import CategoryTiles from '../components/home/category-tiles'
+import AboutBox from '../components/home/about-box'
+import {
+  listPublishedRecipes,
+  listTopRatedRecipes,
+  listRecipesByTagSlugs,
+  getCategoryTiles,
+  toListingEdge,
+} from '../lib/queries'
 import { MENU_EDGES } from '../lib/menu'
-import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL, HOME_POSTS_PER_PAGE } from '../lib/constants'
+import {
+  SITE_DESCRIPTION,
+  SITE_TITLE,
+  SITE_URL,
+  HOME_POSTS_PER_PAGE,
+  SEASONAL_COLLECTION,
+} from '../lib/constants'
 
-export default function Index({ posts, totalPages }) {
+function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-14">
+      <h2 className="text-2xl font-bold tracking-tight mb-1">{title}</h2>
+      {subtitle && <p className="text-gray-500 mb-5">{subtitle}</p>}
+      {!subtitle && <div className="mb-5" />}
+      {children}
+    </section>
+  )
+}
+
+export default function Index({ latest, topRated, seasonal, tiles, totalPages }) {
   return (
     <Layout menu={MENU_EDGES} preview={false}>
       <Head>
@@ -28,19 +54,46 @@ export default function Index({ posts, totalPages }) {
         <meta property="og:site_name" content={SITE_TITLE} />
       </Head>
       <Container>
-        {posts.length > 0 && <MoreStories posts={posts} />}
-        <Pagination basePath="/" page={1} totalPages={totalPages} />
+        <SearchHero />
+        <CategoryTiles tiles={tiles} />
+
+        {topRated.length > 0 && (
+          <Section title="Hity czytelników ⭐" subtitle="Najlepiej oceniane przepisy wszech czasów">
+            <MoreStories posts={topRated} />
+          </Section>
+        )}
+
+        {seasonal.length > 0 && (
+          <Section title={SEASONAL_COLLECTION.title} subtitle={SEASONAL_COLLECTION.description}>
+            <MoreStories posts={seasonal} />
+          </Section>
+        )}
+
+        <Section title="Najnowsze przepisy">
+          <MoreStories posts={latest} />
+          <Pagination basePath="/" page={1} totalPages={totalPages} />
+        </Section>
+
+        <AboutBox />
       </Container>
     </Layout>
   )
 }
 
 export const getStaticProps: GetStaticProps = async () => {
-  const all = await listPublishedRecipes()
+  const [all, topRated, seasonal, tiles] = await Promise.all([
+    listPublishedRecipes(),
+    listTopRatedRecipes(4),
+    listRecipesByTagSlugs(SEASONAL_COLLECTION.tagSlugs, 4),
+    getCategoryTiles(),
+  ])
 
   return {
     props: {
-      posts: all.slice(0, HOME_POSTS_PER_PAGE).map(toListingEdge),
+      latest: all.slice(0, HOME_POSTS_PER_PAGE).map(toListingEdge),
+      topRated: topRated.map(toListingEdge),
+      seasonal: seasonal.map(toListingEdge),
+      tiles: JSON.parse(JSON.stringify(tiles)),
       totalPages: Math.ceil(all.length / HOME_POSTS_PER_PAGE),
     },
     revalidate: 60,

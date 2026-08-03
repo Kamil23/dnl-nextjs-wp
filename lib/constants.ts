@@ -6,10 +6,19 @@ export const HOME_OG_IMAGE_URL =
   export const SITE_TITLE = 'Dieta na luzie';
   export const SITE_DESCRIPTION = 'Jak jeść i nie zwariować?';
   export const SITE_URL = 'https://dietanaluzie.pl';
+  // Roksana's avatar from the old site (Avatar component requires a URL)
+  export const AUTHOR_AVATAR_URL =
+    'https://secure.gravatar.com/avatar/b29dfe79402ff90e5d9443eac21c3613?s=96&d=mm&r=g';
   // Page sizes mirror the live theme ("Strona 2 z 9" for 113 posts -> 13/page,
   // category "Strona 2 z 6" for 48 posts -> 9/page)
   export const HOME_POSTS_PER_PAGE = 13;
   export const CATEGORY_POSTS_PER_PAGE = 9;
+  // Homepage seasonal collection — edit per season (or automate later)
+  export const SEASONAL_COLLECTION = {
+    title: 'Sezon na owoce lata 🍓',
+    description: 'Maliny i sezonowe owoce w roli głównej — korzystaj, póki trwa lato!',
+    tagSlugs: ['maliny', 'truskawki', 'borowki', 'owoce'],
+  };
   // WooCommerce app pages need a cart session — not part of the headless site (yet).
   // /strona-glowna/ is the WP front page and would duplicate /.
   export const EXCLUDED_PAGE_URIS = ['/koszyk/', '/moje-konto/', '/zamowienie/', '/sklep/', '/strona-glowna/'];
