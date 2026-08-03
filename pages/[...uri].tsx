@@ -69,7 +69,9 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
                 <div>
                   <StepsList steps={recipe.steps} />
                   <MacroTable recipe={recipe} />
-                  {recipe.videoUrl && <TikTokEmbed url={recipe.videoUrl} title={recipe.title} />}
+                  {recipe.videoUrl && (
+                    <TikTokEmbed url={recipe.videoUrl} title={recipe.title} poster={recipe.heroImage} />
+                  )}
                   <RatingWidget recipeId={recipe.id} rating={recipe.rating} />
                   <ShareCard url={post.link} mediaUrl={post.featuredImage?.node.sourceUrl} title={post.title} />
                 </div>

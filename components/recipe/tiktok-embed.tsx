@@ -1,8 +1,18 @@
+import Image from "next/image";
 import { useState } from "react";
 
-// Click-to-load TikTok embed — no third-party script until the user asks,
-// which keeps LCP/CLS clean and trackers away from casual readers.
-export default function TikTokEmbed({ url, title }: { url: string; title: string }) {
+// Facade embed: looks like a ready player (real video frame as the poster),
+// but TikTok's heavy iframe + cookies load only on click — good Core Web
+// Vitals and the click doubles as consent (GDPR).
+export default function TikTokEmbed({
+  url,
+  title,
+  poster,
+}: {
+  url: string;
+  title: string;
+  poster?: string | null;
+}) {
   const [loaded, setLoaded] = useState(false);
   const videoId = url.match(/video\/(\d+)/)?.[1];
   if (!videoId) return null;
@@ -20,11 +30,28 @@ export default function TikTokEmbed({ url, title }: { url: string; title: string
       ) : (
         <button
           onClick={() => setLoaded(true)}
-          className="w-full max-w-[325px] h-[240px] mx-auto flex flex-col items-center justify-center gap-3 rounded-2xl bg-gray-900 text-white hover:bg-gray-700 transition"
+          className="group relative block w-full max-w-[325px] h-[578px] mx-auto rounded-2xl overflow-hidden bg-gray-900"
+          aria-label="Odtwórz wideo z TikToka"
         >
-          <span className="text-4xl" aria-hidden>▶️</span>
-          <span className="font-semibold">Odtwórz wideo z TikToka</span>
-          <span className="text-xs text-gray-400">kliknięcie załaduje odtwarzacz TikTok</span>
+          {poster && (
+            <Image
+              src={poster}
+              alt=""
+              fill
+              sizes="325px"
+              className="object-cover opacity-90 group-hover:opacity-75 transition"
+            />
+          )}
+          <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="w-16 h-16 rounded-full bg-white/95 shadow-medium flex items-center justify-center text-2xl pl-1 group-hover:scale-110 transition-transform">
+              ▶
+            </span>
+          </span>
+          <span className="absolute bottom-4 inset-x-4 text-center text-white text-xs">
+            Kliknięcie uruchomi odtwarzacz TikTok
+            <span className="block text-white/60">(TikTok może zapisać pliki cookie)</span>
+          </span>
         </button>
       )}
     </div>

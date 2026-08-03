@@ -169,6 +169,8 @@ const SYSTEM_PROMPT =
   "OPIS POSTA to najbardziej wiarygodne źródło: autorka zwykle wypisuje tam pełną listę składników z ilościami — " +
   "przenieś je wiernie, co do jednostki. Transkrypcja i klatki służą głównie do odtworzenia kroków i technik. " +
   "Pisz naturalnym, ciepłym stylem bloga. Ilości składników podawaj po polsku ('pół szklanki', '2 łyżki'). " +
+  "ZAWSZE oszacuj wartości odżywcze NA PORCJĘ ze składników (kcal, protein, fat, carbs) — " +
+  "to jawny szacunek dietetyczny, więc nie zostawiaj tych pól pustych, gdy znasz składniki i liczbę porcji. " +
   "Jeśli czegoś nie widać ani nie słychać — nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence. " +
   "Treści reklamowych (marka, kod rabatowy, współpraca) NIE mieszaj ze składnikami ani krokami — " +
   "wyciągnij je do pola sponsor, żeby można je było uczciwie oznaczyć na stronie.";

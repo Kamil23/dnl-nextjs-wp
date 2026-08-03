@@ -8,7 +8,7 @@
 import { config } from "dotenv";
 config({ path: ".env", quiet: true });
 
-import { and, eq, isNull } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../lib/db/schema";
@@ -50,10 +50,9 @@ async function estimate(title: string, servings: number | null, items: string[])
 async function main() {
   if (!process.env.OPENAI_API_KEY) throw new Error("Brak OPENAI_API_KEY");
 
-  const targets = await db
-    .select()
-    .from(recipes)
-    .where(and(eq(recipes.status, "published"), isNull(recipes.kcal)));
+  // Every recipe with ingredients and no kcal — drafts included, so
+  // TikTok imports awaiting review get macros too
+  const targets = await db.select().from(recipes).where(isNull(recipes.kcal));
 
   let done = 0, skipped = 0, failed = 0;
   for (const r of targets) {
