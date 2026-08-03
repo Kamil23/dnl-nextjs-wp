@@ -55,6 +55,10 @@ const COUNTABLE_FORMS: string[][] = [
   ["kromka", "kromki", "kromek"],
   ["tortilla", "tortille", "tortilli"],
   ["bułka", "bułki", "bułek"],
+  ["paczka", "paczki", "paczek"],
+  ["ciastko", "ciastka", "ciastek"],
+  ["batonik", "batoniki", "batoników"],
+  ["listek", "listki", "listków"],
 ];
 
 function findCountable(word: string): string[] | null {
@@ -116,6 +120,21 @@ export function scaleIngredient(line: string, factor: number): string {
   if (first && forms) {
     const remainder = line.trim().slice(first[1].length);
     return `${formatQuantity(factor)} ${unitForm(forms, factor)}${remainder}`;
+  }
+
+  // Mid-line weight/volume: "mascarpone 500 g (schłodzone)" -> scale the
+  // number ONLY when a real unit follows (never "36 %" — fat percentages
+  // and similar must stay untouched)
+  const mid = line.match(/(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l|dag)\b/u);
+  if (mid) {
+    const value = parseFloat(mid[1].replace(",", "."));
+    const scaled = Math.round(value * factor * 100) / 100;
+    const rendered = Number.isInteger(scaled) ? String(scaled) : String(scaled).replace(".", ",");
+    return (
+      line.slice(0, mid.index!) +
+      `${rendered} ${mid[2]}` +
+      line.slice(mid.index! + mid[0].length)
+    );
   }
 
   return line;
