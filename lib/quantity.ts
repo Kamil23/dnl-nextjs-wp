@@ -35,6 +35,43 @@ export function parseQuantity(line: string): ParsedQuantity {
   return null;
 }
 
+// Countable unit/ingredient words with Polish plural forms:
+// [1 sztuka, 2-4 sztuki (i ułamki), 5+ sztuk]
+const COUNTABLE_FORMS: string[][] = [
+  ["łyżka", "łyżki", "łyżek"],
+  ["łyżeczka", "łyżeczki", "łyżeczek"],
+  ["szklanka", "szklanki", "szklanek"],
+  ["jajko", "jajka", "jajek"],
+  ["jajo", "jaja", "jaj"],
+  ["ząbek", "ząbki", "ząbków"],
+  ["puszka", "puszki", "puszek"],
+  ["opakowanie", "opakowania", "opakowań"],
+  ["kostka", "kostki", "kostek"],
+  ["plaster", "plastry", "plastrów"],
+  ["plasterek", "plasterki", "plasterków"],
+  ["garść", "garście", "garści"],
+  ["szczypta", "szczypty", "szczypt"],
+  ["sztuka", "sztuki", "sztuk"],
+  ["kromka", "kromki", "kromek"],
+  ["tortilla", "tortille", "tortilli"],
+  ["bułka", "bułki", "bułek"],
+];
+
+function findCountable(word: string): string[] | null {
+  const w = word.toLowerCase();
+  return COUNTABLE_FORMS.find((forms) => forms.includes(w)) ?? null;
+}
+
+// 1 łyżka | 2-4 łyżki (także 1½, 2¼...) | 5+ łyżek — z wyjątkiem 12-14
+function unitForm(forms: string[], value: number): string {
+  if (value === 1) return forms[0];
+  if (!Number.isInteger(value)) return forms[1];
+  const d10 = value % 10;
+  const d100 = value % 100;
+  if (d10 >= 2 && d10 <= 4 && !(d100 >= 12 && d100 <= 14)) return forms[1];
+  return forms[2];
+}
+
 const UNICODE_FRACTIONS: Record<string, string> = {
   "0.25": "¼",
   "0.5": "½",
@@ -57,7 +94,29 @@ export function formatQuantity(value: number): string {
 // quantity can't be parsed (better honest than wrong).
 export function scaleIngredient(line: string, factor: number): string {
   if (factor === 1) return line;
+
   const parsed = parseQuantity(line);
-  if (!parsed) return line;
-  return `${formatQuantity(parsed.value * factor)}${parsed.rest}`;
+  if (parsed) {
+    const scaled = parsed.value * factor;
+    // If a countable unit word follows the number, decline it properly:
+    // "pół szklanki mąki" x2 -> "1 szklanka mąki"
+    const m = parsed.rest.match(/^\s*(\p{L}+)/u);
+    const forms = m ? findCountable(m[1]) : null;
+    if (m && forms) {
+      const remainder = parsed.rest.slice(parsed.rest.indexOf(m[1]) + m[1].length);
+      return `${formatQuantity(scaled)} ${unitForm(forms, scaled)}${remainder}`;
+    }
+    return `${formatQuantity(scaled)}${parsed.rest}`;
+  }
+
+  // Implicit "1": lines starting with a countable word — "jajko" = 1 jajko,
+  // "łyżka ksylitolu" = 1 łyżka
+  const first = line.trim().match(/^(\p{L}+)/u);
+  const forms = first ? findCountable(first[1]) : null;
+  if (first && forms) {
+    const remainder = line.trim().slice(first[1].length);
+    return `${formatQuantity(factor)} ${unitForm(forms, factor)}${remainder}`;
+  }
+
+  return line;
 }
