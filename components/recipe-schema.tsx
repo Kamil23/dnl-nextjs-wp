@@ -29,7 +29,17 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
         dateModified: iso(recipe.updatedAt),
         description: recipe.seoDescription || recipe.lead || undefined,
         author: { "@type": "Person", name: recipe.authorName || "Roksana" },
-        keywords: recipe.keywords || undefined,
+        // keywords is a recommended Recipe rich-result property — merge the
+        // editorial keywords with tag names, deduplicated
+        keywords:
+          Array.from(
+            new Set(
+              [
+                ...(recipe.keywords ? recipe.keywords.split(",") : []),
+                ...recipe.tags.map((t) => t.name),
+              ].map((k) => k.trim().toLowerCase())
+            )
+          ).join(", ") || undefined,
         recipeCategory: categoryNames.length ? categoryNames.join(", ") : undefined,
         recipeYield: recipe.servingsText || (recipe.servings ? `${recipe.servings} porcje` : undefined),
         prepTime: minutesToIso8601(recipe.prepTimeMin) || undefined,

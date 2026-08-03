@@ -183,7 +183,7 @@ export function toLegacyPost(r: FullRecipe, siteUrl: string) {
         node: { name: c.name, uri: c.uri, id: c.id, parentId: c.parentId, link: c.uri },
       })),
     },
-    tags: { edges: r.tags.map((t) => ({ node: { name: t.name } })) },
+    tags: { edges: r.tags.map((t) => ({ node: { name: t.name, slug: t.slug } })) },
   };
 }
 
@@ -224,6 +224,34 @@ export async function listRecipesInCategoryTree(categoryId: number) {
   return rows
     .map((r) => r.recipe)
     .filter((r) => r.status === "published");
+}
+
+export async function getTagBySlug(slug: string) {
+  const [tag] = await db.select().from(tags).where(eq(tags.slug, slug));
+  return tag ?? null;
+}
+
+export async function listRecipesByTagSlug(slug: string) {
+  const rows = await db
+    .selectDistinct({ recipe: recipes })
+    .from(recipes)
+    .innerJoin(recipeTags, eq(recipeTags.recipeId, recipes.id))
+    .innerJoin(tags, eq(tags.id, recipeTags.tagId))
+    .where(eq(tags.slug, slug))
+    .orderBy(desc(recipes.publishedAt));
+  return rows.map((r) => r.recipe).filter((r) => r.status === "published");
+}
+
+export async function getAllTagsWithCounts() {
+  return db
+    .select({
+      slug: tags.slug,
+      name: tags.name,
+      count: sql<number>`count(${recipeTags.recipeId})::int`,
+    })
+    .from(tags)
+    .leftJoin(recipeTags, eq(recipeTags.tagId, tags.id))
+    .groupBy(tags.id);
 }
 
 export async function getCategoriesWithCounts() {
