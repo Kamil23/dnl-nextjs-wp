@@ -30,7 +30,7 @@ export default function RecipeHero({ recipe }) {
       value: String(recipe.servings ?? recipe.servingsText),
     },
     recipe.difficulty && { icon: "📊", label: "Trudność", value: DIFFICULTY_LABELS[recipe.difficulty] },
-    recipe.kcal && { icon: "🔥", label: "Kalorie", value: `${recipe.kcal} kcal` },
+    recipe.kcal && { icon: "🔥", label: "Kcal / porcję", value: `${recipe.kcal} kcal` },
   ].filter(Boolean);
 
   const categories = recipe.categories.filter((c) => c.name !== "Przepisy");

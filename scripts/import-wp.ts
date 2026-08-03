@@ -17,6 +17,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "../lib/db/schema";
 import {
   parseIngredients,
+  parseIngredientGroups,
   parseSteps,
   parseTotalTimeMinutes,
   stripTags,
@@ -242,7 +243,7 @@ async function main() {
     for (const p of posts) {
       const yoast = yoastPosts.get(p.slug);
       const live = liveMeta.get(p.uri);
-      const ingredientTexts = parseIngredients(p.content || "");
+      const ingredientGroupsParsed = parseIngredientGroups(p.content || "");
       const stepItems = parseSteps(p.content || "");
       const totalMin =
         parseTotalTimeMinutes(p.content || "") ??
@@ -277,13 +278,14 @@ async function main() {
         })
         .returning({ id: schema.recipes.id });
 
-      if (ingredientTexts.length > 0) {
+      let groupPos = 0;
+      for (const g of ingredientGroupsParsed) {
         const [group] = await tx
           .insert(schema.ingredientGroups)
-          .values({ recipeId: recipe.id, title: null, position: 0 })
+          .values({ recipeId: recipe.id, title: g.title, position: groupPos++ })
           .returning({ id: schema.ingredientGroups.id });
         await tx.insert(schema.ingredients).values(
-          ingredientTexts.map((raw, i) => ({
+          g.items.map((raw, i) => ({
             groupId: group.id,
             rawText: raw,
             position: i,
@@ -351,7 +353,7 @@ async function main() {
   };
   for (const p of posts) {
     const live = liveMeta.get(p.uri);
-    const ing = parseIngredients(p.content || "").length > 0;
+    const ing = parseIngredientGroups(p.content || "").some((g) => g.items.length > 0);
     const st = parseSteps(p.content || "").length > 0;
     if (ing) report.withIngredients++;
     if (st) report.withSteps++;

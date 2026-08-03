@@ -32,12 +32,13 @@ async function estimate(title: string, servings: number | null, items: string[])
           role: "system",
           content:
             "Jesteś dietetykiem. Szacujesz wartości odżywcze przepisu NA JEDNĄ PORCJĘ na podstawie listy składników. " +
-            "Zwracasz WYŁĄCZNIE JSON: {\"kcal\": int, \"protein\": number, \"fat\": number, \"carbs\": number}. " +
+            "Zwracasz WYŁĄCZNIE JSON: {\"kcal\": int, \"protein\": number, \"fat\": number, \"carbs\": number, \"assumedServings\": int}. " +
+            "assumedServings = liczba porcji użyta do podziału (podana albo Twoje realistyczne założenie, np. ciasto ~12 kawałków). " +
             "Wartości realistyczne; gramy zaokrąglaj do 1 miejsca.",
         },
         {
           role: "user",
-          content: `Przepis: ${title}\nLiczba porcji: ${servings ?? "nieznana (przyjmij sensowną)"}\nSkładniki:\n${items.join("\n")}`,
+          content: `Przepis: ${title}\nLiczba porcji: ${servings ?? "nieznana — załóż realistyczną i zwróć w assumedServings"}\nSkładniki:\n${items.join("\n")}`,
         },
       ],
     }),
@@ -69,17 +70,21 @@ async function main() {
     try {
       const m = await estimate(r.title, r.servings, items);
       if (!m.kcal || m.kcal < 20 || m.kcal > 3000) throw new Error(`podejrzane kcal: ${m.kcal}`);
-      await db
-        .update(recipes)
-        .set({
-          kcal: Math.round(m.kcal),
-          protein: m.protein != null ? String(m.protein) : null,
-          fat: m.fat != null ? String(m.fat) : null,
-          carbs: m.carbs != null ? String(m.carbs) : null,
-        })
-        .where(eq(recipes.id, r.id));
+      // kcal/porcję ma sens tylko przy jawnej liczbie porcji — gdy jej nie
+      // było, zapisujemy założenie modelu (operator może poprawić)
+      const patch: any = {
+        kcal: Math.round(m.kcal),
+        protein: m.protein != null ? String(m.protein) : null,
+        fat: m.fat != null ? String(m.fat) : null,
+        carbs: m.carbs != null ? String(m.carbs) : null,
+      };
+      if (!r.servings && m.assumedServings > 0) {
+        patch.servings = Math.round(m.assumedServings);
+        patch.servingsText = `ok. ${Math.round(m.assumedServings)} porcji`;
+      }
+      await db.update(recipes).set(patch).where(eq(recipes.id, r.id));
       done++;
-      console.log(`✓ ${r.title}: ${Math.round(m.kcal)} kcal | B ${m.protein} T ${m.fat} W ${m.carbs}`);
+      console.log(`✓ ${r.title}: ${Math.round(m.kcal)} kcal/porcję (${r.servings ?? `założono ${m.assumedServings}`} porcji) | B ${m.protein} T ${m.fat} W ${m.carbs}`);
     } catch (e: any) {
       failed++;
       console.warn(`✗ ${r.title}: ${e.message?.slice(0, 120)}`);

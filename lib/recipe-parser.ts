@@ -27,6 +27,57 @@ export function parseIngredients(content: string): string[] {
     .filter(Boolean);
 }
 
+export type ParsedIngredientGroup = { title: string | null; items: string[] };
+
+// Multi-section ingredients: the "Składniki" marker (heading OR plain <p>)
+// is followed by alternating section titles (<p>/<h3>…) and wp-block-list
+// lists — e.g. Spód / Masa kremowa / Dekoracja. Collects them all.
+export function parseIngredientGroups(content: string): ParsedIngredientGroup[] {
+  const marker = content.match(/<(h[1-6]|p)[^>]*>[^<]*składniki[^<]*<\/\1>/i);
+  const startIdx = marker ? marker.index! + marker[0].length : 0;
+
+  // scan only up to the how-to block / preparation heading
+  let endIdx = content.length;
+  for (const stop of [
+    content.indexOf('schema-how-to', startIdx),
+    content.slice(startIdx).search(/<(h[1-6]|p)[^>]*>[^<]*(spos[óo]b przygotowania|przygotowanie|wykonanie)/i) + startIdx,
+  ]) {
+    if (stop > startIdx) endIdx = Math.min(endIdx, stop);
+  }
+  const segment = content.slice(startIdx, endIdx);
+
+  const groups: ParsedIngredientGroup[] = [];
+  let pendingTitle: string | null = null;
+  const tokens = segment.matchAll(
+    /<(h[1-6]|p)[^>]*>([\s\S]*?)<\/\1>|<ul class="wp-block-list">([\s\S]*?)<\/ul>/g
+  );
+  for (const t of tokens) {
+    if (t[3] !== undefined) {
+      const items = Array.from(t[3].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g))
+        .map((m) => stripTags(m[1]))
+        .filter(Boolean);
+      if (items.length) groups.push({ title: pendingTitle, items });
+      pendingTitle = null;
+    } else {
+      const text = stripTags(t[2]);
+      if (!text) continue;
+      // long prose = the article resumed; short text = a section title
+      if (text.length > 60) {
+        if (groups.length > 0) break;
+        continue;
+      }
+      pendingTitle = text.replace(/[:：]\s*$/, "");
+    }
+  }
+
+  // fallback to the single-list behaviour when the structure didn't match
+  if (groups.length === 0) {
+    const flat = parseIngredients(content);
+    return flat.length ? [{ title: null, items: flat }] : [];
+  }
+  return groups;
+}
+
 export type ParsedStep = { name?: string; text: string };
 
 // Steps come from the Yoast How-To block markup.
