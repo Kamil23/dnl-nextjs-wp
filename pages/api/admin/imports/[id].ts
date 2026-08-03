@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { requireAdminApi } from "../../../../lib/admin-auth";
 import { db, dbSchema } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slugify";
+import { syncRecipeToSearch } from "../../../../lib/search-sync";
 
 const { imports, recipes, ingredientGroups, ingredients, steps, tags, recipeTags } = dbSchema;
 
@@ -118,6 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return recipe.id;
     });
 
+    await syncRecipeToSearch(db, recipeId);
     return res.json({ ok: true, recipeId });
   }
 

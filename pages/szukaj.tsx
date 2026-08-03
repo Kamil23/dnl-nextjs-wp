@@ -5,6 +5,7 @@ import Container from '../components/container'
 import MoreStories from '../components/more-stories'
 import Layout from '../components/layout'
 import { searchRecipes, getCategoriesWithCounts, toListingEdge } from '../lib/queries'
+import { searchEnabled, searchMeili, type RecipeDoc } from '../lib/search'
 import { MENU_EDGES } from '../lib/menu'
 import { SITE_TITLE } from '../lib/constants'
 
@@ -84,21 +85,47 @@ export const getServerSideProps: GetServerSideProps = async ({ query }) => {
     sort: typeof query.sort === 'string' ? query.sort : '',
   }
 
-  const [results, cats] = await Promise.all([
-    searchRecipes({
-      q: params.q,
-      maxTime: parseInt(params.czas, 10) || undefined,
-      categorySlug: params.kategoria || undefined,
-      sort: (params.sort as any) || undefined,
-    }),
-    getCategoriesWithCounts(),
-  ])
+  const searchParams = {
+    q: params.q,
+    maxTime: parseInt(params.czas, 10) || undefined,
+    categorySlug: params.kategoria || undefined,
+    sort: (params.sort as any) || undefined,
+  }
+
+  // Meilisearch (tolerancja literówek, ranking) z fallbackiem do Postgresa
+  let posts
+  if (searchEnabled()) {
+    try {
+      const hits = await searchMeili(searchParams)
+      posts = hits.map(docToEdge)
+    } catch {
+      posts = (await searchRecipes(searchParams)).map(toListingEdge)
+    }
+  } else {
+    posts = (await searchRecipes(searchParams)).map(toListingEdge)
+  }
+
+  const cats = await getCategoriesWithCounts()
 
   return {
     props: {
-      posts: results.map(toListingEdge),
+      posts,
       cats: JSON.parse(JSON.stringify(cats.filter((c) => c.count > 0))),
       params,
+    },
+  }
+}
+
+function docToEdge(d: RecipeDoc) {
+  return {
+    node: {
+      title: d.title,
+      excerpt: d.lead ? `<p>${d.lead}</p>` : '',
+      uri: d.uri,
+      slug: d.uri,
+      date: null,
+      featuredImage: d.heroImage ? { node: { sourceUrl: d.heroImage } } : null,
+      author: { node: { name: 'Roksana', firstName: null, lastName: null, avatar: { url: '' } } },
     },
   }
 }

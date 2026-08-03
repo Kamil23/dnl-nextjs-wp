@@ -12,5 +12,18 @@ services:
     volumes:
       - dnl-pgdata:/var/lib/postgresql/data
 
+
+  search:
+    image: getmeili/meilisearch:latest
+    container_name: dnl-search
+    environment:
+      MEILI_MASTER_KEY: dnl-dev-master-key
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - dnl-meili:/meili_data
+
 volumes:
   dnl-pgdata:
+  dnl-meili:

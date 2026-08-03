@@ -4,6 +4,7 @@ import { requireAdminApi } from "../../../../lib/admin-auth";
 import { getRecipeById } from "../../../../lib/queries";
 import { db, dbSchema } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slugify";
+import { syncRecipeToSearch, removeRecipeFromSearch } from "../../../../lib/search-sync";
 
 const {
   recipes,
@@ -49,6 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .json({ error: "Opublikowanych przepisów nie można usunąć" });
     }
     await db.delete(recipes).where(eq(recipes.id, id));
+    await removeRecipeFromSearch(id);
     return res.json({ ok: true });
   }
 
@@ -170,6 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const updated = await getRecipeById(id);
+    await syncRecipeToSearch(db, id);
     await revalidatePaths(res, [
       existing.uri,
       updated!.uri,
