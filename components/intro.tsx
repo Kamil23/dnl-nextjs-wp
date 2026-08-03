@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { SITE_TITLE, SITE_DESCRIPTION } from "../lib/constants";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBook, faNewspaper, faCalculator, faDownload } from "@fortawesome/free-solid-svg-icons";
@@ -8,15 +9,20 @@ import { CATEGORIES } from "../lib/enum";
 export default function Intro({ menu }) {
   const title = SITE_TITLE.toLowerCase();
   const desc = SITE_DESCRIPTION.toLowerCase();
+  // Logo may only be the H1 on the homepage — on articles the recipe
+  // title owns the H1 (two H1s dilute the page's main heading for SEO)
+  const isHome = useRouter().pathname === "/";
+  const LogoTag = (isHome ? "h1" : "p") as any;
+  const SubTag = (isHome ? "h2" : "p") as any;
   return (
-    <div className="flex-column justify-between items-center relative">
+    <div className="flex-column justify-between items-center relative print:hidden">
       <Link href={"/"} className="flex flex-col mt-4 mb-2">
-        <h1 className="text-center text-4xl md:text-6xl font-bold font-Pacifico tracking-tighter leading-tight">
+        <LogoTag className="text-center text-4xl md:text-6xl font-bold font-Pacifico tracking-tighter leading-tight">
           {title}
-        </h1>
-        <h4 className="text-center font-Marck-script text-lg mt-2">
+        </LogoTag>
+        <SubTag className="text-center font-Marck-script text-lg mt-2">
           {desc}
-        </h4>
+        </SubTag>
       </Link>
       <nav className="flex flex-wrap mb-4 box-border justify-center border-b">
         <WPMenu menu={menu} />

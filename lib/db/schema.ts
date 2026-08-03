@@ -33,6 +33,7 @@ export const recipes = pgTable(
     contentHtml: text("content_html"),
     heroImage: text("hero_image"),
     videoUrl: text("video_url"),
+    videoDurationSec: integer("video_duration_sec"),
     authorName: text("author_name"),
     prepTimeMin: integer("prep_time_min"),
     cookTimeMin: integer("cook_time_min"),

@@ -31,6 +31,7 @@ export default function RecipeEditor({ initial, allCategories }) {
     heroImage: initial.heroImage ?? "",
     videoUrl: initial.videoUrl ?? "",
     prepTimeMin: initial.prepTimeMin ?? "",
+    cookTimeMin: initial.cookTimeMin ?? "",
     totalTimeMin: initial.totalTimeMin ?? "",
     servings: initial.servings ?? "",
     difficulty: initial.difficulty ?? "",
@@ -319,6 +320,10 @@ export default function RecipeEditor({ initial, allCategories }) {
               <label className={labelCls}>
                 Przygotowanie (min)
                 <input inputMode="numeric" value={form.prepTimeMin} onChange={(e) => set("prepTimeMin", e.target.value)} className={inputCls} />
+              </label>
+              <label className={labelCls}>
+                Gotowanie/pieczenie (min)
+                <input inputMode="numeric" value={form.cookTimeMin} onChange={(e) => set("cookTimeMin", e.target.value)} className={inputCls} />
               </label>
               <label className={labelCls}>
                 Łącznie (min)

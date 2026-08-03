@@ -103,7 +103,11 @@ async function downloadVideo(url: string, dir: string) {
   const infoFile = files.find((f) => f.endsWith(".info.json"));
   const info = infoFile ? JSON.parse(fs.readFileSync(path.join(dir, infoFile), "utf8")) : {};
   if (!video) throw new Error("yt-dlp nie pobrał wideo");
-  return { videoPath: path.join(dir, video), caption: info.description || info.title || "" };
+  return {
+    videoPath: path.join(dir, video),
+    caption: info.description || info.title || "",
+    durationSec: Math.round(info.duration) || null,
+  };
 }
 
 async function extractFrames(videoPath: string, dir: string, maxFrames = 8) {
@@ -427,7 +431,7 @@ async function processOne(provider: Provider, imp: typeof imports.$inferSelect) 
     await db.update(imports).set({ status: "processing" }).where(eq(imports.id, imp.id));
 
     await setProgress(imp.id, 1, "Pobieranie wideo z TikToka...");
-    const { videoPath, caption } = await downloadVideo(imp.tiktokUrl, dir);
+    const { videoPath, caption, durationSec } = await downloadVideo(imp.tiktokUrl, dir);
     await db.update(imports).set({ caption: caption || null }).where(eq(imports.id, imp.id));
 
     await setProgress(imp.id, 2, "Wyciąganie klatek z wideo...");
@@ -461,7 +465,7 @@ async function processOne(provider: Provider, imp: typeof imports.$inferSelect) 
       .update(imports)
       .set({
         status: "ready",
-        aiDraft: { ...draft, frames: frameUrls },
+        aiDraft: { ...draft, frames: frameUrls, videoDurationSec: durationSec },
         transcript,
         videoPath: null,
         progress: null,

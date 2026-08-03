@@ -57,6 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           sponsor: d.sponsor ?? null,
           lead: d.lead ?? null,
           videoUrl: imp.tiktokUrl,
+          videoDurationSec: d.videoDurationSec ?? null,
           authorName: "Roksana",
           prepTimeMin: d.prepTimeMin ?? null,
           totalTimeMin: d.totalTimeMin ?? null,

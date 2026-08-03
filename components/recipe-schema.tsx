@@ -28,7 +28,15 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
         datePublished: iso(recipe.publishedAt),
         dateModified: iso(recipe.updatedAt),
         description: recipe.seoDescription || recipe.lead || undefined,
-        author: { "@type": "Person", name: recipe.authorName || "Roksana" },
+        author: {
+          "@type": "Person",
+          name: recipe.authorName || "Roksana",
+          url: "https://www.instagram.com/roksanaptaszek/",
+          sameAs: [
+            "https://www.instagram.com/roksanaptaszek/",
+            "https://www.tiktok.com/@roksanacieplicka",
+          ],
+        },
         // keywords is a recommended Recipe rich-result property — merge the
         // editorial keywords with tag names, deduplicated
         keywords:
@@ -43,17 +51,25 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
         recipeCategory: categoryNames.length ? categoryNames.join(", ") : undefined,
         recipeYield: recipe.servingsText || (recipe.servings ? `${recipe.servings} porcje` : undefined),
         prepTime: minutesToIso8601(recipe.prepTimeMin) || undefined,
+        cookTime: minutesToIso8601(recipe.cookTimeMin) || undefined,
         totalTime: minutesToIso8601(recipe.totalTimeMin) || undefined,
         recipeIngredient: ingredientTexts.length ? ingredientTexts : undefined,
         recipeInstructions: recipe.steps.length
-          ? recipe.steps.map((s) => ({
+          ? recipe.steps.map((s, i) => ({
               "@type": "HowToStep",
               name: s.title || undefined,
               text: s.body,
+              url: `${SITE_URL}${recipe.uri}#krok-${i + 1}`,
             }))
           : undefined,
         nutrition: recipe.kcal
-          ? { "@type": "NutritionInformation", calories: `${recipe.kcal} kcal` }
+          ? {
+              "@type": "NutritionInformation",
+              calories: `${recipe.kcal} kcal`,
+              proteinContent: recipe.protein ? `${recipe.protein} g` : undefined,
+              fatContent: recipe.fat ? `${recipe.fat} g` : undefined,
+              carbohydrateContent: recipe.carbs ? `${recipe.carbs} g` : undefined,
+            }
           : undefined,
         aggregateRating: recipe.rating
           ? {
@@ -66,9 +82,13 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
           ? {
               "@type": "VideoObject",
               name: recipe.title,
+              description: recipe.seoDescription || recipe.lead || recipe.title,
               contentUrl: recipe.videoUrl,
               thumbnailUrl: recipe.heroImage || undefined,
               uploadDate: iso(recipe.publishedAt),
+              duration: recipe.videoDurationSec
+                ? `PT${Math.floor(recipe.videoDurationSec / 60)}M${recipe.videoDurationSec % 60}S`
+                : undefined,
             }
           : undefined,
       }

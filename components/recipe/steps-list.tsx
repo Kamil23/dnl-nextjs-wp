@@ -11,7 +11,8 @@ export default function StepsList({ steps }) {
         {steps.map((step, i) => (
           <li
             key={i}
-            className={`rounded-3xl border p-5 transition ${
+            id={`krok-${i + 1}`}
+            className={`scroll-mt-6 rounded-3xl border p-5 transition ${
               done[i]
                 ? "border-gray-100 bg-gray-50 opacity-60"
                 : "border-gray-100 bg-white shadow-bottomSmall"
