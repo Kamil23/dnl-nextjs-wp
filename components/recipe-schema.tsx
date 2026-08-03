@@ -12,7 +12,10 @@ function iso(d: Date | string | null | undefined) {
 
 export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
   const ingredientTexts = recipe.ingredientGroups.flatMap((g) => g.items);
-  const isRecipe = ingredientTexts.length > 0 || recipe.steps.length > 0;
+  // Articles never emit Recipe schema, even if stray list data exists
+  const isRecipe =
+    !recipe.uri.startsWith("/artykuly/") &&
+    (ingredientTexts.length > 0 || recipe.steps.length > 0);
 
   const categoryNames = recipe.categories
     .map((c) => c.name)

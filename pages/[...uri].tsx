@@ -36,8 +36,11 @@ import WpSeo from '../components/wp-seo'
 // Recipes and static pages live at their original WordPress permalinks —
 // the URL set is the SEO contract with Google and never changes.
 export default function Content({ kind, recipe, post, page, morePosts, introHtml, seo }) {
+  // Articles always use the article template, whatever data they carry
+  const isArticle = kind === 'recipe' && recipe.uri.startsWith('/artykuly/')
   const structured =
     kind === 'recipe' &&
+    !isArticle &&
     (recipe.ingredientGroups.some((g) => g.items.length > 0) || recipe.steps.length > 0)
 
   return (
