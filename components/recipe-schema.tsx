@@ -17,9 +17,14 @@ function iso(d: Date | string | null | undefined) {
 
 export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
   const ingredientTexts = recipe.ingredientGroups.flatMap((g) => g.items);
-  // Articles never emit Recipe schema, even if stray list data exists
+  // Articles never emit Recipe schema, even if stray list data exists.
+  // `image` is a REQUIRED Recipe property for the Google rich result — emitting
+  // a Recipe without one gets it rejected and reported as an error in Search
+  // Console, so we suppress the Recipe block (keeping BreadcrumbList) rather than
+  // ship invalid markup when a recipe has no hero image.
   const isRecipe =
     !recipe.uri.startsWith("/artykuly/") &&
+    !!recipe.heroImage &&
     (ingredientTexts.length > 0 || recipe.steps.length > 0);
 
   const categoryNames = recipe.categories

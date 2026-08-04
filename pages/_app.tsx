@@ -1,4 +1,5 @@
 import { AppProps } from 'next/app'
+import Head from 'next/head'
 import Script from 'next/script'
 import { GA_MEASUREMENT_ID } from '../lib/constants'
 import '../styles/index.css'
@@ -11,6 +12,9 @@ const GA_ENABLED = process.env.NODE_ENV === 'production'
 function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
       {GA_ENABLED && (
         <>
           <Script

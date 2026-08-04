@@ -27,7 +27,40 @@ import {
   SITE_TITLE,
   SITE_URL,
   HOME_POSTS_PER_PAGE,
+  SOCIAL_TIKTOK_URL,
+  SOCIAL_INSTAGRAM_URL,
 } from '../lib/constants'
+
+// Publisher identity for Google (knowledge panel, sitelinks logo) + site search
+// box — the live WP site emitted an Organization block on the homepage; this
+// restores that brand signal from our own data.
+const HOME_JSONLD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: SITE_TITLE,
+      url: `${SITE_URL}/`,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_URL}/favicon/android-chrome-512x512.png`,
+        width: 512,
+        height: 512,
+      },
+      sameAs: [SOCIAL_TIKTOK_URL, SOCIAL_INSTAGRAM_URL],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: SITE_TITLE,
+      url: `${SITE_URL}/`,
+      description: SITE_DESCRIPTION,
+      inLanguage: 'pl-PL',
+      publisher: { '@id': `${SITE_URL}/#organization` },
+    },
+  ],
+}
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
@@ -61,6 +94,10 @@ export default function Index({ latest, collection, tiles, totalPages, tiktokVid
         <meta property="og:description" content={SITE_DESCRIPTION} />
         <meta property="og:url" content={`${SITE_URL}/`} />
         <meta property="og:site_name" content={SITE_TITLE} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(HOME_JSONLD) }}
+        />
       </Head>
       <Container>
         <SearchHero onActiveChange={setSearchActive} />
