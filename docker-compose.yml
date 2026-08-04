@@ -1,0 +1,110 @@
+# Production stack for the Hetzner VPS: Postgres + Meilisearch + Next (standalone)
+# + Caddy (TLS/reverse proxy). Values come from a local .env (see
+# .env.production.example). See DEPLOY.md for the full runbook.
+name: dnl
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Bound to localhost only: lets the `web` image build (and one-off tools)
+    # reach the DB at 127.0.0.1:5432. Never exposed publicly.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  meili:
+    image: getmeili/meilisearch:v1.10
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meili:/meili_data
+    ports:
+      - "127.0.0.1:7700:7700"
+
+  web:
+    build:
+      context: .
+      target: runner
+      # `next build` runs getStaticProps → needs the DB. host network lets the
+      # build reach the DB published on 127.0.0.1:5432. Bring db up + import
+      # data BEFORE building web (see DEPLOY.md).
+      network: host
+      args:
+        WORDPRESS_API_URL: ${WORDPRESS_API_URL}
+        APP_ORIGIN: ${APP_ORIGIN}
+        DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      meili:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      WORDPRESS_API_URL: ${WORDPRESS_API_URL}
+      APP_ORIGIN: ${APP_ORIGIN}
+      MEILI_HOST: http://meili:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_SECRET: ${ADMIN_SECRET}
+      GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
+      GA4_SERVICE_ACCOUNT_KEY_PATH: ${GA4_SERVICE_ACCOUNT_KEY_PATH:-}
+    expose:
+      - "3000"
+
+  # One-off operational tasks (migrations, import, reindex). Not started by
+  # `up` — invoke with: docker compose run --rm tools npm run <script>
+  tools:
+    build:
+      context: .
+      target: source
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      WORDPRESS_API_URL: ${WORDPRESS_API_URL}
+      MEILI_HOST: http://meili:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+    command: ["node", "--version"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-dietanaluzie.pl}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  meili:
+  caddy_data:
+  caddy_config:

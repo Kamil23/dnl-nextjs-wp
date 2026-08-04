@@ -1,0 +1,26 @@
+# Reverse proxy + automatic HTTPS for the primary domain. Caddy fetches a
+# Let's Encrypt cert automatically once DNS for the domain points at this box
+# (ports 80/443 must be reachable). The Next app itself proxies
+# /wp-content/uploads/* to the WordPress subdomain — Caddy just forwards
+# everything to the app.
+{
+	# email for Let's Encrypt expiry notices (optional but recommended)
+	email admin@{$SITE_DOMAIN:dietanaluzie.pl}
+}
+
+{$SITE_DOMAIN:dietanaluzie.pl} {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		# HSTS — only enable once you are sure HTTPS is stable
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+	reverse_proxy web:3000
+}
+
+# Canonical host is the apex (matches the live site's canonical). Send www → apex.
+www.{$SITE_DOMAIN:dietanaluzie.pl} {
+	redir https://{$SITE_DOMAIN:dietanaluzie.pl}{uri} permanent
+}

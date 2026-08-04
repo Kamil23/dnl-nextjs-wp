@@ -1,0 +1,12 @@
+.git
+.next
+node_modules
+npm-debug.log
+.env
+.env.*
+!.env.production.example
+*.md
+.vscode
+.idea
+scratchpad
+docker-compose.dev.yml
