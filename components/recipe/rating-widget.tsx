@@ -37,7 +37,8 @@ export default function RatingWidget({ recipeId, rating }) {
     setBusy(false);
   }
 
-  const display = hover || myVote;
+  // Idle state shows the current average; hover and the reader's own vote win
+  const display = hover || myVote || (agg ? Math.round(Number(agg.value)) : 0);
 
   return (
     <div className="mt-8 rounded-3xl border border-gray-100 bg-white shadow-bottomSmall p-6 text-center print:hidden">
@@ -70,9 +71,7 @@ export default function RatingWidget({ recipeId, rating }) {
         ))}
       </div>
       {thanks && (
-        <p className="text-sm text-green-600 mt-3">
-          Dziękujemy! Twoja ocena pojawi się po akceptacji. 🧡
-        </p>
+        <p className="text-sm text-green-600 mt-3">Dziękujemy za Twoją ocenę! 🧡</p>
       )}
     </div>
   );

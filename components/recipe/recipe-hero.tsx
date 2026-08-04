@@ -81,12 +81,22 @@ export default function RecipeHero({ recipe }) {
             ))}
           </div>
         )}
-        <a
-          href="#przepis"
-          className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full px-6 py-3 transition shadow-small"
-        >
-          Przejdź do przepisu ↓
-        </a>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="#przepis"
+            className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full px-6 py-3 transition shadow-small"
+          >
+            Przejdź do przepisu ↓
+          </a>
+          {recipe.videoUrl && (
+            <a
+              href="#wideo"
+              className="inline-flex items-center gap-2 border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white font-semibold rounded-full px-6 py-[10px] transition"
+            >
+              <span aria-hidden>▶</span> Obejrzyj wideo
+            </a>
+          )}
+        </div>
       </div>
     </section>
   );

@@ -41,7 +41,7 @@ export default function Search({ posts, cats, params }) {
               if (e.key === 'Enter') update({ q: (e.target as HTMLInputElement).value })
             }}
             placeholder="Szukaj..."
-            className="border border-gray-300 rounded-full px-4 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="border border-gray-300 rounded-full px-4 py-2 text-base sm:text-sm w-56 focus:outline-none focus:ring-2 focus:ring-amber-400"
           />
           <select value={params.kategoria ?? ''} onChange={(e) => update({ kategoria: e.target.value })} className={selectCls}>
             <option value="">Wszystkie kategorie</option>
@@ -69,7 +69,7 @@ export default function Search({ posts, cats, params }) {
           </>
         ) : (
           <p className="text-gray-500 mb-24">
-            Nic nie znaleziono 😔 — spróbuj innej frazy albo wyczyść filtry.
+            Nic nie znaleziono 😔 Spróbuj innej frazy albo wyczyść filtry.
           </p>
         )}
       </Container>

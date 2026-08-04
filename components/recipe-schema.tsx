@@ -1,4 +1,9 @@
-import { SITE_URL, SITE_TITLE } from "../lib/constants";
+import {
+  SITE_URL,
+  SITE_TITLE,
+  SOCIAL_TIKTOK_URL,
+  SOCIAL_INSTAGRAM_URL,
+} from "../lib/constants";
 import { minutesToIso8601 } from "../lib/recipe-parser";
 import type { FullRecipe } from "../lib/queries";
 
@@ -34,11 +39,8 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
         author: {
           "@type": "Person",
           name: recipe.authorName || "Roksana",
-          url: "https://www.instagram.com/roksanaptaszek/",
-          sameAs: [
-            "https://www.instagram.com/roksanaptaszek/",
-            "https://www.tiktok.com/@roksanacieplicka",
-          ],
+          url: SOCIAL_INSTAGRAM_URL,
+          sameAs: [SOCIAL_INSTAGRAM_URL, SOCIAL_TIKTOK_URL],
         },
         // keywords is a recommended Recipe rich-result property — merge the
         // editorial keywords with tag names, deduplicated

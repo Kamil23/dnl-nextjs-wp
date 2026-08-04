@@ -79,6 +79,27 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
         </span>
       </div>
       <p className="text-gray-600">{draft.lead}</p>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {(draft.categorySlugs ?? []).map((s: string) => (
+          <span key={s} className="bg-gray-900 text-white rounded-full px-2.5 py-0.5">{s}</span>
+        ))}
+        {(draft.categorySlugs ?? []).length === 0 && (
+          <span className="bg-red-100 text-red-700 rounded-full px-2.5 py-0.5">brak kategorii!</span>
+        )}
+        {draft.difficulty && (
+          <span className="bg-gray-200 text-gray-700 rounded-full px-2.5 py-0.5">
+            trudność: {draft.difficulty}
+          </span>
+        )}
+      </div>
+      {draft.about && (
+        <div>
+          <div className="font-medium text-gray-500 text-xs uppercase mb-1">
+            Kilka słów o tym przepisie
+          </div>
+          <p className="text-gray-600 whitespace-pre-line">{draft.about}</p>
+        </div>
+      )}
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
           <div className="font-medium text-gray-500 text-xs uppercase mb-1">Składniki</div>
@@ -117,6 +138,8 @@ export default function AdminTikTok({ imports: initial }) {
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [heroFrames, setHeroFrames] = useState<Record<number, string>>({});
+  const [workerRunning, setWorkerRunning] = useState(false);
+  const [workerError, setWorkerError] = useState("");
 
   // Auto-refresh while anything is queued or processing, so the progress
   // bar written by the worker shows up live
@@ -126,9 +149,25 @@ export default function AdminTikTok({ imports: initial }) {
     const t = setInterval(async () => {
       const res = await fetch("/api/admin/imports/");
       if (res.ok) setRows(await res.json());
+      const w = await fetch("/api/admin/imports/process/");
+      if (w.ok) setWorkerRunning((await w.json()).running);
     }, 2500);
     return () => clearInterval(t);
   }, [hasActive]);
+
+  const pendingCount = rows.filter((r) => r.status === "pending").length;
+
+  async function runWorker() {
+    setWorkerError("");
+    setWorkerRunning(true);
+    const res = await fetch("/api/admin/imports/process/", { method: "POST" });
+    if (!res.ok) {
+      setWorkerRunning(res.status === 409);
+      if (res.status !== 409) {
+        setWorkerError((await res.json()).error || "Nie udało się uruchomić workera");
+      }
+    }
+  }
 
   async function addImport(e: React.FormEvent) {
     e.preventDefault();
@@ -197,6 +236,26 @@ export default function AdminTikTok({ imports: initial }) {
       </form>
       {error && <p className="text-sm text-red-600 -mt-6 mb-6">{error}</p>}
 
+      {(pendingCount > 0 || workerRunning) && (
+        <div className="flex items-center gap-3 mb-8 -mt-2">
+          <button
+            onClick={runWorker}
+            disabled={workerRunning || pendingCount === 0}
+            className="bg-amber-500 text-white rounded-lg px-5 py-2 text-sm font-semibold hover:bg-amber-600 disabled:opacity-50"
+          >
+            {workerRunning
+              ? "⏳ Worker pracuje..."
+              : `▶ Przetwórz kolejkę (${pendingCount})`}
+          </button>
+          {workerRunning && (
+            <span className="text-xs text-gray-500">
+              Postęp każdego importu widać poniżej na żywo.
+            </span>
+          )}
+          {workerError && <span className="text-sm text-red-600">{workerError}</span>}
+        </div>
+      )}
+
       <div className="space-y-3">
         {rows.length === 0 && <p className="text-gray-400 text-sm">Brak importów. Wklej pierwszy link! 🎬</p>}
         {rows.map((imp) => (
@@ -258,7 +317,7 @@ export default function AdminTikTok({ imports: initial }) {
             )}
             {imp.status === "pending" && (
               <div className="mt-2 text-xs text-gray-400">
-                Czeka na workera (<code>npm run imports:process</code>)
+                Czeka na workera. Kliknij „Przetwórz kolejkę" powyżej.
               </div>
             )}
             {expanded === imp.id && (
@@ -276,7 +335,7 @@ export default function AdminTikTok({ imports: initial }) {
       </div>
 
       <p className="text-xs text-gray-400 mt-8">
-        Worker: <code>npm run imports:process</code> (na serwerze odpala go cron co kilka minut).
+        Worker: przycisk „Przetwórz kolejkę" albo <code>npm run imports:process</code> z terminala.
         Silnik AI: <code>OPENAI_API_KEY</code> (gpt-4o + Whisper) — alternatywnie Gemini, Claude
         lub dowolne API zgodne z OpenAI (szczegóły w .env.example).
       </p>

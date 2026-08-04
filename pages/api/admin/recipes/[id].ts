@@ -91,6 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           contentHtml: str(b.contentHtml),
           heroImage: str(b.heroImage),
           videoUrl: str(b.videoUrl),
+          videoViews: int(b.videoViews),
           prepTimeMin: int(b.prepTimeMin),
           cookTimeMin: int(b.cookTimeMin),
           totalTimeMin: int(b.totalTimeMin),

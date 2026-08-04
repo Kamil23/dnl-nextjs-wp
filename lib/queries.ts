@@ -1,10 +1,10 @@
 // Data layer over Postgres — the only place pages read content from.
 // Mappers return the legacy WPGraphQL-ish shapes so existing components
 // (MoreStories, PostHeader, Breadcrumbs…) keep working unchanged.
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { db, dbSchema } from "./db";
 
-const { recipes, ingredientGroups, ingredients, steps, categories, recipeCategories, tags, recipeTags, pages, ratings } = dbSchema;
+const { recipes, ingredientGroups, ingredients, steps, categories, recipeCategories, tags, recipeTags, pages, ratings, imports } = dbSchema;
 
 import { AUTHOR_AVATAR_URL } from "./constants";
 
@@ -224,6 +224,15 @@ export async function listRecipesInCategoryTree(categoryId: number) {
     .filter((r) => r.status === "published");
 }
 
+// The /przepisy/ archive — same recipe set the old site's canonical
+// (/kategoria/przepisy/) points at; falls back to uri prefix if the
+// category is missing.
+export async function listRecipeArchive() {
+  const category = await getCategoryByUri("/kategoria/przepisy/");
+  if (category) return listRecipesInCategoryTree(category.id);
+  return (await listPublishedRecipes()).filter((r) => r.uri.startsWith("/przepisy/"));
+}
+
 export async function listTopRatedRecipes(limit = 4) {
   return db
     .select()
@@ -233,6 +242,142 @@ export async function listTopRatedRecipes(limit = 4) {
       desc(recipes.legacyRatingValue),
       desc(recipes.legacyRatingCount)
     )
+    .limit(limit);
+}
+
+// "Kalendarz smaków": recipes for a seasonal theme. Recipes carrying the
+// theme's own sezon-* tag (curated in the admin) always come first; the
+// category/keyword heuristics only fill the remaining slots. Best-rated
+// first within each group. The caller falls back to another section when
+// fewer than `limit` match.
+export async function listThemedRecipes(
+  theme: { tagSlug?: string; tagSlugs: string[]; categorySlugs: string[]; keywords: string[] },
+  limit = 4
+) {
+  const byRating = [
+    sql`${recipes.legacyRatingValue} desc nulls last`,
+    desc(recipes.legacyRatingCount),
+    desc(recipes.publishedAt),
+  ];
+
+  const curated = theme.tagSlug
+    ? await db
+        .select()
+        .from(recipes)
+        .where(
+          and(
+            eq(recipes.status, "published"),
+            inArray(
+              recipes.id,
+              db
+                .select({ id: recipeTags.recipeId })
+                .from(recipeTags)
+                .innerJoin(tags, eq(tags.id, recipeTags.tagId))
+                .where(eq(tags.slug, theme.tagSlug))
+            )
+          )
+        )
+        .orderBy(...byRating)
+        .limit(limit)
+    : [];
+  if (curated.length >= limit) return curated;
+
+  const matchers = [];
+  if (theme.tagSlugs.length) {
+    matchers.push(
+      inArray(
+        recipes.id,
+        db
+          .select({ id: recipeTags.recipeId })
+          .from(recipeTags)
+          .innerJoin(tags, eq(tags.id, recipeTags.tagId))
+          .where(inArray(tags.slug, theme.tagSlugs))
+      )
+    );
+  }
+  if (theme.categorySlugs.length) {
+    matchers.push(
+      inArray(
+        recipes.id,
+        db
+          .select({ id: recipeCategories.recipeId })
+          .from(recipeCategories)
+          .innerJoin(categories, eq(categories.id, recipeCategories.categoryId))
+          .where(inArray(categories.slug, theme.categorySlugs))
+      )
+    );
+  }
+  for (const kw of theme.keywords) {
+    matchers.push(ilike(recipes.title, `%${kw}%`));
+  }
+  if (matchers.length === 0) return curated;
+
+  const curatedIds = curated.map((r) => r.id);
+  const fill = await db
+    .select()
+    .from(recipes)
+    .where(
+      and(
+        eq(recipes.status, "published"),
+        or(...matchers),
+        curatedIds.length ? notInArray(recipes.id, curatedIds) : undefined
+      )
+    )
+    .orderBy(...byRating)
+    .limit(limit - curated.length);
+  return [...curated, ...fill];
+}
+
+// Homepage TikTok strip: recipes that came from (or link to) a TikTok
+// video. Thumbnails are our own hero images — TikTok CDN thumbnail URLs
+// are signed and expire, and their embed script is ~0.5 MB of JS.
+// COALESCE covers older imports approved before videoUrl was copied over.
+export async function listTikTokVideos(limit = 8) {
+  const rows = await db
+    .select({
+      id: recipes.id,
+      title: recipes.title,
+      uri: recipes.uri,
+      heroImage: recipes.heroImage,
+      videoUrl: sql<string>`coalesce(${recipes.videoUrl}, ${imports.tiktokUrl})`,
+      videoViews: recipes.videoViews,
+    })
+    .from(recipes)
+    .leftJoin(imports, and(eq(imports.recipeId, recipes.id), eq(imports.status, "approved")))
+    // No status filter: the cards link to TikTok (public regardless of the
+    // recipe's publication state), and every source here was admin-approved
+    .where(
+      and(
+        sql`${recipes.heroImage} is not null`,
+        sql`coalesce(${recipes.videoUrl}, ${imports.tiktokUrl}) is not null`
+      )
+    )
+    .orderBy(desc(recipes.publishedAt));
+  // A recipe with several approved imports would repeat — keep the first
+  const seen = new Set<number>();
+  return rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true))).slice(0, limit);
+}
+
+// All-time TikTok hits: videos with a captured view count, biggest first
+export async function listTikTokHits(limit = 8) {
+  return db
+    .select({
+      id: recipes.id,
+      title: recipes.title,
+      uri: recipes.uri,
+      heroImage: recipes.heroImage,
+      videoUrl: recipes.videoUrl,
+      videoViews: recipes.videoViews,
+    })
+    .from(recipes)
+    .where(
+      and(
+        sql`${recipes.heroImage} is not null`,
+        sql`${recipes.videoUrl} is not null`,
+        sql`${recipes.videoViews} is not null`
+      )
+    )
+    .orderBy(desc(recipes.videoViews))
     .limit(limit);
 }
 
@@ -259,7 +404,24 @@ export async function getCategoryTiles() {
       image: withImage?.heroImage ?? null,
     });
   }
-  return tiles;
+
+  // The tile grid is 2/4 columns — keep the tile count a multiple of 4 so
+  // every breakpoint fills its rows. Biggest categories stay, the closing
+  // tile links to the full /przepisy/ archive.
+  tiles.sort((a, b) => b.count - a.count);
+  const all = await listRecipeArchive();
+  const used = new Set(tiles.map((t) => t.image));
+  const allTile = {
+    name: "Wszystkie przepisy",
+    uri: "/przepisy/",
+    count: all.length,
+    image:
+      all.find((r) => r.heroImage && !used.has(r.heroImage))?.heroImage ??
+      all.find((r) => r.heroImage)?.heroImage ??
+      null,
+  };
+  const target = Math.max(4, Math.floor((tiles.length + 1) / 4) * 4);
+  return [...tiles.slice(0, target - 1), allTile];
 }
 
 export type SearchParams = {

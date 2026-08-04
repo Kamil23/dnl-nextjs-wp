@@ -94,6 +94,159 @@ export function formatQuantity(value: number): string {
   return String(rounded).replace(".", ",");
 }
 
+// --- shopping-list merging -------------------------------------------------
+// Parses a free-text list line into amount + unit + name so identical
+// ingredients from different recipes can be summed ("2 jajka" + "3 jajka"
+// -> "5 jajek"). No ingredient database — matching is by normalized name.
+
+const WEIGHT_FACTORS: Record<string, number> = { g: 1, dag: 10, kg: 1000 };
+const VOLUME_FACTORS: Record<string, number> = { ml: 1, l: 1000 };
+
+type LineParts = {
+  kind: "weight" | "volume" | "count" | "plain" | "none";
+  qty: number | null;
+  base: number; // grams / milliliters for weight & volume
+  forms: string[] | null; // countable declension forms
+  name: string; // original casing, without the amount
+  key: string; // normalized matching key
+  nameFirst: boolean; // "mascarpone 500 g" style
+};
+
+function normalizeKey(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[„”"']/g, "")
+    .replace(/[\s.,;:!–-]+$/g, "")
+    .replace(/^[\s.,;:!–-]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function parseShoppingLine(line: string): LineParts {
+  const t = line.trim();
+  const q = parseQuantity(t);
+
+  if (q) {
+    const rest = q.rest.trim();
+    const m = rest.match(/^(\p{L}+)\.?/u);
+    if (m) {
+      const w = m[1].toLowerCase();
+      if (WEIGHT_FACTORS[w] != null || VOLUME_FACTORS[w] != null) {
+        const isWeight = WEIGHT_FACTORS[w] != null;
+        const name = rest.slice(m[0].length).trim();
+        return {
+          kind: isWeight ? "weight" : "volume",
+          qty: q.value,
+          base: q.value * (isWeight ? WEIGHT_FACTORS[w] : VOLUME_FACTORS[w]),
+          forms: null,
+          name,
+          key: normalizeKey(name),
+          nameFirst: false,
+        };
+      }
+      const forms = findCountable(m[1]);
+      if (forms) {
+        const name = rest.slice(m[0].length).trim();
+        return {
+          kind: "count",
+          qty: q.value,
+          base: 0,
+          forms,
+          name,
+          key: normalizeKey(name) || forms[0],
+          nameFirst: false,
+        };
+      }
+    }
+    return { kind: "plain", qty: q.value, base: 0, forms: null, name: rest, key: normalizeKey(rest), nameFirst: false };
+  }
+
+  // Implicit "1": "jajko", "łyżka ksylitolu"
+  const first = t.match(/^(\p{L}+)/u);
+  const firstForms = first ? findCountable(first[1]) : null;
+  if (first && firstForms) {
+    const name = t.slice(first[1].length).trim();
+    return {
+      kind: "count",
+      qty: 1,
+      base: 0,
+      forms: firstForms,
+      name,
+      key: normalizeKey(name) || firstForms[0],
+      nameFirst: false,
+    };
+  }
+
+  // Mid-line amount: "mascarpone 500 g (schłodzone)"
+  const mid = t.match(/(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l|dag)\b/u);
+  if (mid) {
+    const value = parseFloat(mid[1].replace(",", "."));
+    const unit = mid[2].toLowerCase();
+    const isWeight = WEIGHT_FACTORS[unit] != null;
+    const name = `${t.slice(0, mid.index!)} ${t.slice(mid.index! + mid[0].length)}`.replace(/\s+/g, " ").trim();
+    return {
+      kind: isWeight ? "weight" : "volume",
+      qty: value,
+      base: value * (isWeight ? WEIGHT_FACTORS[unit] : VOLUME_FACTORS[unit]),
+      forms: null,
+      name,
+      key: normalizeKey(name),
+      nameFirst: true,
+    };
+  }
+
+  return { kind: "none", qty: null, base: 0, forms: null, name: t, key: normalizeKey(t), nameFirst: false };
+}
+
+function formatBase(total: number, kind: "weight" | "volume"): string {
+  const [small, big] = kind === "weight" ? ["g", "kg"] : ["ml", "l"];
+  // Round-number totals read better in the big unit: 1200 -> "1,2 kg"
+  if (total >= 1000 && total % 100 === 0) return `${formatQuantity(total / 1000)} ${big}`;
+  const rounded = Math.round(total * 100) / 100;
+  return `${Number.isInteger(rounded) ? rounded : String(rounded).replace(".", ",")} ${small}`;
+}
+
+// Polish plural category — a summed count may only reuse the original noun
+// form when it stays in the same category (1 / 2-4 / 5+)
+function pluralCategory(n: number): number {
+  if (n === 1) return 1;
+  if (!Number.isInteger(n)) return 2;
+  const d10 = n % 10;
+  const d100 = n % 100;
+  return d10 >= 2 && d10 <= 4 && !(d100 >= 12 && d100 <= 14) ? 2 : 3;
+}
+
+// The summed line when both lines describe the same ingredient in
+// compatible units, otherwise null (better two rows than a wrong sum).
+export function mergeShoppingLines(a: string, b: string): string | null {
+  const pa = parseShoppingLine(a);
+  const pb = parseShoppingLine(b);
+  if (!pa.key || pa.key !== pb.key || pa.kind !== pb.kind) return null;
+
+  switch (pa.kind) {
+    case "none":
+      return a; // identical unquantified items — keep one
+    case "weight":
+    case "volume": {
+      const amount = formatBase(pa.base + pb.base, pa.kind);
+      return pa.nameFirst ? `${pa.name} ${amount}` : `${amount} ${pa.name}`.trim();
+    }
+    case "count": {
+      if (pa.forms![0] !== pb.forms![0]) return null;
+      const sum = pa.qty! + pb.qty!;
+      const unit = unitForm(pa.forms!, sum);
+      return `${formatQuantity(sum)} ${unit}${pa.name ? ` ${pa.name}` : ""}`;
+    }
+    case "plain": {
+      const sum = pa.qty! + pb.qty!;
+      const cat = pluralCategory(sum);
+      if (cat !== pluralCategory(pa.qty!) || cat !== pluralCategory(pb.qty!)) return null;
+      return `${formatQuantity(sum)} ${pa.name}`;
+    }
+  }
+}
+
 // Scale an ingredient line by `factor`; returns the original line when the
 // quantity can't be parsed (better honest than wrong).
 export function scaleIngredient(line: string, factor: number): string {

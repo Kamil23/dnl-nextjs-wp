@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { scaleIngredient } from "../../lib/quantity";
-import { addRecipe } from "../../lib/shopping-list";
+import { addRecipeItems } from "../../lib/shopping-list";
 import CookMode from "./cook-mode";
 
 // Interactive ingredients: check-off (persisted per recipe in localStorage),
@@ -16,15 +16,12 @@ export default function IngredientsCard({ recipe }) {
   const storageKey = `dnl-ingredients-${recipe.slug}`;
 
   function addToShoppingList() {
-    addRecipe({
-      recipeId: recipe.id,
-      title: recipe.title,
-      uri: recipe.uri,
-      servings: baseServings ? servings : null,
-      items: recipe.ingredientGroups.flatMap((g) =>
+    addRecipeItems(
+      { id: recipe.id, title: recipe.title, uri: recipe.uri },
+      recipe.ingredientGroups.flatMap((g) =>
         g.items.map((i) => scaleIngredient(i, factor))
-      ),
-    });
+      )
+    );
     setAddedToList(true);
     setTimeout(() => setAddedToList(false), 3000);
   }
@@ -134,8 +131,8 @@ export default function IngredientsCard({ recipe }) {
 
       {baseServings && factor !== 1 && (
         <p className="text-xs text-gray-400 mt-3">
-          Ilości przeliczone z {baseServings} na {servings} porcji — składniki bez
-          liczby zostawiliśmy bez zmian.
+          Ilości przeliczone z {baseServings} na {servings} porcji. Składniki bez
+          podanej liczby zostają bez zmian.
         </p>
       )}
 
@@ -144,7 +141,7 @@ export default function IngredientsCard({ recipe }) {
           onClick={() => setCookMode(true)}
           className="mt-5 w-full rounded-2xl bg-gray-900 hover:bg-amber-500 text-white font-semibold py-3 transition print:hidden"
         >
-          🍳 Tryb gotowania — krok po kroku
+          🍳 Tryb gotowania krok po kroku
         </button>
       )}
       {cookMode && (

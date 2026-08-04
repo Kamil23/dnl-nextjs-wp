@@ -30,6 +30,7 @@ export default function RecipeEditor({ initial, allCategories }) {
     contentHtml: initial.contentHtml ?? "",
     heroImage: initial.heroImage ?? "",
     videoUrl: initial.videoUrl ?? "",
+    videoViews: initial.videoViews ?? "",
     prepTimeMin: initial.prepTimeMin ?? "",
     cookTimeMin: initial.cookTimeMin ?? "",
     totalTimeMin: initial.totalTimeMin ?? "",
@@ -312,6 +313,10 @@ export default function RecipeEditor({ initial, allCategories }) {
             <label className={`${labelCls} mt-4`}>
               Wideo (TikTok URL)
               <input value={form.videoUrl} onChange={(e) => set("videoUrl", e.target.value)} className={inputCls} placeholder="https://www.tiktok.com/@..." />
+            </label>
+            <label className={`${labelCls} mt-4`}>
+              Wyświetlenia na TikToku (aktualizowane skryptem, można nadpisać)
+              <input value={form.videoViews} onChange={(e) => set("videoViews", e.target.value)} className={inputCls} placeholder="np. 2800000" inputMode="numeric" />
             </label>
           </Section>
 

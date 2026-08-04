@@ -8,20 +8,25 @@ import Layout from '../components/layout'
 import SearchHero from '../components/home/search-hero'
 import CategoryTiles from '../components/home/category-tiles'
 import AboutBox from '../components/home/about-box'
+import SeasonalSection from '../components/home/seasonal-section'
+import TikTokFeed from '../components/home/tiktok-feed'
 import {
   listPublishedRecipes,
   listTopRatedRecipes,
-  listRecipesByTagSlugs,
+  listThemedRecipes,
+  listTikTokVideos,
+  listTikTokHits,
   getCategoryTiles,
   toListingEdge,
 } from '../lib/queries'
 import { MENU_EDGES } from '../lib/menu'
+import { getTopReadPaths } from '../lib/server/ga'
+import { getSeasonalTheme } from '../lib/seasonal'
 import {
   SITE_DESCRIPTION,
   SITE_TITLE,
   SITE_URL,
   HOME_POSTS_PER_PAGE,
-  SEASONAL_COLLECTION,
 } from '../lib/constants'
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
@@ -35,7 +40,7 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
   )
 }
 
-export default function Index({ latest, topRated, seasonal, tiles, totalPages }) {
+export default function Index({ latest, collection, tiles, totalPages, tiktokVideos, tiktokHits }) {
   // While the visitor types a query, the tile results own the page —
   // everything else steps aside so the choice is purely visual
   const [searchActive, setSearchActive] = useState(false)
@@ -64,17 +69,21 @@ export default function Index({ latest, topRated, seasonal, tiles, totalPages })
           <>
             <CategoryTiles tiles={tiles} />
 
-            {topRated.length > 0 && (
-              <Section title="Hity czytelników ⭐" subtitle="Najlepiej oceniane przepisy wszech czasów">
-                <MoreStories posts={topRated} />
-              </Section>
-            )}
-
-            {seasonal.length > 0 && (
-              <Section title={SEASONAL_COLLECTION.title} subtitle={SEASONAL_COLLECTION.description}>
-                <MoreStories posts={seasonal} />
-              </Section>
-            )}
+            {collection.posts.length > 0 &&
+              (collection.themeKey ? (
+                <SeasonalSection
+                  themeKey={collection.themeKey}
+                  title={collection.title}
+                  subtitle={collection.subtitle}
+                  moreHref={`/sezon/${collection.themeKey}/`}
+                >
+                  <MoreStories posts={collection.posts} />
+                </SeasonalSection>
+              ) : (
+                <Section title={collection.title} subtitle={collection.subtitle}>
+                  <MoreStories posts={collection.posts} />
+                </Section>
+              ))}
 
             <Section title="Najnowsze przepisy">
               <MoreStories posts={latest} />
@@ -82,6 +91,10 @@ export default function Index({ latest, topRated, seasonal, tiles, totalPages })
             </Section>
 
             <AboutBox />
+
+            <TikTokFeed title="Hity z TikToka 🔥" videos={tiktokHits} showViews mode="modal" />
+
+            <TikTokFeed title="Ostatnie z TikToka 🎬" videos={tiktokVideos} mode="recipe" />
           </>
         )}
       </Container>
@@ -90,20 +103,58 @@ export default function Index({ latest, topRated, seasonal, tiles, totalPages })
 }
 
 export const getStaticProps: GetStaticProps = async () => {
-  const [all, topRated, seasonal, tiles] = await Promise.all([
+  const theme = getSeasonalTheme()
+  const [all, topRated, themed, tiles, tiktokVideos, tiktokHits, topRead] = await Promise.all([
     listPublishedRecipes(),
     listTopRatedRecipes(4),
-    listRecipesByTagSlugs(SEASONAL_COLLECTION.tagSlugs, 4),
+    listThemedRecipes(theme, 4),
     getCategoryTiles(),
+    listTikTokVideos(8),
+    listTikTokHits(8),
+    getTopReadPaths(30),
   ])
+
+  // "Kalendarz smaków": the seasonal theme owns the section when it has a
+  // full row of matches. Otherwise fall back to "Hity czytelników" —
+  // most-read last 30 days (GA4), or all-time top-rated until GA has data.
+  let collection
+  if (themed.length >= 4) {
+    collection = {
+      themeKey: theme.key,
+      title: theme.title,
+      subtitle: theme.subtitle,
+      posts: themed.map(toListingEdge),
+    }
+  } else {
+    const byUri = new Map(all.map((r) => [r.uri, r]))
+    const mostRead = (topRead ?? [])
+      .map(({ path }) => byUri.get(path.replace(/\?.*$/, '')))
+      .filter(Boolean)
+      .slice(0, 4)
+    const useGa = mostRead.length >= 3
+    collection = {
+      themeKey: null,
+      title: 'Hity czytelników ⭐',
+      subtitle: useGa
+        ? 'Najczęściej czytane przepisy w ostatnim miesiącu'
+        : 'Najlepiej oceniane przepisy wszech czasów',
+      posts: (useGa ? mostRead : topRated).map(toListingEdge),
+    }
+  }
 
   return {
     props: {
-      latest: all.slice(0, HOME_POSTS_PER_PAGE).map(toListingEdge),
-      topRated: topRated.map(toListingEdge),
-      seasonal: seasonal.map(toListingEdge),
+      // Articles keep their place in the /page/N/ archive but don't belong
+      // in the "Najnowsze przepisy" showcase
+      latest: all
+        .filter((r) => !r.uri.startsWith('/artykuly/'))
+        .slice(0, HOME_POSTS_PER_PAGE)
+        .map(toListingEdge),
+      collection,
       tiles: JSON.parse(JSON.stringify(tiles)),
       totalPages: Math.ceil(all.length / HOME_POSTS_PER_PAGE),
+      tiktokVideos,
+      tiktokHits,
     },
     revalidate: 60,
   }

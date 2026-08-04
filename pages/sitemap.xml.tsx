@@ -1,5 +1,6 @@
 import { GetServerSideProps } from 'next'
 import { getAllRecipeUris, getCategoriesWithCounts, getAllPageUris } from '../lib/queries'
+import { THEMES } from '../lib/seasonal'
 import { SITE_URL, EXCLUDED_PAGE_URIS } from '../lib/constants'
 
 // Serves /sitemap.xml with the same URL set as the old WordPress sitemap
@@ -30,6 +31,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     ...pageUris
       .filter(({ uri }) => uri !== '/' && !EXCLUDED_PAGE_URIS.includes(uri))
       .map(({ uri }) => urlEntry(`${SITE_URL}${uri}`)),
+    ...THEMES.map((t) => urlEntry(`${SITE_URL}/sezon/${t.key}/`)),
   ]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

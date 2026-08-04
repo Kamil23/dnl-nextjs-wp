@@ -1,14 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  EmailShareButton,
-  EmailIcon,
-  FacebookShareButton,
-  FacebookIcon,
-  PinterestShareButton,
-  PinterestIcon,
-  WhatsappShareButton,
-  WhatsappIcon,
-} from "react-share";
+import SocialShareButtons from "../share-buttons";
 
 // Share section designed into the recipe layout: native share (mobile)
 // + round social buttons + copy-link, inside a warm gradient card.
@@ -53,29 +44,7 @@ export default function ShareCard({ url, mediaUrl, title }) {
             Udostępnij
           </button>
         )}
-        <WhatsappShareButton
-          title={`dietanaluzie | ${title}. Przepis dostępny jest na blogu Roksany: ${url}`}
-          url={url}
-        >
-          <WhatsappIcon size={48} round className="hover:opacity-80 transition" />
-        </WhatsappShareButton>
-        <PinterestShareButton
-          media={mediaUrl}
-          description={`${title}. Przepis z bloga dietanaluzie, dostępny na stronie: ${url}`}
-          url={url}
-        >
-          <PinterestIcon size={48} round className="hover:opacity-80 transition" />
-        </PinterestShareButton>
-        <FacebookShareButton hashtag="#dietanaluzie" url={url}>
-          <FacebookIcon size={48} round className="hover:opacity-80 transition" />
-        </FacebookShareButton>
-        <EmailShareButton
-          subject={`Przepis dietanaluzie: ${title}`}
-          body={`Hej! Sprawdź przepis Roksany z dietanaluzie: ${url}`}
-          url={url}
-        >
-          <EmailIcon size={48} round className="hover:opacity-80 transition" />
-        </EmailShareButton>
+        <SocialShareButtons url={url} mediaUrl={mediaUrl} title={title} />
         <button
           onClick={copyLink}
           className="h-12 w-12 rounded-full bg-white border border-gray-200 hover:border-gray-400 transition text-lg"

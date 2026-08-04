@@ -1,8 +1,7 @@
 import Head from 'next/head'
 import { GetStaticPaths, GetStaticProps } from 'next'
 import Container from '../../components/container'
-import MoreStories from '../../components/more-stories'
-import Pagination from '../../components/pagination'
+import InfiniteRecipes from '../../components/infinite-recipes'
 import Layout from '../../components/layout'
 import PostTitle from '../../components/post-title'
 import {
@@ -31,8 +30,14 @@ export default function CategoryPosts({ posts, category, page, totalPages, seo }
         </Head>
         <article>
           <PostTitle>{category?.name}</PostTitle>
-          {posts.length > 0 && <MoreStories posts={posts} />}
-          <Pagination basePath={category?.uri} page={page} totalPages={totalPages} />
+          <InfiniteRecipes
+            key={`${category?.uri}-${page}`}
+            initialPosts={posts}
+            startPage={page}
+            totalPages={totalPages}
+            basePath={category?.uri}
+            categoryUri={category?.uri}
+          />
         </article>
       </Container>
     </Layout>

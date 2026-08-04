@@ -8,7 +8,14 @@ const SUGGESTIONS = ["sernik", "obiad w 30 minut", "owsianka", "bez pieczenia"];
 // Instant search: typing renders a grid of big recipe tiles right under
 // the box (the rest of the homepage steps aside via onActiveChange) —
 // the user picks by photo instead of reading a dropdown.
-export default function SearchHero({ onActiveChange }: { onActiveChange?: (active: boolean) => void }) {
+// `compact` renders a slimmer variant for non-homepage placements (recipe pages).
+export default function SearchHero({
+  onActiveChange,
+  compact = false,
+}: {
+  onActiveChange?: (active: boolean) => void
+  compact?: boolean
+}) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<RecipeTileData[]>([]);
@@ -50,13 +57,23 @@ export default function SearchHero({ onActiveChange }: { onActiveChange?: (activ
 
   return (
     <>
-      <section className="text-center py-10 md:py-14 mb-10 rounded-3xl bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tighter mb-2">
-          Na co masz dziś ochotę? 🍴
+      <section
+        className={`text-center rounded-3xl bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 ${
+          compact ? "py-8 mb-10" : "py-10 md:py-14 mb-10"
+        }`}
+      >
+        <h2
+          className={`font-bold tracking-tighter ${
+            compact ? "text-2xl mb-4" : "text-3xl md:text-4xl mb-2"
+          }`}
+        >
+          {compact ? "Szukasz czegoś innego? 🔍" : "Na co masz dziś ochotę? 🍴"}
         </h2>
-        <p className="text-gray-500 mb-6">
-          Ponad 100 sprawdzonych, fit przepisów — bez zwariowania.
-        </p>
+        {!compact && (
+          <p className="text-gray-500 mb-6">
+            Ponad 100 fit przepisów, każdy sprawdzony w mojej kuchni.
+          </p>
+        )}
         <form onSubmit={submit} className="flex justify-center gap-2 px-4 max-w-xl mx-auto">
           <input
             value={q}
@@ -127,7 +144,7 @@ export default function SearchHero({ onActiveChange }: { onActiveChange?: (activ
           ) : (
             !searching && (
               <p className="text-gray-500">
-                Spróbuj prościej — np. „sernik", „kurczak", „owsianka" — literówki
+                Spróbuj prościej, np. „sernik", „kurczak", „owsianka". Literówki
                 nie przeszkadzają.
               </p>
             )

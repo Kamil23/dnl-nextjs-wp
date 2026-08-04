@@ -3,9 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { SITE_TITLE, SITE_DESCRIPTION } from "../lib/constants";
 import { itemCount, SHOPPING_EVENT } from "../lib/shopping-list";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBook, faNewspaper, faCalculator, faDownload } from "@fortawesome/free-solid-svg-icons";
-import { faInstagram, faTiktok } from "@fortawesome/free-brands-svg-icons";
+import { CartIcon } from "./icons";
 import { CATEGORIES } from "../lib/enum";
 
 export default function Intro({ menu }) {
@@ -26,33 +24,36 @@ export default function Intro({ menu }) {
           {desc}
         </SubTag>
       </Link>
-      <nav className="flex flex-wrap mb-4 box-border justify-center border-b">
+      <nav className="flex flex-wrap items-center justify-center gap-x-1 md:gap-x-4 mb-6 pb-3 border-b border-gray-100">
         <WPMenu menu={menu} />
-        <SocialMenu items={socialItems} />
         <ShoppingListLink />
       </nav>
     </div>
   );
 }
 
-const iconsMap = {
-  [CATEGORIES.RECIPES]: faBook,
-  [CATEGORIES.ARTICLES]: faNewspaper,
-  [CATEGORIES.CALC]: faCalculator,
-  [CATEGORIES.DOWNLOADS]: faDownload,
-}
+// Downloads has no content worth surfacing — hidden until there is a plan for it
+const HIDDEN_MENU_IDS: string[] = [CATEGORIES.DOWNLOADS];
 
 const WPMenu = ({ menu }) => {
+  const { asPath } = useRouter();
   return menu?.map((item) => {
     const { parentId, path, id, label } = item.node;
-    if (!parentId) {
-      return (
-        <Link className="flex flex-col-reverse mr-4 p-2 md:p-4 transition justify-center items-center w-fit text-sm text-gray-600 hover:text-gray-900 border-b border-b-white hover:border-b-gray-300" href={path} key={id}>
-          <span className="mt-2 text-center">{label}</span>
-          <FontAwesomeIcon icon={iconsMap[id]} className="w-6 h-6" />
-        </Link>
-      );
-    }
+    if (parentId || HIDDEN_MENU_IDS.includes(id)) return null;
+    const isActive = path !== "/" && asPath.startsWith(path);
+    return (
+      <Link
+        href={path}
+        key={id}
+        className={`px-3 py-3 text-sm tracking-wide transition-colors border-b-2 ${
+          isActive
+            ? "text-gray-900 border-amber-500 font-medium"
+            : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-200"
+        }`}
+      >
+        {label}
+      </Link>
+    );
   });
 };
 
@@ -68,43 +69,16 @@ const ShoppingListLink = () => {
   }, []);
   return (
     <Link
-      className="relative flex flex-col-reverse mr-4 p-2 md:p-4 transition justify-center items-center w-fit text-sm text-gray-600 hover:text-gray-900 border-b border-b-white hover:border-b-gray-300"
+      className="relative ml-1 md:ml-2 my-2 flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600"
       href="/lista-zakupow/"
     >
-      <span className="mt-2 text-center">Lista zakupów</span>
-      <span className="text-xl leading-6" aria-hidden>🛒</span>
+      <CartIcon className="w-4 h-4" />
+      <span>Listy zakupów</span>
       {count > 0 && (
-        <span className="absolute top-1 right-0 bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+        <span className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
           {count}
         </span>
       )}
     </Link>
   );
 };
-
-const SocialMenu = ({ items }) => {
-  return items.map((item) => {
-    const { icon, link, id, label } = item;
-      return (
-        <Link className="flex flex-col-reverse mr-4 p-2 md:p-4 transition justify-center items-center w-fit text-sm text-gray-600 hover:text-gray-900 border-b border-b-white hover:border-b-gray-300" href={link} target="_blank" key={id}>
-          <span className="mt-2 text-center">{label}</span>
-          <FontAwesomeIcon icon={icon} className="w-6 h-6" />
-        </Link>
-      );
-  });
-};
-
-const socialItems = [
-  {
-    id: 1,
-    label: "Tiktok",
-    link: "https://tiktok.com",
-    icon: faTiktok
-  },
-  {
-    id: 2,
-    label: "Instagram",
-    link: "https://instagram.com",
-    icon: faInstagram
-  },
-]

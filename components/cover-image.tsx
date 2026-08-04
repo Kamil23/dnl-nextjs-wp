@@ -1,4 +1,3 @@
-import cn from "classnames";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -18,9 +17,9 @@ export default function CoverImage({ title, coverImage, uri }: Props) {
       fill
         alt={`Zdjęcie poglądowe dla ${title}`}
         src={coverImage?.node.sourceUrl}
-        className={cn(`shadow-small ${!uri ? "object-cover contrast-125 rounded-lg" : ""}`, {
-          "hover:shadow-medium transition-shadow duration-200 rounded-lg object-cover contrast-125": uri,
-        })}
+        className={`shadow-small object-cover contrast-125 rounded-lg ${
+          uri ? "hover:shadow-medium transition-shadow duration-200" : ""
+        }`}
       />
   );
   return (

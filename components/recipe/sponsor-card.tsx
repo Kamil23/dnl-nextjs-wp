@@ -21,7 +21,7 @@ export default function SponsorCard({ sponsor }: { sponsor: { brand: string; cod
       </div>
       <p className="text-sm text-gray-700">
         Przepis powstał we współpracy z <strong>{sponsor.brand}</strong>
-        {sponsor.note ? <> — {sponsor.note}</> : null}
+        {sponsor.note ? <>: {sponsor.note}</> : null}
       </p>
       {sponsor.code && (
         <button

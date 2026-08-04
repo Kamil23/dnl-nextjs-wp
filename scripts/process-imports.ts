@@ -20,7 +20,7 @@ import { promisify } from "util";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import Anthropic from "@anthropic-ai/sdk";
@@ -48,6 +48,13 @@ const optNum = z.preprocess(
 const RecipeDraft = z.object({
   title: z.string(),
   lead: z.string().describe("Krótki, apetyczny opis przepisu (2-3 zdania), po polsku"),
+  about: z
+    .string()
+    .describe("Sekcja 'Kilka słów o tym przepisie': 2-3 akapity rozdzielone pustą linią"),
+  categorySlugs: z
+    .array(z.string())
+    .describe("1-2 slugi kategorii z listy dozwolonych"),
+  difficulty: optStr.describe("'latwy' | 'sredni' | 'trudny' | null"),
   ingredientGroups: z.array(
     z.object({
       title: optStr.describe("Nazwa sekcji np. 'Ciasto'; null gdy jedna sekcja"),
@@ -107,6 +114,7 @@ async function downloadVideo(url: string, dir: string) {
     videoPath: path.join(dir, video),
     caption: info.description || info.title || "",
     durationSec: Math.round(info.duration) || null,
+    viewCount: Number.isFinite(info.view_count) ? info.view_count : null,
   };
 }
 
@@ -173,7 +181,22 @@ const SYSTEM_PROMPT =
   "to jawny szacunek dietetyczny, więc nie zostawiaj tych pól pustych, gdy znasz składniki i liczbę porcji. " +
   "Jeśli czegoś nie widać ani nie słychać — nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence. " +
   "Treści reklamowych (marka, kod rabatowy, współpraca) NIE mieszaj ze składnikami ani krokami — " +
-  "wyciągnij je do pola sponsor, żeby można je było uczciwie oznaczyć na stronie.";
+  "wyciągnij je do pola sponsor, żeby można je było uczciwie oznaczyć na stronie. " +
+  "KATEGORIE: przypisz przepis do 1-2 kategorii z listy dozwolonych (pole categorySlugs) — " +
+  "to warunek publikacji, przepis bez kategorii nie trafia do archiwum. " +
+  "TAGI: pole tags[] to 2-5 slugów wybranych WYŁĄCZNIE z listy dozwolonych tagów; nie wymyślaj " +
+  "własnych. Najwyżej jeden tag z grupy 'sezon' i tylko wtedy, gdy przepis naprawdę pasuje " +
+  "do okresu (np. sernik na zimno -> sezon-lato). " +
+  "Pole 'about' to sekcja 'Kilka słów o tym przepisie' pod przepisem — pisz ją tak, jakby Roksana " +
+  "opowiadała czytelniczce przy kawie: pierwsza osoba, konkrety o smaku, konsystencji i okazji " +
+  "('robię go, gdy...'), naturalnie wplecione frazy, których ludzie szukają w Google. " +
+  "Tekst MA brzmieć jak od człowieka: bez słów-wytrychów ('odkryj', 'idealny na każdą okazję', " +
+  "'kulinarna podróż', 'rozpieść podniebienie'), bez wyliczanek po trzy przymiotniki, bez " +
+  "podsumowania na końcu, bez zwrotów typu 'warto podkreślić', maksymalnie jeden wykrzyknik. " +
+  "Krótkie i długie zdania na zmianę, jak w mowie. " +
+  "ZAKAZ ABSOLUTNY: nigdy nie używaj długiego myślnika (—) ani półpauzy (–) w tekstach opisowych " +
+  "(about, lead, seoDescription, kroki) — to najbardziej rozpoznawalny znak tekstu od AI; " +
+  "zamiast tego stawiaj przecinek, dwukropek albo kropkę.";
 
 // ---------- Gemini path (free tier; understands the audio track natively) ----------
 
@@ -183,6 +206,9 @@ const GEMINI_SCHEMA = {
   properties: {
     title: { type: "STRING" },
     lead: { type: "STRING" },
+    about: { type: "STRING" },
+    categorySlugs: { type: "ARRAY", items: { type: "STRING" } },
+    difficulty: { type: "STRING", nullable: true },
     ingredientGroups: {
       type: "ARRAY",
       items: {
@@ -230,13 +256,15 @@ const GEMINI_SCHEMA = {
       required: ["brand"],
     },
   },
-  required: ["title", "lead", "ingredientGroups", "steps", "seoTitle", "seoDescription", "keywords", "tags", "confidence"],
+  required: ["title", "lead", "about", "categorySlugs", "ingredientGroups", "steps", "seoTitle", "seoDescription", "keywords", "tags", "confidence"],
 };
 
 async function draftRecipeGemini(
   frames: string[],
   audioPath: string | null,
-  caption: string
+  caption: string,
+  categoryOptions: string,
+  tagOptions: string
 ) {
   const parts: any[] = frames.map((f) => ({
     inline_data: {
@@ -255,6 +283,8 @@ async function draftRecipeGemini(
   parts.push({
     text:
       `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
+      `Dozwolone kategorie (slug — nazwa):\n${categoryOptions}\n\n` +
+      `Dozwolone tagi (slug — nazwa, wg grup):\n${tagOptions}\n\n` +
       "Klatki pochodzą z rolki wideo (kolejność chronologiczna); dołączona jest też ścieżka audio. " +
       "Odtwórz z tego kompletny przepis do publikacji na blogu.",
   });
@@ -296,7 +326,9 @@ async function draftRecipeOpenAICompat(
   cfg: CompatConfig,
   frames: string[],
   transcript: string | null,
-  caption: string
+  caption: string,
+  categoryOptions: string,
+  tagOptions: string
 ) {
   const content: any[] = frames.map((f) => ({
     type: "image_url",
@@ -307,11 +339,16 @@ async function draftRecipeOpenAICompat(
     text:
       `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
       `Transkrypcja audio:\n${transcript || "(brak transkrypcji)"}\n\n` +
+      `Dozwolone kategorie (slug — nazwa):\n${categoryOptions}\n\n` +
+      `Dozwolone tagi (slug — nazwa, wg grup):\n${tagOptions}\n\n` +
       "Odtwórz z tego kompletny przepis do publikacji na blogu. " +
-      "Odpowiedz WYŁĄCZNIE poprawnym JSON-em o polach: title, lead, ingredientGroups " +
+      "Odpowiedz WYŁĄCZNIE poprawnym JSON-em o polach: title, lead, about (sekcja 'Kilka słów " +
+      "o tym przepisie', 2-3 akapity rozdzielone pustą linią), categorySlugs[] (1-2 slugi z listy " +
+      "dozwolonych), difficulty ('latwy'|'sredni'|'trudny'|null), ingredientGroups " +
       "[{title|null, items[]}], steps [{title|null, body, tip|null}], prepTimeMin|null, " +
       "totalTimeMin|null, servings|null, kcal|null, protein|null, fat|null, carbs|null, " +
-      "seoTitle, seoDescription, keywords, tags[], confidence ('high'|'medium'|'low'), notes|null, " +
+      "seoTitle, seoDescription, keywords, tags[] (slugi z listy dozwolonych), " +
+      "confidence ('high'|'medium'|'low'), notes|null, " +
       "sponsor|null ({brand, code|null, note|null} — współpraca reklamowa, jeśli występuje).",
   });
 
@@ -342,7 +379,9 @@ async function draftRecipe(
   client: Anthropic,
   frames: string[],
   transcript: string | null,
-  caption: string
+  caption: string,
+  categoryOptions: string,
+  tagOptions: string
 ) {
   const imageBlocks = frames.map((f) => ({
     type: "image" as const,
@@ -356,11 +395,7 @@ async function draftRecipe(
   const response = await client.messages.parse({
     model: "claude-opus-4-8",
     max_tokens: 16000,
-    system:
-      "Jesteś asystentem food blogerki Roksany (blog dietanaluzie.pl — zdrowe, fit przepisy po polsku). " +
-      "Z materiałów z TikToka (klatki wideo, transkrypcja audio, opis posta) odtwarzasz kompletny przepis. " +
-      "Pisz naturalnym, ciepłym stylem bloga. Ilości składników podawaj po polsku ('pół szklanki', '2 łyżki'). " +
-      "Jeśli czegoś nie widać ani nie słychać — nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence.",
+    system: SYSTEM_PROMPT,
     messages: [
       {
         role: "user",
@@ -371,6 +406,8 @@ async function draftRecipe(
             text:
               `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
               `Transkrypcja audio:\n${transcript || "(brak transkrypcji)"}\n\n` +
+              `Dozwolone kategorie (slug — nazwa):\n${categoryOptions}\n\n` +
+              `Dozwolone tagi (slug — nazwa, wg grup):\n${tagOptions}\n\n` +
               "Odtwórz z tego kompletny przepis do publikacji na blogu.",
           },
         ],
@@ -415,6 +452,38 @@ function pickProvider(): Provider | null {
   return null;
 }
 
+// Category tree lives in the DB — the model must pick from real slugs
+async function loadCategoryOptions() {
+  const { categories } = schema;
+  const [parent] = await db.select().from(categories).where(eq(categories.slug, "przepisy"));
+  if (!parent) return { options: "(brak)", allowed: new Set<string>() };
+  const children = await db.select().from(categories).where(eq(categories.parentId, parent.id));
+  return {
+    options: children.map((c) => `${c.slug} — ${c.name}`).join("\n"),
+    allowed: new Set(children.map((c) => c.slug)),
+  };
+}
+
+// Curated tag vocabulary (tags.group != null) — the model may only pick
+// from these; anything else is dropped before the draft is saved
+async function loadTagOptions() {
+  const { tags } = schema;
+  const rows = await db.select().from(tags).where(isNotNull(tags.group));
+  const byGroup = new Map<string, string[]>();
+  for (const t of rows) {
+    const list = byGroup.get(t.group!) ?? [];
+    list.push(`${t.slug} — ${t.name}`);
+    byGroup.set(t.group!, list);
+  }
+  const options = [...byGroup.entries()]
+    .map(([g, list]) => `[${g}]\n${list.join("\n")}`)
+    .join("\n");
+  return {
+    options: options || "(brak)",
+    allowed: new Set(rows.map((t) => t.slug)),
+  };
+}
+
 const TOTAL_STEPS = 5;
 
 // Progress lands in the DB (live view in /admin/tiktok) and in the terminal
@@ -427,13 +496,18 @@ async function setProgress(impId: number, step: number, label: string) {
     .where(eq(imports.id, impId));
 }
 
-async function processOne(provider: Provider, imp: typeof imports.$inferSelect) {
+async function processOne(
+  provider: Provider,
+  imp: typeof imports.$inferSelect,
+  cats: { options: string; allowed: Set<string> },
+  tagVocab: { options: string; allowed: Set<string> }
+) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dnl-import-"));
   try {
     await db.update(imports).set({ status: "processing" }).where(eq(imports.id, imp.id));
 
     await setProgress(imp.id, 1, "Pobieranie wideo z TikToka...");
-    const { videoPath, caption, durationSec } = await downloadVideo(imp.tiktokUrl, dir);
+    const { videoPath, caption, durationSec, viewCount } = await downloadVideo(imp.tiktokUrl, dir);
     await db.update(imports).set({ caption: caption || null }).where(eq(imports.id, imp.id));
 
     await setProgress(imp.id, 2, "Wyciąganie klatek z wideo...");
@@ -445,7 +519,7 @@ async function processOne(provider: Provider, imp: typeof imports.$inferSelect) 
       await setProgress(imp.id, 3, "Przygotowanie ścieżki audio...");
       const audioPath = await extractAudio(videoPath, dir).catch(() => null);
       await setProgress(imp.id, 4, "Gemini ogląda i słucha rolki...");
-      draft = await draftRecipeGemini(frames, audioPath, caption);
+      draft = await draftRecipeGemini(frames, audioPath, caption, cats.options, tagVocab.options);
     } else {
       await setProgress(imp.id, 3, "Transkrypcja audio (Whisper)...");
       transcript = await transcribe(videoPath, dir).catch((e) => {
@@ -455,11 +529,15 @@ async function processOne(provider: Provider, imp: typeof imports.$inferSelect) 
       const modelName = provider.kind === "claude" ? "Claude" : provider.cfg.model;
       await setProgress(imp.id, 4, `${modelName} analizuje ${frames.length} klatek i transkrypcję...`);
       if (provider.kind === "claude") {
-        draft = await draftRecipe(provider.client, frames, transcript, caption);
+        draft = await draftRecipe(provider.client, frames, transcript, caption, cats.options, tagVocab.options);
       } else {
-        draft = await draftRecipeOpenAICompat(provider.cfg, frames, transcript, caption);
+        draft = await draftRecipeOpenAICompat(provider.cfg, frames, transcript, caption, cats.options, tagVocab.options);
       }
     }
+
+    // Hard guarantee, independent of the prompt: only real slugs survive
+    draft.categorySlugs = (draft.categorySlugs ?? []).filter((c: string) => cats.allowed.has(c));
+    draft.tags = (draft.tags ?? []).filter((t: string) => tagVocab.allowed.has(t));
 
     await setProgress(imp.id, 5, "Zapisywanie draftu...");
     const frameUrls = publishFrames(imp.id, frames);
@@ -467,7 +545,7 @@ async function processOne(provider: Provider, imp: typeof imports.$inferSelect) 
       .update(imports)
       .set({
         status: "ready",
-        aiDraft: { ...draft, frames: frameUrls, videoDurationSec: durationSec },
+        aiDraft: { ...draft, frames: frameUrls, videoDurationSec: durationSec, videoViews: viewCount },
         transcript,
         videoPath: null,
         progress: null,
@@ -508,8 +586,9 @@ async function main() {
   }
 
   console.log(`Silnik AI: ${provider.kind}`);
+  const [cats, tagVocab] = await Promise.all([loadCategoryOptions(), loadTagOptions()]);
   for (const imp of pending) {
-    await processOne(provider, imp);
+    await processOne(provider, imp, cats, tagVocab);
   }
   await sql.end();
 }

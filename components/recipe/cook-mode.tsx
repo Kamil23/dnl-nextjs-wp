@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scaleIngredient } from "../../lib/quantity";
+import { useWakeLock } from "../../lib/use-wake-lock";
 
 // Fullscreen step-by-step cooking mode: one step per screen, big type,
 // keyboard/tap navigation, auto wake lock and timers detected in step text
@@ -89,24 +90,13 @@ export default function CookMode({ recipe, factor, onClose }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [next, prev, onClose]);
 
-  // Wake lock for the whole session, re-acquired on tab return
+  // Screen stays awake for the whole session (Wake Lock + video fallback)
+  useWakeLock();
+
   useEffect(() => {
-    let lock: any = null;
-    let released = false;
-    const acquire = async () => {
-      try { lock = await (navigator as any).wakeLock?.request("screen"); } catch {}
-    };
-    const onVisible = () => {
-      if (document.visibilityState === "visible" && !released) acquire();
-    };
-    acquire();
-    document.addEventListener("visibilitychange", onVisible);
     document.body.style.overflow = "hidden";
     return () => {
-      released = true;
-      document.removeEventListener("visibilitychange", onVisible);
       document.body.style.overflow = "";
-      lock?.release?.().catch(() => {});
     };
   }, []);
 
@@ -196,7 +186,7 @@ export default function CookMode({ recipe, factor, onClose }) {
             <div className="text-7xl mb-6">🎉</div>
             <h2 className="text-4xl font-bold mb-3">Smacznego!</h2>
             <p className="text-white/60 text-lg mb-8">
-              Udało się? Oceń przepis — pomożesz innym go znaleźć.
+              Udało się? Oceń przepis, pomożesz innym go znaleźć.
             </p>
             <button
               onClick={onClose}

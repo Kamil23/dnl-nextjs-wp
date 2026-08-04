@@ -1,5 +1,7 @@
+import Head from 'next/head'
 import { GetStaticPaths, GetStaticProps } from 'next'
 import Container from '../components/container'
+import InfiniteRecipes from '../components/infinite-recipes'
 import PostBody from '../components/post-body'
 import MoreStories from '../components/more-stories'
 import PostHeader from '../components/post-header'
@@ -8,6 +10,7 @@ import SectionSeparator from '../components/section-separator'
 import Layout from '../components/layout'
 import Tags from '../components/tags'
 import RecipeHero from '../components/recipe/recipe-hero'
+import SearchHero from '../components/home/search-hero'
 import IngredientsCard from '../components/recipe/ingredients-card'
 import StepsList from '../components/recipe/steps-list'
 import MacroTable from '../components/recipe/macro-table'
@@ -21,13 +24,14 @@ import {
   getPageByUri,
   getAllRecipeUris,
   getAllPageUris,
+  listRecipeArchive,
   listPublishedRecipes,
   toLegacyPost,
   toListingEdge,
 } from '../lib/queries'
-import { buildSeoForRecipe, buildSeoForPage } from '../lib/seo'
+import { buildSeoForRecipe, buildSeoForPage, pagedSeo } from '../lib/seo'
 import { MENU_EDGES } from '../lib/menu'
-import { SITE_URL } from '../lib/constants'
+import { SITE_URL, CATEGORY_POSTS_PER_PAGE } from '../lib/constants'
 import ShareBtns from '../components/share-btns'
 import Breadcrumbs from '../components/breadcrumbs'
 import RecipeSchema from '../components/recipe-schema'
@@ -35,7 +39,18 @@ import WpSeo from '../components/wp-seo'
 
 // Recipes and static pages live at their original WordPress permalinks —
 // the URL set is the SEO contract with Google and never changes.
-export default function Content({ kind, recipe, post, page, morePosts, introHtml, seo }) {
+export default function Content({
+  kind,
+  recipe,
+  post,
+  page,
+  morePosts,
+  introHtml,
+  seo,
+  listingTitle,
+  pageNum,
+  totalPages,
+}) {
   // Articles always use the article template, whatever data they carry
   const isArticle = kind === 'recipe' && recipe.uri.startsWith('/artykuly/')
   const structured =
@@ -70,7 +85,9 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
                   <StepsList steps={recipe.steps} />
                   <MacroTable recipe={recipe} />
                   {recipe.videoUrl && (
-                    <TikTokEmbed url={recipe.videoUrl} title={recipe.title} poster={recipe.heroImage} />
+                    <div id="wideo" className="scroll-mt-6">
+                      <TikTokEmbed url={recipe.videoUrl} title={recipe.title} poster={recipe.heroImage} />
+                    </div>
                   )}
                   <RatingWidget recipeId={recipe.id} rating={recipe.rating} />
                   <ShareCard url={post.link} mediaUrl={post.featuredImage?.node.sourceUrl} title={post.title} />
@@ -95,6 +112,7 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
 
             <div className="print:hidden">
               <SectionSeparator />
+              <SearchHero compact />
               {morePosts.length > 0 && (
                 <>
                   <h2 className="text-2xl font-bold tracking-tight mb-6">Zobacz też</h2>
@@ -123,8 +141,35 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
             </article>
 
             <SectionSeparator />
+            <SearchHero compact />
             {morePosts.length > 0 && <MoreStories posts={morePosts} />}
           </>
+        ) : kind === 'listing' ? (
+          <article>
+            <Head>
+              {pageNum > 1 && (
+                <link
+                  rel="prev"
+                  href={
+                    pageNum === 2
+                      ? `${SITE_URL}/przepisy/`
+                      : `${SITE_URL}/przepisy/page/${pageNum - 1}/`
+                  }
+                />
+              )}
+              {pageNum < totalPages && (
+                <link rel="next" href={`${SITE_URL}/przepisy/page/${pageNum + 1}/`} />
+              )}
+            </Head>
+            <PostTitle>{listingTitle}</PostTitle>
+            <InfiniteRecipes
+              key={pageNum}
+              initialPosts={morePosts}
+              startPage={pageNum}
+              totalPages={totalPages}
+              basePath="/przepisy/"
+            />
+          </article>
         ) : (
           <article>
             <PostTitle>{page.title}</PostTitle>
@@ -139,6 +184,49 @@ export default function Content({ kind, recipe, post, page, morePosts, introHtml
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   const segments = Array.isArray(params.uri) ? params.uri : [params.uri]
   const uri = `/${segments.join('/')}/`
+
+  // /przepisy/ is the recipe archive (a WP query-loop page on the old site,
+  // canonical → /kategoria/przepisy/) — render it as the standard tile
+  // listing instead of the raw block HTML. /przepisy/<slug>/ stays a recipe.
+  const isRecipeArchive =
+    segments[0] === 'przepisy' &&
+    (segments.length === 1 || (segments.length === 3 && segments[1] === 'page'))
+
+  if (isRecipeArchive) {
+    let pageNum = 1
+    if (segments.length === 3) {
+      pageNum = parseInt(segments[2], 10)
+      if (!Number.isInteger(pageNum) || pageNum < 2) {
+        return { notFound: true, revalidate: 60 }
+      }
+    }
+
+    const allRecipes = await listRecipeArchive()
+
+    const totalPages = Math.max(1, Math.ceil(allRecipes.length / CATEGORY_POSTS_PER_PAGE))
+    const pageRecipes = allRecipes.slice(
+      (pageNum - 1) * CATEGORY_POSTS_PER_PAGE,
+      pageNum * CATEGORY_POSTS_PER_PAGE
+    )
+    if (pageNum > 1 && pageRecipes.length === 0) {
+      return { notFound: true, revalidate: 60 }
+    }
+
+    const wpPage = await getPageByUri('/przepisy/')
+    const seo = buildSeoForPage(wpPage ?? { title: 'Przepisy', uri: '/przepisy/' })
+
+    return {
+      props: {
+        kind: 'listing',
+        listingTitle: wpPage?.title ?? 'Przepisy',
+        morePosts: pageRecipes.map(toListingEdge),
+        pageNum,
+        totalPages,
+        seo: JSON.parse(JSON.stringify(pagedSeo(seo, pageNum, totalPages))),
+      },
+      revalidate: 60,
+    }
+  }
 
   const recipe = await getRecipeByUri(uri)
   if (recipe) {

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Container from './container'
-import { SITE_TITLE } from '../lib/constants'
+import { InstagramIcon, TikTokIcon } from './icons'
+import { SITE_TITLE, SOCIAL_TIKTOK_URL, SOCIAL_INSTAGRAM_URL } from '../lib/constants'
 
 export default function Footer() {
   return (
@@ -16,6 +17,26 @@ export default function Footer() {
             <Link href="/polityka-prywatnosci/" className="hover:text-gray-900">Polityka prywatności</Link>
             <Link href="/regulamin/" className="hover:text-gray-900">Regulamin</Link>
           </nav>
+          <div className="flex gap-4">
+            <a
+              href={SOCIAL_TIKTOK_URL}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="TikTok — @roksanacieplicka"
+              className="hover:text-gray-900 transition-colors"
+            >
+              <TikTokIcon className="w-4 h-4" />
+            </a>
+            <a
+              href={SOCIAL_INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Instagram — @roksanacieplicka"
+              className="hover:text-gray-900 transition-colors"
+            >
+              <InstagramIcon className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </Container>
     </footer>

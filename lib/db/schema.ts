@@ -8,6 +8,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  uuid,
   uniqueIndex,
   index,
   primaryKey,
@@ -34,6 +35,9 @@ export const recipes = pgTable(
     heroImage: text("hero_image"),
     videoUrl: text("video_url"),
     videoDurationSec: integer("video_duration_sec"),
+    // TikTok play count, captured at import and refreshed by
+    // scripts/refresh-tiktok-stats.ts; editable in the admin as a fallback
+    videoViews: integer("video_views"),
     authorName: text("author_name"),
     prepTimeMin: integer("prep_time_min"),
     cookTimeMin: integer("cook_time_min"),
@@ -144,6 +148,10 @@ export const tags = pgTable(
     id: serial("id").primaryKey(),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
+    // Curated vocabulary: tags with a group are the only ones the import
+    // AI may assign (sezon powers the homepage calendar and /sezon/ pages).
+    // Legacy WP tags keep group = null until reviewed.
+    group: text("group", { enum: ["sezon", "skladnik", "rodzaj", "okazja"] }),
   },
   (t) => [uniqueIndex("tags_slug_idx").on(t.slug)]
 );
@@ -212,6 +220,21 @@ export const imports = pgTable("imports", {
   operatorNotes: text("operator_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+// Shared shopping lists: anyone with the UUID link can read and edit
+// (same trust model as a shared note). `data` mirrors the localStorage
+// shape (ShoppingRecipe[]); stale lists are purged after 60 days.
+export const sharedLists = pgTable(
+  "shared_lists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name"),
+    data: jsonb("data").notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("shared_lists_updated_idx").on(t.updatedAt)]
+);
 
 export const redirects = pgTable(
   "redirects",

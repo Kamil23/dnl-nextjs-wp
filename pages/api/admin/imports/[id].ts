@@ -1,11 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { requireAdminApi } from "../../../../lib/admin-auth";
 import { db, dbSchema } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slugify";
 import { syncRecipeToSearch } from "../../../../lib/search-sync";
 
-const { imports, recipes, ingredientGroups, ingredients, steps, tags, recipeTags } = dbSchema;
+const { imports, recipes, ingredientGroups, ingredients, steps, tags, recipeTags, categories, recipeCategories } = dbSchema;
+
+// "Kilka słów o tym przepisie" arrives as plain paragraphs — wrap in <p>
+function aboutToHtml(about: unknown): string | null {
+  if (typeof about !== "string" || !about.trim()) return null;
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return about
+    .trim()
+    .split(/\n{2,}/)
+    .map((p) => `<p>${esc(p.trim()).replace(/\n/g, "<br/>")}</p>`)
+    .join("\n");
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdminApi(req, res)) return;
@@ -57,8 +69,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           heroImage,
           sponsor: d.sponsor ?? null,
           lead: d.lead ?? null,
+          contentHtml: aboutToHtml(d.about),
+          difficulty: ["latwy", "sredni", "trudny"].includes(d.difficulty) ? d.difficulty : null,
           videoUrl: imp.tiktokUrl,
           videoDurationSec: d.videoDurationSec ?? null,
+          videoViews: Number.isFinite(d.videoViews) ? d.videoViews : null,
           authorName: "Roksana",
           prepTimeMin: d.prepTimeMin ?? null,
           totalTimeMin: d.totalTimeMin ?? null,
@@ -100,15 +115,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         );
       }
 
-      for (const rawTag of d.tags ?? []) {
-        const name = (rawTag || "").trim();
-        if (!name) continue;
-        const [tag] = await tx
-          .insert(tags)
-          .values({ slug: slugify(name), name })
-          .onConflictDoUpdate({ target: tags.slug, set: { name } })
-          .returning({ id: tags.id });
-        await tx.insert(recipeTags).values({ recipeId: recipe.id, tagId: tag.id });
+      // Category links: the chosen subcategories plus the "Przepisy" parent
+      // (the WP convention every archive/tile query builds on)
+      const slugs: string[] = Array.isArray(d.categorySlugs) ? d.categorySlugs.filter(Boolean) : [];
+      const catRows = slugs.length
+        ? await tx.select().from(categories).where(inArray(categories.slug, slugs))
+        : [];
+      const catIds = new Set(catRows.map((c) => c.id));
+      for (const c of catRows) {
+        if (c.parentId != null) catIds.add(c.parentId);
+      }
+      if (catIds.size) {
+        await tx.insert(recipeCategories).values(
+          Array.from(catIds).map((categoryId) => ({ recipeId: recipe.id, categoryId }))
+        );
+      }
+
+      // Strict vocabulary: the AI may only attach existing curated tags
+      // (group != null). New drafts send slugs; older ones sent names, so
+      // slugify covers both. Unknown tags are dropped, never created.
+      const wantedTagSlugs = Array.from(
+        new Set(
+          (Array.isArray(d.tags) ? d.tags : [])
+            .map((t: unknown) => slugify(String(t ?? "").trim()))
+            .filter(Boolean)
+        )
+      ) as string[];
+      if (wantedTagSlugs.length) {
+        const allowed = await tx
+          .select({ id: tags.id })
+          .from(tags)
+          .where(and(inArray(tags.slug, wantedTagSlugs), isNotNull(tags.group)));
+        if (allowed.length) {
+          await tx
+            .insert(recipeTags)
+            .values(allowed.map((t) => ({ recipeId: recipe.id, tagId: t.id })));
+        }
       }
 
       await tx
