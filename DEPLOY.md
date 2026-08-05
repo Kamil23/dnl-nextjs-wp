@@ -125,14 +125,43 @@ docker compose run --rm tools npm run search:reindex
 | Restart aplikacji | `docker compose restart web` |
 | Status | `docker compose ps` |
 
-### Backup (rób regularnie — DB **oraz** media to teraz nasze jedyne źródło prawdy)
+### Backupy (DB **oraz** media — jedyne źródło prawdy)
+
+Backupy lądują w **`/srv/dnl/backups`** (DB dump + tar mediów). Trzy drogi tworzenia, wszystkie do tego samego katalogu:
+
+- **Panel admina** `/admin/backupy` — lista, przycisk „Zrób backup teraz", pobieranie plików. (Kontener `web` ma `pg_dump` i zamontowane media + katalog backupów.)
+- **Cron co 3 dni** (host) — patrz niżej.
+- **Ręcznie z hosta** (awaryjnie): `/opt/dnl/backup.sh`.
+
+**Jednorazowy setup katalogu** (musi być zapisywalny przez usera kontenera, uid 1001):
 ```bash
-# Postgres
-docker compose exec db pg_dump -U dnl dietanaluzie | gzip > backup-db-$(date +%F).sql.gz
-# Media (uploady legacy + nowe klatki)
-tar czf backup-media-$(date +%F).tar.gz -C /srv/dnl media
+mkdir -p /srv/dnl/backups && chown 1001:1001 /srv/dnl/backups
 ```
-Odtworzenie: `gunzip -c backup-db-*.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie` oraz `tar xzf backup-media-*.tar.gz -C /srv/dnl`. **Pełny restore wymaga OBU** — sama baza bez mediów = strony bez obrazów.
+
+**Skrypt hosta + cron co 3 dni:**
+```bash
+cat > /opt/dnl/backup.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+cd /opt/dnl
+DEST=/srv/dnl/backups; mkdir -p "$DEST"
+STAMP=$(date +%Y-%m-%dT%H-%M-%S)
+docker compose exec -T db pg_dump --no-owner --no-privileges -U dnl dietanaluzie | gzip > "$DEST/db-$STAMP.sql.gz"
+tar czf "$DEST/media-$STAMP.tar.gz" -C /srv/dnl/media .
+ls -1t "$DEST"/db-*.sql.gz    2>/dev/null | tail -n +9 | xargs -r rm -f
+ls -1t "$DEST"/media-*.tar.gz 2>/dev/null | tail -n +9 | xargs -r rm -f
+EOF
+chmod +x /opt/dnl/backup.sh
+( crontab -l 2>/dev/null | grep -v '/opt/dnl/backup.sh'; echo "0 3 */3 * * /opt/dnl/backup.sh >> /var/log/dnl-backup.log 2>&1" ) | crontab -
+```
+(nazwy `db-<stamp>.sql.gz` / `media-<stamp>.tar.gz` są wspólne z panelem, więc lista w adminie pokazuje jedno i drugie; trzymane ostatnie 8 z każdego rodzaju.)
+
+**Odtworzenie:**
+```bash
+gunzip -c /srv/dnl/backups/db-<stamp>.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie
+tar xzf /srv/dnl/backups/media-<stamp>.tar.gz -C /srv/dnl/media
+```
+**Pełny restore wymaga OBU** — sama baza bez mediów = strony bez obrazów. Dla DR co jakiś czas ściągnij `db-*.sql.gz` off-box.
 
 ---
 
