@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Container from './container'
 import NewsletterSignup from './newsletter-signup'
+import { resetConsent } from './cookie-consent'
 import { InstagramIcon, TikTokIcon } from './icons'
 import { SITE_TITLE, SOCIAL_TIKTOK_URL, SOCIAL_INSTAGRAM_URL } from '../lib/constants'
 
@@ -20,6 +21,7 @@ export default function Footer() {
             <Link href="/kalkulator-kalorii/" className="hover:text-gray-900">Kalkulator kalorii</Link>
             <Link href="/polityka-prywatnosci/" className="hover:text-gray-900">Polityka prywatności</Link>
             <Link href="/regulamin/" className="hover:text-gray-900">Regulamin</Link>
+            <button onClick={resetConsent} className="hover:text-gray-900">Ustawienia cookies</button>
           </nav>
           <div className="flex gap-4">
             <a
