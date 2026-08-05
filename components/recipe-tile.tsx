@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { absUrl } from "../lib/seo";
 import Link from "next/link";
 
 // Big clickable recipe tile for instant-search results: photo-first,
@@ -25,7 +26,7 @@ export default function RecipeTile({ recipe }: { recipe: RecipeTileData }) {
       <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-bottomSmall bg-amber-50">
         {recipe.heroImage && (
           <Image
-            src={recipe.heroImage}
+            src={absUrl(recipe.heroImage)}
             alt={recipe.title}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

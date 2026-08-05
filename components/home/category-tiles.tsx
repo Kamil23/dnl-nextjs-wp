@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { absUrl } from "../../lib/seo";
 import Link from "next/link";
 
 function przepisow(n: number) {
@@ -22,7 +23,7 @@ export default function CategoryTiles({ tiles }) {
           >
             {t.image ? (
               <Image
-                src={t.image}
+                src={absUrl(t.image)}
                 alt={t.name}
                 fill
                 sizes="(max-width: 640px) 50vw, 25vw"

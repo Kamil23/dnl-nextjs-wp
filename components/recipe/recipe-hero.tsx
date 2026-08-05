@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { absUrl } from "../../lib/seo";
 import Link from "next/link";
 
 function Stars({ value }: { value: number }) {
@@ -40,7 +41,7 @@ export default function RecipeHero({ recipe }) {
       {recipe.heroImage && (
         <div className="relative aspect-[4/3] md:aspect-square rounded-3xl overflow-hidden shadow-medium">
           <Image
-            src={recipe.heroImage}
+            src={absUrl(recipe.heroImage)}
             alt={`Zdjęcie: ${recipe.title}`}
             fill
             priority

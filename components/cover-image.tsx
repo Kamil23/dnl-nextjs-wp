@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { absUrl } from "../lib/seo";
 
 interface Props {
   title: string;
@@ -16,7 +17,7 @@ export default function CoverImage({ title, coverImage, uri }: Props) {
       <Image
       fill
         alt={`Zdjęcie poglądowe dla ${title}`}
-        src={coverImage?.node.sourceUrl}
+        src={coverImage?.node.sourceUrl ? absUrl(coverImage.node.sourceUrl) : undefined}
         className={`shadow-small object-cover contrast-125 rounded-lg ${
           uri ? "hover:shadow-medium transition-shadow duration-200" : ""
         }`}
