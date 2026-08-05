@@ -62,6 +62,13 @@ services:
       ADMIN_SECRET: ${ADMIN_SECRET}
       GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
       GA4_SERVICE_ACCOUNT_KEY_PATH: ${GA4_SERVICE_ACCOUNT_KEY_PATH:-}
+    volumes:
+      # Self-hosted (TikTok) media is stored with RELATIVE URLs (/uploads/...),
+      # which next/image optimizes via a self-fetch to THIS container — so the
+      # web server must serve them from public/ too. Caddy serving /uploads/* at
+      # the edge is not enough for the image optimizer. Legacy /wp-content images
+      # use absolute URLs and are fetched remotely, so they don't need this.
+      - ${MEDIA_DIR:-/srv/dnl/media}/uploads:/app/public/uploads:ro
     expose:
       - "3000"
 
