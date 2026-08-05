@@ -105,26 +105,63 @@ export function escapeHtml(s: string) {
     .replace(/"/g, "&quot;");
 }
 
-export function mailShell(inner: string, unsubToken?: string) {
+// Table-based 600px shell (email clients have no flex/grid), warm brand
+// palette, hidden preheader (the line shown next to the subject in the inbox
+// list — a proven open-rate lever) and a spam-compliant footer.
+export function mailShell(inner: string, unsubToken?: string, preheader?: string) {
   const footer = unsubToken
-    ? `<p style="margin-top:32px;font-size:12px;color:#9ca3af;">
-         Dostajesz tę wiadomość, bo zapisałaś(-eś) się na ${escapeHtml(SITE_TITLE)}.
-         <a href="${unsubscribeUrl(unsubToken)}" style="color:#9ca3af;">Wypisz się</a>
-       </p>`
+    ? `<tr><td style="padding:20px 28px 28px;text-align:center;">
+         <p style="margin:0;font-size:12px;line-height:1.6;color:#a8a29e;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+           Dostajesz tę wiadomość, bo zapisałaś(-eś) się na ${escapeHtml(SITE_TITLE)} (dietanaluzie.pl).<br/>
+           <a href="${unsubscribeUrl(unsubToken)}" style="color:#a8a29e;">Wypisz się</a> · odpowiedz na tego maila, jeśli masz pytanie
+         </p>
+       </td></tr>`
     : "";
-  return `<!doctype html><html lang="pl"><body style="margin:0;background:#faf9f7;padding:24px 12px;">
-  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px 28px;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1f2937;line-height:1.6;">
-    <div style="font-size:22px;font-weight:700;margin-bottom:4px;">${escapeHtml(SITE_TITLE)}</div>
-    <div style="font-size:13px;color:#9ca3af;margin-bottom:24px;">jak jeść i nie zwariować?</div>
-    ${inner}
+  const pre = preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>`
+    : "";
+  return `<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  @media only screen and (max-width: 620px) {
+    .container { width: 100% !important; border-radius: 0 !important; }
+    .px { padding-left: 20px !important; padding-right: 20px !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#faf6f0;">
+${pre}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#faf6f0;">
+<tr><td align="center" style="padding:24px 8px;">
+  <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#ffffff;border-radius:20px;overflow:hidden;">
+    <tr><td class="px" style="padding:28px 28px 0;text-align:center;">
+      <div style="font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#1f2937;">dieta na luzie 🧡</div>
+      <div style="font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:13px;color:#a8a29e;margin-top:2px;">jak jeść i nie zwariować?</div>
+    </td></tr>
+    <tr><td class="px" style="padding:20px 28px 8px;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2937;">
+      ${inner}
+    </td></tr>
     ${footer}
-  </div>
+  </table>
+</td></tr>
+</table>
 </body></html>`;
 }
 
-function button(href: string, label: string) {
-  return `<a href="${href}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;border-radius:10px;padding:12px 22px;font-weight:600;">${escapeHtml(label)}</a>`;
+// Bulletproof button: padded table cell with bgcolor renders everywhere
+// (a styled <a> alone collapses in Outlook)
+export function mailButton(href: string, label: string, bg = "#111827", color = "#ffffff") {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0;">
+    <tr><td bgcolor="${bg}" style="border-radius:999px;">
+      <a href="${href}" style="display:inline-block;padding:14px 28px;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;font-weight:700;color:${color};text-decoration:none;border-radius:999px;">${escapeHtml(label)}</a>
+    </td></tr>
+  </table>`;
 }
+
+const button = (href: string, label: string) => mailButton(href, label);
 
 export function confirmMail(token: string, magnet: string | null) {
   const m = magnet ? MAGNETS[magnet] : null;
@@ -135,33 +172,38 @@ export function confirmMail(token: string, magnet: string | null) {
       : "Po potwierdzeniu będziesz dostawać nowe przepisy i sezonowe pomysły.";
   return {
     subject: "Potwierdź zapis do Diety na luzie",
-    html: mailShell(`
-      <p style="margin:0 0 16px;">Cześć! Jeden klik i gotowe:</p>
-      <p style="margin:0 0 20px;">${button(confirmUrl(token), "Potwierdzam zapis")}</p>
-      <p style="margin:0 0 8px;color:#6b7280;font-size:14px;">${promise}</p>
-      <p style="margin:0;color:#9ca3af;font-size:13px;">Jeśli to nie Ty, po prostu zignoruj tę wiadomość.</p>
-    `),
+    html: mailShell(
+      `
+      <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Cześć! Jeden klik i gotowe:</p>
+      <div style="margin:0 0 20px;">${button(confirmUrl(token), "Potwierdzam zapis ✓")}</div>
+      <p style="margin:0 0 8px;color:#6b7280;font-size:14px;line-height:1.6;">${promise}</p>
+      <p style="margin:0 0 20px;color:#9ca3af;font-size:13px;">Jeśli to nie Ty, po prostu zignoruj tę wiadomość.</p>
+    `,
+      undefined,
+      "Jeden klik i prezent jest Twój"
+    ),
   };
 }
 
 export function welcomeMail(token: string, magnet: string | null) {
   const m = magnet ? MAGNETS[magnet] : null;
   const magnetBlock = m?.file
-    ? `<p style="margin:0 0 8px;">Twój prezent czeka:</p>
-       <p style="margin:0 0 20px;">${button(`${SITE_URL}${m.file}`, `Pobierz PDF: ${m.title}`)}</p>`
+    ? `<p style="margin:0 0 8px;font-size:16px;">Twój prezent czeka:</p>
+       <div style="margin:0 0 20px;">${mailButton(`${SITE_URL}${m.file}`, `Pobieram PDF 🎁`, "#f59e0b", "#1f2937")}</div>`
     : m
-      ? `<p style="margin:0 0 20px;">Jesteś na liście oczekujących Planera. Odezwę się, gdy będzie gotowy do testów.</p>`
+      ? `<p style="margin:0 0 20px;font-size:16px;">Jesteś na liście oczekujących Planera. Odezwę się, gdy będzie gotowy do testów.</p>`
       : "";
   return {
     subject: m?.file ? `Twój PDF: ${m.title}` : "Witaj w Diecie na luzie!",
     html: mailShell(
       `
-      <p style="margin:0 0 16px;">Dzięki za zapis! To ja, Roksana.</p>
+      <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Dzięki za zapis! To ja, Roksana.</p>
       ${magnetBlock}
-      <p style="margin:0 0 8px;color:#6b7280;font-size:14px;">Co jakiś czas wyślę Ci nowe przepisy z moich rolek, sezonowe pomysły i rzeczy, których nie wrzucam nigdzie indziej.</p>
-      <p style="margin:0;color:#6b7280;font-size:14px;">Na start zajrzyj po inspiracje: <a href="${SITE_URL}/kategoria/przepisy/" style="color:#111827;">wszystkie przepisy</a>.</p>
+      <p style="margin:0 0 8px;color:#6b7280;font-size:14px;line-height:1.6;">Co jakiś czas wyślę Ci nowe przepisy z moich rolek, sezonowe pomysły i rzeczy, których nie wrzucam nigdzie indziej.</p>
+      <p style="margin:0 0 20px;color:#6b7280;font-size:14px;">Na start zajrzyj po inspiracje: <a href="${SITE_URL}/kategoria/przepisy/" style="color:#b45309;font-weight:600;">wszystkie przepisy →</a></p>
     `,
-      token
+      token,
+      m?.file ? "Twój PDF jest w środku" : "Miło Cię widzieć!"
     ),
   };
 }
