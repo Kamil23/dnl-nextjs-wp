@@ -180,6 +180,28 @@ export default function ShoppingListPage() {
       <Head>
         <title>{`${name || 'Listy zakupów'} - ${SITE_TITLE}`}</title>
         <meta name="robots" content="noindex, follow" />
+        {/* The shopping list is its own "app": amber cart icons override
+            the site-wide dnl set (same keys as in Meta) */}
+        <link
+          key="apple-touch-icon"
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href="/favicon/lista/apple-touch-icon.png"
+        />
+        <link
+          key="icon-32"
+          rel="icon"
+          type="image/png"
+          sizes="32x32"
+          href="/favicon/lista/favicon-32x32.png"
+        />
+        <link
+          key="icon-16"
+          rel="icon"
+          type="image/png"
+          sizes="16x16"
+          href="/favicon/lista/favicon-16x16.png"
+        />
       </Head>
       <Container>
         <article className="max-w-2xl mx-auto mb-24">

@@ -3,18 +3,22 @@ import Head from 'next/head'
 export default function Meta() {
   return (
     <Head>
+      {/* keys let pages swap the icon set (lista uses the amber cart) */}
       <link
+        key="apple-touch-icon"
         rel="apple-touch-icon"
         sizes="180x180"
         href="/favicon/apple-touch-icon.png"
       />
       <link
+        key="icon-32"
         rel="icon"
         type="image/png"
         sizes="32x32"
         href="/favicon/favicon-32x32.png"
       />
       <link
+        key="icon-16"
         rel="icon"
         type="image/png"
         sizes="16x16"
