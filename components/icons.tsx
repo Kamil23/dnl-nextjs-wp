@@ -69,6 +69,47 @@ export function ChevronRightIcon({ className = "w-3 h-3" }: IconProps) {
   );
 }
 
+// iOS-style share: square with an arrow leaving through the top
+export function ShareIosIcon({ className = "w-5 h-5" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M12 15V3" />
+      <path d="m8 6.5 4-4 4 4" />
+      <path d="M8.5 10.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5" />
+    </svg>
+  );
+}
+
+// Material-style share: three connected nodes
+export function ShareAndroidIcon({ className = "w-5 h-5" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      className={className}
+      aria-hidden
+    >
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="m8.3 13.3 7.4 4.4" />
+      <path d="m15.7 6.3-7.4 4.4" />
+    </svg>
+  );
+}
+
 export function MailIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg

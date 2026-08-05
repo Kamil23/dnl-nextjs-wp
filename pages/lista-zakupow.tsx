@@ -5,6 +5,7 @@ import Container from '../components/container'
 import Layout from '../components/layout'
 import InstallPrompt from '../components/shopping-list/install-prompt'
 import ListEditor from '../components/shopping-list/list-editor'
+import { ShareAndroidIcon, ShareIosIcon } from '../components/icons'
 import { MENU_EDGES } from '../lib/menu'
 import { SITE_TITLE } from '../lib/constants'
 import { osobaPlural, type ListOp, type ShoppingItem } from '../lib/shopping-list-ops'
@@ -44,6 +45,9 @@ export default function ShoppingListPage() {
   const [peerTyping, setPeerTyping] = useState(false)
   const [myLists, setMyLists] = useState<SavedList[]>([])
   const [copied, setCopied] = useState(false)
+  // Platform share glyph (iOS square-with-arrow vs Material nodes) —
+  // decided after mount so SSR and hydration render the same thing
+  const [isIos, setIsIos] = useState(false)
   // Bumped to force a fresh SSE subscription after a transient "gone"
   const [reconnectNonce, setReconnectNonce] = useState(0)
   const cleanedRef = useRef(false)
@@ -61,6 +65,7 @@ export default function ShoppingListPage() {
     }
     refresh()
     window.addEventListener(SHOPPING_EVENT, refresh)
+    setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent))
     // Offline shell + installability for the PWA
     navigator.serviceWorker?.register('/sw.js').catch(() => {})
     return () => window.removeEventListener(SHOPPING_EVENT, refresh)
@@ -178,13 +183,23 @@ export default function ShoppingListPage() {
       </Head>
       <Container>
         <article className="max-w-2xl mx-auto mb-24">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div className="flex items-end justify-between gap-4">
             <EditableTitle name={name} onRename={rename} />
             <button
               onClick={shareLink}
-              className="rounded-full bg-amber-500 text-white px-5 py-2 text-sm font-semibold hover:bg-amber-600 transition mb-4"
+              aria-label="Udostępnij listę"
+              title="Udostępnij listę"
+              className={`p-2 mb-5 shrink-0 transition ${
+                copied ? 'text-green-600' : 'text-gray-400 hover:text-gray-900'
+              }`}
             >
-              {copied ? '✓ Link skopiowany!' : '🔗 Udostępnij'}
+              {copied ? (
+                <span className="text-sm font-semibold">✓</span>
+              ) : isIos ? (
+                <ShareIosIcon className="w-6 h-6" />
+              ) : (
+                <ShareAndroidIcon className="w-6 h-6" />
+              )}
             </button>
           </div>
 
@@ -248,7 +263,6 @@ export default function ShoppingListPage() {
                         isCurrent ? 'border-amber-300' : 'border-gray-100'
                       }`}
                     >
-                      <span aria-hidden>🛒</span>
                       {isCurrent ? (
                         <span className="flex-1 font-semibold text-gray-800 truncate">
                           {listDisplayName(l, myLists)}
@@ -354,7 +368,7 @@ function EditableTitle({
       title="Kliknij, aby zmienić nazwę"
       className="text-4xl md:text-5xl font-bold tracking-tighter leading-tight mt-12 mb-4 cursor-pointer hover:text-amber-600 transition"
     >
-      {name || 'Lista zakupów'} 🛒
+      {name || 'Lista zakupów'}
     </h1>
   )
 }
