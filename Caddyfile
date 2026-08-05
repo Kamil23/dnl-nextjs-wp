@@ -32,6 +32,14 @@
 		file_server
 	}
 
+	# Lead-magnet PDFs (newsletter welcome mails link here); no immutable —
+	# the files get re-printed when recipes change
+	handle /pobrane/* {
+		root * /srv/media
+		header Cache-Control "public, max-age=86400"
+		file_server
+	}
+
 	# Everything else → the Next app
 	handle {
 		reverse_proxy web:3000
