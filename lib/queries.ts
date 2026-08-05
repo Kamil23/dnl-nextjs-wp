@@ -392,11 +392,18 @@ export async function getCategoryTiles() {
     .where(eq(categories.parentId, parent.id))
     .orderBy(categories.name);
 
+  // Recipes live in several categories, so two tiles could pick the same
+  // hero — track used covers and take each category's first unused one
+  // (falling back to a duplicate only when every candidate is taken)
+  const usedCovers = new Set<string>();
   const tiles = [];
   for (const c of children) {
     const inTree = await listRecipesInCategoryTree(c.id);
-    const withImage = inTree.find((r) => r.heroImage);
     if (inTree.length === 0) continue;
+    const withImage =
+      inTree.find((r) => r.heroImage && !usedCovers.has(r.heroImage)) ??
+      inTree.find((r) => r.heroImage);
+    if (withImage?.heroImage) usedCovers.add(withImage.heroImage);
     tiles.push({
       name: c.name,
       uri: c.uri,
