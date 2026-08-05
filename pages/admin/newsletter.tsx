@@ -61,6 +61,7 @@ export default function AdminNewsletter() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [testTo, setTestTo] = useState("");
+  const [previewHtml, setPreviewHtml] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/newsletter");
@@ -76,6 +77,24 @@ export default function AdminNewsletter() {
 
   const draft = editions.find((e) => e.status === "draft") ?? null;
   const sent = editions.filter((e) => e.status === "sent");
+
+  // Live preview: re-render the mail from the UNSAVED editor state (debounced)
+  useEffect(() => {
+    if (!draft) {
+      setPreviewHtml("");
+      return;
+    }
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/admin/newsletter/${draft.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preview", content: draft.content }),
+      });
+      if (res.ok) setPreviewHtml((await res.json()).html ?? "");
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft?.id, draft?.content]);
   const confirmed = stats.find((s) => s.status === "confirmed")?.n ?? 0;
   const pending = stats.find((s) => s.status === "pending")?.n ?? 0;
   const unsub = stats.find((s) => s.status === "unsubscribed")?.n ?? 0;
@@ -213,7 +232,8 @@ export default function AdminNewsletter() {
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8 items-start">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
             <h2 className="font-semibold">Szkic wydania #{draft.number}</h2>
             <div className="flex gap-2">
@@ -391,6 +411,19 @@ export default function AdminNewsletter() {
               {busy ? "Pracuję…" : `Zatwierdź i wyślij do ${confirmed}`}
             </button>
           </div>
+        </div>
+
+        {/* Podgląd na żywo — rerenderuje się przy każdej zmianie w edytorze */}
+        <div className="xl:sticky xl:top-6">
+          <p className="text-xs text-gray-400 font-medium mb-2">
+            Podgląd na żywo (temat: <span className="text-gray-600">{draft.subject}</span>)
+          </p>
+          <iframe
+            srcDoc={previewHtml}
+            title="Podgląd wydania"
+            className="w-full h-[78vh] rounded-xl border border-gray-200 bg-[#faf6f0]"
+          />
+        </div>
         </div>
       )}
 

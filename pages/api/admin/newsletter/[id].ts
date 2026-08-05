@@ -51,6 +51,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const action = req.body?.action;
     const content = edition.content as EditionContent;
 
+    // Live preview: render straight from the editor's UNSAVED state
+    if (action === "preview") {
+      const draftContent = (req.body?.content as EditionContent) ?? content;
+      return res.status(200).json({
+        html: renderEditionHtml(edition.number, draftContent, "0".repeat(48)),
+      });
+    }
+
     if (action === "test") {
       const to = String(req.body?.to || "").trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
