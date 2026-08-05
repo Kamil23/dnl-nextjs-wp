@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { scaleIngredient } from "../../lib/quantity";
 import { useWakeLock } from "../../lib/use-wake-lock";
 
@@ -104,7 +105,10 @@ export default function CookMode({ recipe, factor, onClose }) {
   const timerSeconds = useMemo(() => (step ? detectTimerSeconds(step.body) : null), [step]);
   const ingredients = recipe.ingredientGroups.flatMap((g) => g.items);
 
-  return (
+  // Portal to <body>: this component mounts inside the lg:sticky
+  // ingredients column, and position:sticky creates a stacking context, so
+  // z-[100] alone still painted under later siblings (the video iframe)
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] bg-gray-950 text-white flex flex-col print:hidden"
       onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
@@ -214,6 +218,7 @@ export default function CookMode({ recipe, factor, onClose }) {
           Dalej →
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
