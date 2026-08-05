@@ -57,6 +57,7 @@ export default function RecipeEditor({ initial, allCategories }) {
   }));
   const [tagsText, setTagsText] = useState(form.tags.join(", "));
   const [saving, setSaving] = useState(false);
+  const [estimating, setEstimating] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
@@ -100,6 +101,41 @@ export default function RecipeEditor({ initial, allCategories }) {
     } else {
       const err = await res.json().catch(() => ({}));
       setMessage({ ok: false, text: err.error || "Błąd zapisu" });
+    }
+  }
+
+  async function runEstimate() {
+    const items = form.ingredientGroups
+      .flatMap((g) => g.items)
+      .map((s) => (s ?? "").trim())
+      .filter(Boolean);
+    if (items.length === 0) {
+      setMessage({ ok: false, text: "Dodaj składniki, żeby oszacować" });
+      return;
+    }
+    setEstimating(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/recipes/estimate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, servings: form.servings || null, ingredients: items }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Błąd estymacji");
+      setForm((f) => ({
+        ...f,
+        kcal: String(data.kcal),
+        protein: data.protein != null ? String(data.protein) : "",
+        fat: data.fat != null ? String(data.fat) : "",
+        carbs: data.carbs != null ? String(data.carbs) : "",
+        servings: f.servings || (data.assumedServings ? String(data.assumedServings) : ""),
+      }));
+      setMessage({ ok: true, text: `Oszacowano: ${data.kcal} kcal/porcję — zapisz, by utrwalić` });
+    } catch (e: any) {
+      setMessage({ ok: false, text: e.message || "Błąd estymacji" });
+    } finally {
+      setEstimating(false);
     }
   }
 
@@ -364,6 +400,18 @@ export default function RecipeEditor({ initial, allCategories }) {
                 <input inputMode="decimal" value={form.carbs} onChange={(e) => set("carbs", e.target.value)} className={inputCls} />
               </label>
             </div>
+            <button
+              type="button"
+              onClick={runEstimate}
+              disabled={estimating}
+              className="mt-4 w-full text-sm border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {estimating ? "Szacuję…" : "✨ Oszacuj kalorie i makro z AI"}
+            </button>
+            <p className="text-xs text-gray-400 mt-2">
+              Szacuje kcal/białko/tłuszcz/węgle na porcję ze składników i uzupełnia
+              pola powyżej. Pamiętaj kliknąć „Zapisz".
+            </p>
           </Section>
 
           <Section title="Współpraca reklamowa">

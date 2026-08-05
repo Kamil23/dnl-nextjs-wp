@@ -20,6 +20,7 @@ import { promisify } from "util";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { estimateMacros } from "../lib/server/estimate-macros";
 import { eq, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -542,6 +543,29 @@ async function processOne(
     // Hard guarantee, independent of the prompt: only real slugs survive
     draft.categorySlugs = (draft.categorySlugs ?? []).filter((c: string) => cats.allowed.has(c));
     draft.tags = (draft.tags ?? []).filter((t: string) => tagVocab.allowed.has(t));
+
+    // Fallback: the model is told to always estimate macros, but if it still
+    // left kcal empty, estimate from the ingredients so no imported recipe ships
+    // without nutrition. Non-fatal — a failure just leaves kcal null.
+    if (draft.kcal == null) {
+      const macroItems = (draft.ingredientGroups ?? [])
+        .flatMap((g: any) => g.items ?? [])
+        .map((s: any) => String(s).trim())
+        .filter(Boolean);
+      if (macroItems.length) {
+        try {
+          const m = await estimateMacros(draft.title ?? "przepis", draft.servings ?? null, macroItems);
+          draft.kcal = m.kcal;
+          draft.protein ??= m.protein;
+          draft.fat ??= m.fat;
+          draft.carbs ??= m.carbs;
+          if (draft.servings == null && m.assumedServings) draft.servings = m.assumedServings;
+          console.log(`[${imp.id}] makra doszacowane fallbackiem: ${m.kcal} kcal/porcję`);
+        } catch (e: any) {
+          console.warn(`[${imp.id}] fallback makr nieudany: ${e.message?.slice(0, 100)}`);
+        }
+      }
+    }
 
     await setProgress(imp.id, 5, "Zapisywanie draftu...");
     const frameUrls = publishFrames(imp.id, frames);
