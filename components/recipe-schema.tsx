@@ -5,6 +5,7 @@ import {
   SOCIAL_INSTAGRAM_URL,
 } from "../lib/constants";
 import { minutesToIso8601 } from "../lib/recipe-parser";
+import { absUrl } from "../lib/seo";
 import type { FullRecipe } from "../lib/queries";
 
 // Recipe + BreadcrumbList JSON-LD built from structured DB fields —
@@ -37,7 +38,7 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
         "@type": "Recipe",
         name: recipe.title,
         url: `${SITE_URL}${recipe.uri}`,
-        image: recipe.heroImage ? [recipe.heroImage] : undefined,
+        image: recipe.heroImage ? [absUrl(recipe.heroImage)] : undefined,
         datePublished: iso(recipe.publishedAt),
         dateModified: iso(recipe.updatedAt),
         description: recipe.seoDescription || recipe.lead || undefined,
@@ -94,7 +95,7 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
               name: recipe.title,
               description: recipe.seoDescription || recipe.lead || recipe.title,
               contentUrl: recipe.videoUrl,
-              thumbnailUrl: recipe.heroImage || undefined,
+              thumbnailUrl: recipe.heroImage ? absUrl(recipe.heroImage) : undefined,
               uploadDate: iso(recipe.publishedAt),
               duration: recipe.videoDurationSec
                 ? `PT${Math.floor(recipe.videoDurationSec / 60)}M${recipe.videoDurationSec % 60}S`

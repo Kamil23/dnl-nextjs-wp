@@ -135,13 +135,17 @@ async function extractFrames(videoPath: string, dir: string, maxFrames = 8) {
   return fs.readdirSync(framesDir).sort().map((f) => path.join(framesDir, f));
 }
 
-// Frames double as hero-image candidates — publish them under /uploads
+// Frames double as hero-image candidates — publish them under /uploads.
+// In production the worker (tools container) and the web server are separate
+// containers, so frames must land on the shared media volume (UPLOADS_DIR),
+// not the ephemeral public/ dir. Caddy serves /uploads/* from that volume.
 function publishFrames(importId: number, frames: string[]): string[] {
-  const publicDir = path.join(process.cwd(), "public", "uploads", "imports", String(importId));
-  fs.mkdirSync(publicDir, { recursive: true });
+  const baseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
+  const outDir = path.join(baseDir, "imports", String(importId));
+  fs.mkdirSync(outDir, { recursive: true });
   return frames.map((f) => {
     const name = path.basename(f);
-    fs.copyFileSync(f, path.join(publicDir, name));
+    fs.copyFileSync(f, path.join(outDir, name));
     return `/uploads/imports/${importId}/${name}`;
   });
 }

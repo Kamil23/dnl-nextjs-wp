@@ -22,6 +22,13 @@ export type YoastHeadJson = {
   schema?: Record<string, any> | null;
 };
 
+// Legacy WordPress images are absolute (https://dietanaluzie.pl/wp-content/...);
+// new TikTok/manual images are stored relative (/uploads/...). og:image and
+// JSON-LD image MUST be absolute for social/Google, so normalize here.
+export function absUrl(u: string): string {
+  return /^https?:\/\//.test(u) ? u : `${SITE_URL}${u.startsWith("/") ? "" : "/"}${u}`;
+}
+
 const DEFAULT_ROBOTS = {
   index: "index",
   follow: "follow",
@@ -64,7 +71,7 @@ export function buildSeoForRecipe(recipe: SeoSource & {
     og_type: "article",
     article_published_time: recipe.publishedAt?.toISOString(),
     article_modified_time: recipe.updatedAt?.toISOString(),
-    og_image: recipe.heroImage ? [{ url: recipe.heroImage }] : undefined,
+    og_image: recipe.heroImage ? [{ url: absUrl(recipe.heroImage) }] : undefined,
     author: recipe.authorName || undefined,
   };
 }

@@ -40,11 +40,10 @@ services:
       context: .
       target: runner
       # `next build` runs getStaticProps → needs the DB. host network lets the
-      # build reach the DB published on 127.0.0.1:5432. Bring db up + import
-      # data BEFORE building web (see DEPLOY.md).
+      # build reach the DB published on 127.0.0.1:5432. Bring db up + load data
+      # BEFORE building web (see DEPLOY.md).
       network: host
       args:
-        WORDPRESS_API_URL: ${WORDPRESS_API_URL}
         APP_ORIGIN: ${APP_ORIGIN}
         DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB}
     restart: unless-stopped
@@ -56,7 +55,6 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      WORDPRESS_API_URL: ${WORDPRESS_API_URL}
       APP_ORIGIN: ${APP_ORIGIN}
       MEILI_HOST: http://meili:7700
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
@@ -80,11 +78,16 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      WORDPRESS_API_URL: ${WORDPRESS_API_URL}
+      # Only the import script still talks to WordPress (one-off, pre-cutover).
+      WORDPRESS_API_URL: ${WORDPRESS_API_URL:-}
       MEILI_HOST: http://meili:7700
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      # TikTok import frames are written here (shared media volume, served by Caddy)
+      UPLOADS_DIR: /srv/media/uploads
+    volumes:
+      - ${MEDIA_DIR:-/srv/dnl/media}:/srv/media
     command: ["node", "--version"]
 
   caddy:
@@ -100,6 +103,8 @@ services:
       SITE_DOMAIN: ${SITE_DOMAIN:-dietanaluzie.pl}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Self-hosted media (legacy /wp-content/uploads + new /uploads) served from disk
+      - ${MEDIA_DIR:-/srv/dnl/media}:/srv/media:ro
       - caddy_data:/data
       - caddy_config:/config
 

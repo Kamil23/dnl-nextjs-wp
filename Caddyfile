@@ -1,8 +1,8 @@
-# Reverse proxy + automatic HTTPS for the primary domain. Caddy fetches a
-# Let's Encrypt cert automatically once DNS for the domain points at this box
-# (ports 80/443 must be reachable). The Next app itself proxies
-# /wp-content/uploads/* to the WordPress subdomain — Caddy just forwards
-# everything to the app.
+# Reverse proxy + automatic HTTPS for the primary domain. WordPress is retired:
+# the legacy /wp-content/uploads/* media (and TikTok import frames under
+# /uploads/*) are self-hosted and served straight from disk by Caddy, before
+# anything reaches the Next app. Media lives in /srv/media (bind-mounted from
+# the host, see docker-compose.yml). Everything else proxies to the app.
 {
 	# email for Let's Encrypt expiry notices (optional but recommended)
 	email admin@{$SITE_DOMAIN:dietanaluzie.pl}
@@ -17,7 +17,25 @@
 		# HSTS — only enable once you are sure HTTPS is stable
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	}
-	reverse_proxy web:3000
+
+	# Legacy WordPress media (Google Images traffic) — served from disk, 1:1 URLs
+	handle /wp-content/uploads/* {
+		root * /srv/media
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# TikTok import frames + any new self-hosted media
+	handle /uploads/* {
+		root * /srv/media
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Everything else → the Next app
+	handle {
+		reverse_proxy web:3000
+	}
 }
 
 # Canonical host is the apex (matches the live site's canonical). Send www → apex.

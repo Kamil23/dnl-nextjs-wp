@@ -13,6 +13,9 @@ RUN npm ci
 FROM node:22-alpine AS source
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+# ffmpeg + yt-dlp for the TikTok import worker (the `tools` service). The
+# runtime image (runner) does not include these — it only copies the built server.
+RUN apk add --no-cache ffmpeg yt-dlp
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 

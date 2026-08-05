@@ -1,61 +1,88 @@
 # Wdrożenie i utrzymanie — dietanaluzie.pl
 
-Self-hosting na VPS (Hetzner) w Docker Compose: **Postgres + Meilisearch + Next.js (standalone) + Caddy** (TLS/reverse proxy). Cały ruch idzie przez Caddy → `web:3000`. Aplikacja sama proxuje `/wp-content/uploads/*` do WordPressa na subdomenie.
+Self-hosting na VPS (Hetzner) w Docker Compose: **Postgres + Meilisearch + Next.js (standalone) + Caddy** (TLS/reverse proxy). **WordPress jest wyłączony** — wszystkie media hostujemy u siebie, Caddy serwuje je bezpośrednio z dysku.
 
 ```
 Internet ──▶ Caddy (:80/:443, auto-TLS)
-                 └─▶ web (Next.js :3000) ──▶ db (Postgres :5432)
-                          │                └─▶ meili (:7700)
-                          └─ /wp-content/uploads/* ─▶ https://wp.dietanaluzie.pl  (stary WP, tylko media)
+                 ├─ /wp-content/uploads/*  ─▶ pliki z /srv/dnl/media  (legacy, Google Images)
+                 ├─ /uploads/*             ─▶ pliki z /srv/dnl/media  (klatki TikTok)
+                 └─ reszta                 ─▶ web (Next.js :3000) ──▶ db (Postgres)
+                                                                   └─▶ meili (:7700)
 ```
 
-> Pełny audyt pre-prod i szczegółowy runbook cutover: **[Artifact](https://claude.ai/code/artifact/cbb072f2-e7f4-45a8-a9a3-0e0cf5468b6b)**.
+> Pełny audyt pre-prod: **[Artifact](https://claude.ai/code/artifact/cbb072f2-e7f4-45a8-a9a3-0e0cf5468b6b)**.
 
----
-
-## ⚠️ Zasada nr 1 (bez tego wszystko pada)
-
-WordPress musi żyć na **subdomenie** `wp.dietanaluzie.pl`, a `WORDPRESS_API_URL` musi wskazywać na nią — **nigdy** na apex `dietanaluzie.pl`. Inaczej proxy mediów zapętla się na aplikację i wszystkie obrazy przepisów zwracają 5xx. Build celowo **przerywa się** (guard w `next.config.js`), jeśli `WORDPRESS_API_URL` == `APP_ORIGIN`.
+WordPress (stary box Plesk) nie jest już częścią architektury. Trzymamy go **włączonego, ale nieużywanego** przez kilka tygodni po cutoverze jako rollback-safety, potem można go wygasić.
 
 ---
 
 ## Wymagania na VPS
 
 - Docker Engine + Docker Compose v2 (`docker compose version`)
-- Otwarte porty 80 i 443
-- Kontrola DNS dla `dietanaluzie.pl` (rekordy A/AAAA + subdomena `wp`)
-- Stary WordPress przeniesiony na `wp.dietanaluzie.pl` (serwuje tylko `/wp-content/uploads/*`)
+- Otwarte porty 80 i 443 (uwaga: jeśli działa tam już inna appka z własnym reverse proxy — patrz "Współdzielenie serwera")
+- Kontrola DNS dla `dietanaluzie.pl` (rekord A/AAAA apex + www)
+- Katalog na media, np. `/srv/dnl/media`, z podkatalogami `wp-content/uploads/` (legacy) i `uploads/` (nowe)
 
 ---
 
-## Pierwsze wdrożenie (cutover)
+## Pierwsze wdrożenie
 
 ```bash
-# 0. Kod na serwerze
+# 0. Kod
 git clone <repo> dnl && cd dnl
 git checkout <tag-lub-main>
 
 # 1. Konfiguracja
 cp .env.production.example .env
-nano .env          # uzupełnij WSZYSTKO; ADMIN_SECRET/MEILI_MASTER_KEY: openssl rand -hex 32
-                   # WORDPRESS_API_URL = https://wp.dietanaluzie.pl/graphql  (subdomena!)
+nano .env    # uzupełnij; ADMIN_SECRET/MEILI_MASTER_KEY: openssl rand -hex 32
+             # WORDPRESS_API_URL zostaw PUSTE (WP jest wyłączony)
+             # MEDIA_DIR=/srv/dnl/media
 
-# 2. Baza + search
+# 2. Media: skopiuj katalog uploads ze starego WP na serwer (patrz niżej "Transfer mediów")
+#    Docelowo: /srv/dnl/media/wp-content/uploads/...   (legacy)
+#              /srv/dnl/media/uploads/...              (nowe/TikTok, tworzone później)
+mkdir -p /srv/dnl/media/wp-content/uploads /srv/dnl/media/uploads
+
+# 3. Baza + search
 docker compose up -d db meili
+docker compose run --rm tools npm run db:push        # schemat (Drizzle)
 
-# 3. Schemat + dane (kolejność ważna — build pre-renderuje strony z bazy)
-docker compose run --rm tools npm run db:push          # migracje (Drizzle)
-docker compose run --rm tools npm run import:wp         # import 113 przepisów z WP (subdomena)
-docker compose run --rm tools npm run search:reindex    # indeks Meilisearch
+# 4. Dane: załaduj gotową bazę (zrzut z lokalnego/dev Postgresa — 114 przepisów).
+#    Na maszynie z danymi:  pg_dump "$DATABASE_URL" | gzip > dnl.sql.gz
+#    Skopiuj dnl.sql.gz na VPS, potem:
+gunzip -c dnl.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie
+docker compose run --rm tools npm run search:reindex # indeks Meilisearch z DB
 
-# 4. Build aplikacji (czyta zapełnioną bazę przez sieć hosta) + start
+# 5. Build aplikacji (czyta zapełnioną bazę przez sieć hosta) + start
 docker compose build web
 docker compose up -d web caddy
 
-# 5. Smoke-test (patrz sekcja "Weryfikacja po starcie")
+# 6. Smoke-test (sekcja "Weryfikacja po starcie")
 ```
 
-> **Rollback:** przełącz rekordy A/AAAA apexu z powrotem na IP starego WP. WP jest nietknięty. Trzymaj niski TTL (300s) na czas cutoveru.
+> **Alternatywa dla kroku 4** (jeśli nie robisz zrzutu): `docker compose run --rm tools npm run import:wp` — ale wymaga ŻYWEGO WordPressa (skrypt scrapuje apex po ocenach), więc uruchom PRZED przełączeniem DNS i ustaw `WORDPRESS_API_URL` na stary apex.
+
+---
+
+## Transfer mediów (~0,3 GB, jednorazowo)
+
+Kopiujemy **cały** katalog `wp-content/uploads/` (z wariantami rozmiarów — inline `<img>` i `next/image` odwołują się do konkretnych nazw plików).
+
+**Opcja A — rsync (jeśli masz SSH do Plesku):**
+```bash
+rsync -avz --progress \
+  plesk-user@51.75.54.187:/var/www/vhosts/dietanaluzie.pl/httpdocs/wp-content/uploads/ \
+  /srv/dnl/media/wp-content/uploads/
+# (ścieżkę źródłową zweryfikuj `ls` na Plesku — układ vhostów bywa różny)
+```
+
+**Opcja B — panel Plesk (bez SSH):** File Manager → spakuj `wp-content/uploads/` do ZIP → pobierz → wgraj na VPS → rozpakuj do `/srv/dnl/media/wp-content/uploads/`.
+
+Weryfikacja kompletności:
+```bash
+find /srv/dnl/media/wp-content/uploads -type f | wc -l   # liczba plików
+du -sh /srv/dnl/media                                     # rozmiar
+```
 
 ---
 
@@ -66,33 +93,23 @@ docker compose up -d web caddy
 cd dnl
 git pull
 docker compose build web        # rebuild obrazu (build czyta bazę → db musi być up)
-docker compose up -d web         # podmiana kontenera, reszta bez restartu
-```
-Caddy, db i meili zostają nietknięte. `web` wstaje z nowym obrazem w kilka sekund.
-
-### B. Zmiana schematu bazy (nowe kolumny/tabele)
-```bash
-git pull
-docker compose run --rm tools npm run db:push   # najpierw migracja
-docker compose build web
-docker compose up -d web
+docker compose up -d web        # podmiana kontenera; caddy/db/meili/media nietknięte
 ```
 
-### C. Zmiana w wyszukiwarce (pola indeksu / nowe przepisy masowo)
-```bash
-docker compose run --rm tools npm run search:reindex
-```
-
-### D. Aktualizacja wszystkiego naraz (skrót)
+### B. Zmiana schematu bazy
 ```bash
 git pull
 docker compose run --rm tools npm run db:push
 docker compose build web
 docker compose up -d web
+```
+
+### C. Zmiana w wyszukiwarce / masowa zmiana przepisów
+```bash
 docker compose run --rm tools npm run search:reindex
 ```
 
-> **ISR:** treść przepisów odświeża się sama (`revalidate: 60`) — edycje w panelu admina nie wymagają redeploya. Redeploy potrzebny tylko przy zmianach **kodu** lub **schematu**.
+> **ISR:** edycje treści w panelu admina odświeżają się same (`revalidate: 60`) — redeploy tylko przy zmianach **kodu** lub **schematu**. Media dodane w panelu/imporcie lądują na wolumenie `/srv/dnl/media` i są od razu serwowane przez Caddy (bez rebuildu).
 
 ---
 
@@ -100,40 +117,40 @@ docker compose run --rm tools npm run search:reindex
 
 | Zadanie | Komenda |
 |---|---|
-| Dodanie/edycja przepisu | Panel: `https://dietanaluzie.pl/admin` (edycja robi on-demand ISR) |
-| Moderacja ocen | Panel: `/admin/oceny` (tylko zatwierdzone liczą się do JSON-LD) |
+| Dodanie/edycja przepisu | Panel `https://dietanaluzie.pl/admin` (edycja robi on-demand ISR) |
+| Moderacja ocen | `/admin/oceny` (tylko zatwierdzone liczą się do JSON-LD) |
 | Import z TikToka | `/admin/tiktok` (wklej link) → `docker compose run --rm tools npm run imports:process` |
 | Reindeks wyszukiwarki | `docker compose run --rm tools npm run search:reindex` |
-| Logi aplikacji | `docker compose logs -f web` |
-| Logi proxy/TLS | `docker compose logs -f caddy` |
+| Logi aplikacji / proxy | `docker compose logs -f web` / `docker compose logs -f caddy` |
 | Restart aplikacji | `docker compose restart web` |
 | Status | `docker compose ps` |
 
-### Backup bazy (rób regularnie / przed każdą aktualizacją schematu)
+### Backup (rób regularnie — DB **oraz** media to teraz nasze jedyne źródło prawdy)
 ```bash
-docker compose exec db pg_dump -U dnl dietanaluzie | gzip > backup-$(date +%F).sql.gz
-# odtworzenie:
-gunzip -c backup-YYYY-MM-DD.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie
+# Postgres
+docker compose exec db pg_dump -U dnl dietanaluzie | gzip > backup-db-$(date +%F).sql.gz
+# Media (uploady legacy + nowe klatki)
+tar czf backup-media-$(date +%F).tar.gz -C /srv/dnl media
 ```
+Odtworzenie: `gunzip -c backup-db-*.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie` oraz `tar xzf backup-media-*.tar.gz -C /srv/dnl`. **Pełny restore wymaga OBU** — sama baza bez mediów = strony bez obrazów.
 
 ---
 
 ## Weryfikacja po starcie
 
 ```bash
-# Media proxy działa i NIE zapętla się (najważniejsze):
+# Legacy media serwowane lokalnie z dysku (NIE z WP):
 curl -sI https://dietanaluzie.pl/wp-content/uploads/2019/11/20191027_103430-1-scaled.jpg | head -5
-# oczekiwane: HTTP/2 200, image/jpeg  —  NIE 508/502
+# oczekiwane: HTTP/2 200, image/jpeg  (w `docker compose logs caddy` widać file_server)
 
-# Przykładowy przepis 200 + poprawny <title>/canonical/JSON-LD:
-curl -s https://dietanaluzie.pl/przepisy/ciastka-owsiane-z-gorzka-czekolada/ | grep -E '<title>|canonical'
+# Przepis 200 + <title>/canonical/og:image (absolutny):
+curl -s https://dietanaluzie.pl/przepisy/ciastka-owsiane-z-gorzka-czekolada/ | grep -E '<title>|canonical|og:image'
 
 # Redirecty sklepu (301 → /):
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://dietanaluzie.pl/sklep/
 
 # Sitemap + robots:
 curl -s https://dietanaluzie.pl/sitemap.xml | grep -c '<loc>'
-curl -s https://dietanaluzie.pl/robots.txt
 
 # Rich Results: wklej URL przepisu do https://search.google.com/test/rich-results
 # GSC: zgłoś https://dietanaluzie.pl/sitemap.xml, monitoruj 404 przez 7-14 dni.
@@ -141,25 +158,33 @@ curl -s https://dietanaluzie.pl/robots.txt
 
 ---
 
+## Współdzielenie serwera (inna appka już działa na tym Dockerze)
+
+Jeśli na VPS działa już inna aplikacja z **własnym reverse proxy** na 80/443, NIE uruchamiaj naszego Caddy na tych portach. Dwa wyjścia:
+- Wepnij nasz `web` (i serwowanie mediów) w istniejące proxy — skieruj `dietanaluzie.pl` na `web:3000`, a `/wp-content/uploads/*` i `/uploads/*` na katalog `/srv/dnl/media` (statyczny root w tamtym proxy). Wtedy usuń serwis `caddy` z compose.
+- Albo daj naszemu Caddy inne porty i postaw je za tamtym proxy.
+
+Jeśli 80/443 są wolne — zostaje nasze Caddy bez zmian. (Ustalimy na podstawie rekonesansu: `docker ps`, `sudo ss -tlnp | grep -E ':80|:443'`.)
+
+---
+
 ## Troubleshooting
 
-**Build przerywa się: „Media proxy loop…”** — `WORDPRESS_API_URL` wskazuje na apex. Ustaw subdomenę `wp.` w `.env` i rebuild.
+**Obrazy 404** — sprawdź, czy pliki są w `/srv/dnl/media/wp-content/uploads/...` i czy `MEDIA_DIR` w `.env` wskazuje właściwy katalog; `docker compose logs caddy` pokaże, czy `file_server` je znajduje.
 
-**Obrazy 404 / `508 Loop Detected`** — WP nie jest na subdomenie albo `WORDPRESS_API_URL` zły. Sprawdź `curl -I https://wp.dietanaluzie.pl/wp-content/uploads/…jpg` = 200.
+**`next/image` nie ładuje hero** — apex musi być w `images.domains` (dzieje się automatycznie z `APP_ORIGIN`). Jeśli optymalizator w kontenerze `web` nie dosięga publicznego hosta (brak hairpin NAT), dodaj alias sieciowy `dietanaluzie.pl` na serwis `caddy` w compose, żeby self-fetch rozwiązał się wewnątrz sieci Dockera.
 
-**next/image: „hostname not configured”** — apex musi być w `images.domains`; dzieje się to automatycznie, gdy `APP_ORIGIN` jest ustawione w `.env`. Zweryfikuj `.env` i rebuild.
+**Klatki TikTok znikają po imporcie** — `tools` musi mieć zamontowany wolumen `/srv/dnl/media` i `UPLOADS_DIR=/srv/media/uploads` (jest w compose). Pliki mają lądować w `/srv/dnl/media/uploads/imports/<id>/`.
 
-**`docker compose build web` nie widzi bazy** — db musi być `up` i zdrowe przed buildem (`docker compose up -d db && docker compose ps`). Build używa `network: host` i łączy się z `127.0.0.1:5432`.
+**`docker compose build web` nie widzi bazy** — db musi być `up`/healthy przed buildem. Build używa `network: host` i łączy się z `127.0.0.1:5432`.
 
-**Caddy nie dostaje certu** — DNS apexu musi już wskazywać na VPS, porty 80/443 otwarte. Do testów przed cutoverem używaj IP/`/etc/hosts` i `curl -k`.
-
-**Homepage bez „Hitów czytelników” z GA** — brak `GA4_*`; działa fallback na najlepiej oceniane. To nie błąd.
+**Caddy nie dostaje certu** — DNS apexu musi już wskazywać na VPS, porty 80/443 otwarte. Do testów przed cutoverem: IP/`/etc/hosts` + `curl -k`.
 
 ---
 
 ## Uwagi
 
 - `.env` jest w `.gitignore` — sekrety nigdy nie trafiają do repo.
-- `DATABASE_URL` przekazywany jako build-arg trafia do warstw obrazu (`docker history`). To lokalne dane dostępowe do bazy na Twoim VPS — nie współdziel obrazu publicznie.
-- **Nie wyłączaj** `wp.dietanaluzie.pl` — to źródło wszystkich obrazów przepisów. Osobny, późniejszy projekt: przeniesienie `uploads` na VPS/obiektowy storage i przepięcie proxy.
+- `DATABASE_URL` jako build-arg trafia do warstw obrazu (`docker history`) — to lokalne dane dostępowe do bazy na Twoim VPS, nie współdziel obrazu publicznie.
 - Panel admina: zrotuj `ADMIN_PASSWORD` na mocne hasło przed startem (login ma limit prób: 5 → blokada 15 min).
+- Importy TikTok na VPS wymagają `ffmpeg` + `yt-dlp` — są w obrazie `tools` (Dockerfile, warstwa `source`).
