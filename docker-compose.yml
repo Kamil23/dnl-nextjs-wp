@@ -60,6 +60,9 @@ services:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_SECRET: ${ADMIN_SECRET}
+      # Newsletter delivery (Resend); the subscriber list itself lives in Postgres
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      NEWSLETTER_FROM: ${NEWSLETTER_FROM:-}
       GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
       GA4_SERVICE_ACCOUNT_KEY_PATH: ${GA4_SERVICE_ACCOUNT_KEY_PATH:-}
     volumes:
