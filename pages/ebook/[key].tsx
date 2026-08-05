@@ -11,6 +11,14 @@ import { SITE_TITLE, SITE_URL } from "../../lib/constants";
 
 const SWEET_SLUGS = ["fit-ciasta", "fit-slodycze", "slodycze-domowe", "wypieki"];
 
+// 1 porcja / 2-4 porcje / 5+ porcji (z wyjątkiem 12-14)
+function plPorcje(n: number) {
+  if (n === 1) return "1 porcja";
+  const u = n % 10;
+  const t = n % 100;
+  return u >= 2 && u <= 4 && !(t >= 12 && t <= 14) ? `${n} porcje` : `${n} porcji`;
+}
+
 type EbookRecipe = {
   title: string;
   uri: string;
@@ -57,7 +65,7 @@ export default function Ebook({ magnetKey, title, recipes }: { magnetKey: string
           <p className="text-sm text-gray-500 mb-4">
             {[
               r.kcal ? `🔥 ${r.kcal} kcal/porcję` : null,
-              r.servingsText || (r.servings ? `${r.servings} porcji` : null),
+              r.servingsText || (r.servings ? plPorcje(r.servings) : null),
               r.totalTimeMin ? `⏱ ${r.totalTimeMin} min` : null,
             ]
               .filter(Boolean)
