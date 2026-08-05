@@ -246,3 +246,44 @@ export const redirects = pgTable(
   },
   (t) => [uniqueIndex("redirects_source_idx").on(t.sourcePath)]
 );
+
+// Newsletter: the list lives HERE (owned data), Resend only delivers mail.
+// Double opt-in: signup inserts `pending` + token, the confirmation link
+// flips to `confirmed`; every mail carries an unsubscribe link with the same
+// token. consentedAt/confirmedAt are the GDPR consent trail.
+export const subscribers = pgTable(
+  "subscribers",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull(),
+    status: text("status", { enum: ["pending", "confirmed", "unsubscribed"] })
+      .notNull()
+      .default("pending"),
+    // Where the signup happened: recipe-slodkie | recipe-slone | kalkulator |
+    // cook-mode | stopka — drives which magnet the welcome mail links
+    source: text("source").notNull(),
+    magnet: text("magnet"),
+    token: text("token").notNull(),
+    consentedAt: timestamp("consented_at", { withTimezone: true }).defaultNow(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("subscribers_email_idx").on(t.email),
+    uniqueIndex("subscribers_token_idx").on(t.token),
+    index("subscribers_status_idx").on(t.status),
+  ]
+);
+
+// Composed newsletter editions: `content` holds the section JSON the admin
+// approved (sources: new recipes, seasonal window, top-read, "od Roksany").
+export const newsletterEditions = pgTable("newsletter_editions", {
+  id: serial("id").primaryKey(),
+  number: integer("number").notNull(),
+  subject: text("subject").notNull(),
+  status: text("status", { enum: ["draft", "sent"] }).notNull().default("draft"),
+  content: jsonb("content").notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  recipientCount: integer("recipient_count"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});

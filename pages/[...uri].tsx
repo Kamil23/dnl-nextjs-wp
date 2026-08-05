@@ -35,7 +35,12 @@ import { SITE_URL, CATEGORY_POSTS_PER_PAGE } from '../lib/constants'
 import ShareBtns from '../components/share-btns'
 import Breadcrumbs from '../components/breadcrumbs'
 import RecipeSchema from '../components/recipe-schema'
+import NewsletterSignup from '../components/newsletter-signup'
 import WpSeo from '../components/wp-seo'
+
+// Sweet-category slugs pick the "fit słodycze" magnet; everything else gets
+// the quick-meals one (matches the intent of the organic top pages)
+const SWEET_CATEGORY_SLUGS = new Set(['fit-ciasta', 'fit-slodycze', 'slodycze-domowe', 'wypieki'])
 
 // Recipes and static pages live at their original WordPress permalinks —
 // the URL set is the SEO contract with Google and never changes.
@@ -80,6 +85,15 @@ export default function Content({
                 <div className="lg:sticky lg:top-6">
                   <IngredientsCard recipe={recipe} />
                   <SponsorCard sponsor={recipe.sponsor} />
+                  <div className="mt-6">
+                    <NewsletterSignup
+                      source={
+                        recipe.categories.some((c) => SWEET_CATEGORY_SLUGS.has(c.slug))
+                          ? 'recipe-slodkie'
+                          : 'recipe-slone'
+                      }
+                    />
+                  </div>
                 </div>
                 <div>
                   <StepsList steps={recipe.steps} />

@@ -128,11 +128,17 @@ async function loadRecipeRelations(recipe: RecipeRow) {
       .where(and(eq(ratings.recipeId, recipe.id), eq(ratings.status, "approved"))),
   ]);
 
-  // Combined aggregate: legacy WP votes + new native votes
-  const legacyCount = recipe.legacyRatingCount ?? 0;
+  // Rating detox: once a recipe has collected enough REAL approved votes, the
+  // aggregate (and the JSON-LD downstream) uses only them and the imported
+  // legacy numbers silently retire. Below the threshold: legacy + real combined.
+  const REAL_VOTES_THRESHOLD = 15;
+  const realCount = ratingAgg[0]?.count ?? 0;
+  const realSum = ratingAgg[0]?.sum ?? 0;
+  const useRealOnly = realCount >= REAL_VOTES_THRESHOLD;
+  const legacyCount = useRealOnly ? 0 : (recipe.legacyRatingCount ?? 0);
   const legacySum = legacyCount * Number(recipe.legacyRatingValue ?? 0);
-  const totalCount = legacyCount + (ratingAgg[0]?.count ?? 0);
-  const totalSum = legacySum + (ratingAgg[0]?.sum ?? 0);
+  const totalCount = legacyCount + realCount;
+  const totalSum = legacySum + realSum;
 
   return {
     ...recipe,

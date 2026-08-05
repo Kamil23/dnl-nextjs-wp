@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Container from './container'
+import NewsletterSignup from './newsletter-signup'
 import { InstagramIcon, TikTokIcon } from './icons'
 import { SITE_TITLE, SOCIAL_TIKTOK_URL, SOCIAL_INSTAGRAM_URL } from '../lib/constants'
 
@@ -7,6 +8,9 @@ export default function Footer() {
   return (
     <footer className="bg-accent-1 border-t border-accent-2 print:hidden">
       <Container>
+        <div className="pt-10 max-w-xl mx-auto">
+          <NewsletterSignup source="stopka" compact />
+        </div>
         <div className="py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
           <div>
             © {new Date().getFullYear()} {SITE_TITLE} · jak jeść i nie zwariować?

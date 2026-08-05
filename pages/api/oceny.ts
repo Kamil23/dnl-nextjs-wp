@@ -49,7 +49,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .from(ratings)
     .where(and(eq(ratings.recipeId, recipeId), eq(ratings.status, "approved")));
 
-  const legacyCount = recipe.legacyRatingCount ?? 0;
+  // Mirror the detox rule from lib/queries.ts: enough real votes retire legacy
+  const useRealOnly = agg.count >= 15;
+  const legacyCount = useRealOnly ? 0 : (recipe.legacyRatingCount ?? 0);
   const legacySum = legacyCount * Number(recipe.legacyRatingValue ?? 0);
   const totalCount = legacyCount + agg.count;
   const totalSum = legacySum + agg.sum;

@@ -2,6 +2,7 @@ import Head from 'next/head'
 import { useState } from 'react'
 import Container from '../components/container'
 import Layout from '../components/layout'
+import NewsletterSignup from '../components/newsletter-signup'
 import PostTitle from '../components/post-title'
 import { MENU_EDGES } from '../lib/menu'
 import { SITE_TITLE, SITE_URL } from '../lib/constants'
@@ -109,6 +110,9 @@ export default function CalorieCalculator() {
                 Chcesz schudnąć? Celuj w ok. {Math.round(cpm * 0.85)} kcal
                 (deficyt ~15%). Budujesz masę? Ok. {Math.round(cpm * 1.1)} kcal.
               </p>
+              <div className="mt-6 text-left">
+                <NewsletterSignup source="kalkulator" />
+              </div>
             </div>
           ) : (
             <p className="text-sm text-gray-400 text-center">

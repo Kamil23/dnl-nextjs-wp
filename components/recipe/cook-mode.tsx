@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import NewsletterSignup from "../newsletter-signup";
 import { scaleIngredient } from "../../lib/quantity";
 import { useWakeLock } from "../../lib/use-wake-lock";
 
@@ -76,6 +77,26 @@ export default function CookMode({ recipe, factor, onClose }) {
   const steps = recipe.steps;
   const total = steps.length;
   const touchX = useRef<number | null>(null);
+  // Finish-screen rating: the warmest possible moment to ask (they just ate it)
+  const [rated, setRated] = useState(false);
+  const [rating, setRating] = useState(false);
+  const [hover, setHover] = useState(0);
+
+  async function rate(value: number) {
+    setRating(true);
+    try {
+      await fetch("/api/oceny", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipeId: recipe.id, value }),
+      });
+      setRated(true);
+    } catch {
+      /* silent — the classic widget below the recipe still works */
+    } finally {
+      setRating(false);
+    }
+  }
 
   const next = useCallback(() => setIdx((i) => Math.min(i + 1, total)), [total]);
   const prev = useCallback(() => setIdx((i) => Math.max(i - 1, -1)), []);
@@ -186,17 +207,38 @@ export default function CookMode({ recipe, factor, onClose }) {
         )}
 
         {idx === total && (
-          <div className="text-center">
+          <div className="text-center max-w-md w-full">
             <div className="text-7xl mb-6">🎉</div>
             <h2 className="text-4xl font-bold mb-3">Smacznego!</h2>
-            <p className="text-white/60 text-lg mb-8">
-              Udało się? Oceń przepis, pomożesz innym go znaleźć.
-            </p>
-            <button
-              onClick={onClose}
-              className="rounded-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold px-8 py-3 text-lg transition"
-            >
-              Wróć i oceń ⭐
+            {rated ? (
+              <p className="text-amber-300 text-lg mb-6">Dzięki za ocenę! ⭐</p>
+            ) : (
+              <>
+                <p className="text-white/60 text-lg mb-4">Udało się? Oceń przepis:</p>
+                <div className="flex justify-center gap-2 mb-8">
+                  {[1, 2, 3, 4, 5].map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => rate(v)}
+                      disabled={rating}
+                      aria-label={`Oceń na ${v}`}
+                      className={`text-4xl transition hover:scale-125 disabled:opacity-40 ${
+                        hover >= v ? "grayscale-0" : "grayscale opacity-60 hover:opacity-100"
+                      }`}
+                      onMouseEnter={() => setHover(v)}
+                      onMouseLeave={() => setHover(0)}
+                    >
+                      ⭐
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="text-left">
+              <NewsletterSignup source="cook-mode" compact />
+            </div>
+            <button onClick={onClose} className="mt-6 text-white/50 hover:text-white text-sm">
+              Zamknij
             </button>
           </div>
         )}
