@@ -39,13 +39,9 @@ export default function ListEditor({
   }
 
   return (
-    // Empty list keeps notepad-like height, so it reads as a blank sheet
-    // waiting to be filled rather than a collapsed bar
-    <div
-      className={`rounded-3xl border border-gray-100 bg-white shadow-bottomSmall p-4 sm:p-6 ${
-        items.length === 0 ? "min-h-[340px]" : ""
-      }`}
-    >
+    // Notepad-like minimum height: the card reads as a sheet of paper
+    // whether empty or holding a few items, and grows past it as needed
+    <div className="rounded-3xl border border-gray-100 bg-white shadow-bottomSmall p-4 sm:p-6 min-h-[340px]">
       {allDone && (
         <div className="rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-sm font-semibold text-center py-3 px-4 mb-2">
           🎉 Wszystko w koszyku!
