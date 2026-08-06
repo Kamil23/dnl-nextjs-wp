@@ -317,7 +317,8 @@ export default function AdminTikTok({ imports: initial }) {
             )}
             {imp.status === "pending" && (
               <div className="mt-2 text-xs text-gray-400">
-                Czeka na workera. Kliknij „Przetwórz kolejkę" powyżej.
+                Czeka na workera. Na serwerze ruszy sam w ciągu ~10 s; lokalnie
+                kliknij „Przetwórz kolejkę" powyżej.
               </div>
             )}
             {expanded === imp.id && (
@@ -335,7 +336,8 @@ export default function AdminTikTok({ imports: initial }) {
       </div>
 
       <p className="text-xs text-gray-400 mt-8">
-        Worker: przycisk „Przetwórz kolejkę" albo <code>npm run imports:process</code> z terminala.
+        Worker: na serwerze kolejkę przetwarza automatycznie serwis <code>worker</code> (docker
+        compose); lokalnie przycisk „Przetwórz kolejkę" albo <code>npm run imports:process</code>.
         Silnik AI: <code>OPENAI_API_KEY</code> (gpt-4o + Whisper) — alternatywnie Gemini, Claude
         lub dowolne API zgodne z OpenAI (szczegóły w .env.example).
       </p>

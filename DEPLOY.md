@@ -8,6 +8,7 @@ Internet ──▶ Caddy (:80/:443, auto-TLS)
                  ├─ /uploads/*             ─▶ pliki z /srv/dnl/media  (klatki TikTok)
                  └─ reszta                 ─▶ web (Next.js :3000) ──▶ db (Postgres)
                                                                    └─▶ meili (:7700)
+             worker (import TikTok) ─▶ db + /srv/dnl/media  (poll kolejki co 10 s)
 ```
 
 > Pełny audyt pre-prod: **[Artifact](https://claude.ai/code/artifact/cbb072f2-e7f4-45a8-a9a3-0e0cf5468b6b)**.
@@ -54,8 +55,8 @@ gunzip -c dnl.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie
 docker compose run --rm tools npm run search:reindex # indeks Meilisearch z DB
 
 # 5. Build aplikacji (czyta zapełnioną bazę przez sieć hosta) + start
-docker compose build web
-docker compose up -d web caddy
+docker compose build web worker
+docker compose up -d web worker caddy
 
 # 6. Smoke-test (sekcja "Weryfikacja po starcie")
 ```
@@ -92,8 +93,8 @@ du -sh /srv/dnl/media                                     # rozmiar
 ```bash
 cd dnl
 git pull
-docker compose build web        # rebuild obrazu (build czyta bazę → db musi być up)
-docker compose up -d web        # podmiana kontenera; caddy/db/meili/media nietknięte
+docker compose build web worker # rebuild obrazów (build web czyta bazę → db musi być up)
+docker compose up -d web worker # podmiana kontenerów; caddy/db/meili/media nietknięte
 ```
 
 ### B. Zmiana schematu bazy
@@ -119,7 +120,7 @@ docker compose run --rm tools npm run search:reindex
 |---|---|
 | Dodanie/edycja przepisu | Panel `https://dietanaluzie.pl/admin` (edycja robi on-demand ISR) |
 | Moderacja ocen | `/admin/oceny` (tylko zatwierdzone liczą się do JSON-LD) |
-| Import z TikToka | `/admin/tiktok` (wklej link) → `docker compose run --rm tools npm run imports:process` |
+| Import z TikToka | `/admin/tiktok` (wklej link) — serwis `worker` podejmuje kolejkę sam w ~10 s (`docker compose logs -f worker`) |
 | Reindeks wyszukiwarki | `docker compose run --rm tools npm run search:reindex` |
 | Logi aplikacji / proxy | `docker compose logs -f web` / `docker compose logs -f caddy` |
 | Restart aplikacji | `docker compose restart web` |
@@ -203,7 +204,9 @@ Jeśli 80/443 są wolne — zostaje nasze Caddy bez zmian. (Ustalimy na podstawi
 
 **`next/image` nie ładuje hero** — apex musi być w `images.domains` (dzieje się automatycznie z `APP_ORIGIN`). Jeśli optymalizator w kontenerze `web` nie dosięga publicznego hosta (brak hairpin NAT), dodaj alias sieciowy `dietanaluzie.pl` na serwis `caddy` w compose, żeby self-fetch rozwiązał się wewnątrz sieci Dockera.
 
-**Klatki TikTok znikają po imporcie** — `tools` musi mieć zamontowany wolumen `/srv/dnl/media` i `UPLOADS_DIR=/srv/media/uploads` (jest w compose). Pliki mają lądować w `/srv/dnl/media/uploads/imports/<id>/`.
+**Klatki TikTok znikają po imporcie** — `worker`/`tools` musi mieć zamontowany wolumen `/srv/dnl/media` i `UPLOADS_DIR=/srv/media/uploads` (jest w compose). Pliki mają lądować w `/srv/dnl/media/uploads/imports/<id>/`.
+
+**Import z TikToka wisi w „W kolejce"** — sprawdź `docker compose ps worker` (musi być up) i `docker compose logs -f worker`; najczęstsza przyczyna to brak klucza AI w `.env` (`OPENAI_API_KEY` lub `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`).
 
 **`docker compose build web` nie widzi bazy** — db musi być `up`/healthy przed buildem. Build używa `network: host` i łączy się z `127.0.0.1:5432`.
 

@@ -11,6 +11,8 @@
  *
  * Requirements: yt-dlp and ffmpeg on PATH, one AI key in the environment.
  * Run: npm run imports:process   (cron-friendly; exits when the queue is empty)
+ *      npm run imports:watch     (long-running: polls the queue every 10 s —
+ *                                 this is how the `worker` compose service runs)
  */
 import { config } from "dotenv";
 config({ path: ".env", quiet: true });
@@ -591,26 +593,23 @@ async function processOne(
   }
 }
 
-async function main() {
+const NO_AI_KEY_HELP =
+  "Ustaw jeden z:\n" +
+  "  OPENAI_API_KEY        (vision + transkrypcja Whisper jednym kluczem; model przez OPENAI_MODEL, domyślnie gpt-4o)\n" +
+  "  GEMINI_API_KEY        (darmowy tier, rozumie audio; klucz z aistudio.google.com)\n" +
+  "  ANTHROPIC_API_KEY     (Claude)\n" +
+  "  AI_COMPAT_BASE_URL + AI_COMPAT_API_KEY + AI_COMPAT_MODEL (Kimi/Moonshot, OpenRouter itp. — model musi mieć vision)";
+
+// One pass over the queue. Returns the number of imports processed,
+// or -1 when items are waiting but no AI key is configured.
+async function processQueue(): Promise<number> {
   const pending = await db.select().from(imports).where(eq(imports.status, "pending"));
-  if (pending.length === 0) {
-    console.log("Kolejka pusta.");
-    await sql.end();
-    return;
-  }
+  if (pending.length === 0) return 0;
 
   const provider = pickProvider();
   if (!provider) {
-    console.error(
-      `W kolejce czeka ${pending.length} importów, ale brak klucza AI w środowisku.\n` +
-        "Ustaw jeden z:\n" +
-        "  OPENAI_API_KEY        (vision + transkrypcja Whisper jednym kluczem; model przez OPENAI_MODEL, domyślnie gpt-4o)\n" +
-        "  GEMINI_API_KEY        (darmowy tier, rozumie audio; klucz z aistudio.google.com)\n" +
-        "  ANTHROPIC_API_KEY     (Claude)\n" +
-        "  AI_COMPAT_BASE_URL + AI_COMPAT_API_KEY + AI_COMPAT_MODEL (Kimi/Moonshot, OpenRouter itp. — model musi mieć vision)"
-    );
-    await sql.end();
-    process.exit(1);
+    console.error(`W kolejce czeka ${pending.length} importów, ale brak klucza AI w środowisku.\n${NO_AI_KEY_HELP}`);
+    return -1;
   }
 
   console.log(`Silnik AI: ${provider.kind}`);
@@ -618,7 +617,43 @@ async function main() {
   for (const imp of pending) {
     await processOne(provider, imp, cats, tagVocab);
   }
-  await sql.end();
+  return pending.length;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function main() {
+  if (!process.argv.includes("--watch")) {
+    const n = await processQueue();
+    if (n === 0) console.log("Kolejka pusta.");
+    await sql.end();
+    if (n === -1) process.exit(1);
+    return;
+  }
+
+  // Watch mode (the `worker` compose service). Single worker by design, so any
+  // `processing` row at boot is an orphan of a previous run killed mid-import —
+  // requeue them instead of leaving them stuck forever.
+  const orphans = await db
+    .update(imports)
+    .set({ status: "pending", progress: null })
+    .where(eq(imports.status, "processing"))
+    .returning({ id: imports.id });
+  if (orphans.length > 0) {
+    console.log(`Przywrócono do kolejki ${orphans.length} importów przerwanych w trakcie przetwarzania.`);
+  }
+
+  console.log("Worker w trybie ciągłym: sprawdzam kolejkę co 10 s...");
+  while (true) {
+    let n = 0;
+    try {
+      n = await processQueue();
+    } catch (e) {
+      console.error(e);
+    }
+    // Missing AI key: no point hammering the queue (and the log) every 10 s
+    await sleep(n === -1 ? 60_000 : 10_000);
+  }
 }
 
 main().catch((e) => {

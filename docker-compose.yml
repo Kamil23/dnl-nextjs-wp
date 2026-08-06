@@ -77,6 +77,30 @@ services:
     expose:
       - "3000"
 
+  # TikTok import worker: watches the `imports` table and processes pending
+  # rows automatically (the admin "Przetwórz kolejkę" button only enqueues —
+  # the web container can't run the worker itself: no ffmpeg/yt-dlp/tsx there).
+  worker:
+    build:
+      context: .
+      target: source
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Frames land on the shared media volume, served by Caddy under /uploads/*
+      UPLOADS_DIR: /srv/media/uploads
+    volumes:
+      - ${MEDIA_DIR:-/srv/dnl/media}:/srv/media
+    command: ["npm", "run", "imports:watch"]
+
   # One-off operational tasks (migrations, import, reindex). Not started by
   # `up` — invoke with: docker compose run --rm tools npm run <script>
   tools:
