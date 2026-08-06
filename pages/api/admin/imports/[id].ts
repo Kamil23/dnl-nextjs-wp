@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, like } from "drizzle-orm";
 import { requireAdminApi } from "../../../../lib/admin-auth";
 import { db, dbSchema } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slugify";
@@ -51,12 +51,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Draft nie jest gotowy" });
     }
     const d = imp.aiDraft as any;
-    const slug = slugify(d.title || `tiktok-${id}`);
+    // slug/uri are unique — a re-imported recipe (same title as an existing
+    // one) must land under a suffixed slug instead of blowing up the insert
+    const baseSlug = slugify(d.title || `tiktok-${id}`) || `tiktok-${id}`;
+    const taken = new Set(
+      (
+        await db
+          .select({ slug: recipes.slug })
+          .from(recipes)
+          .where(like(recipes.slug, `${baseSlug}%`))
+      ).map((r) => r.slug)
+    );
+    let slug = baseSlug;
+    for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
     const heroImage =
       (typeof req.body?.heroImage === "string" && req.body.heroImage) ||
       d.frames?.[0] ||
       null;
 
+    let acceptError: unknown = null;
     const recipeId = await db.transaction(async (tx) => {
       const [recipe] = await tx
         .insert(recipes)
@@ -159,9 +172,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .where(eq(imports.id, id));
 
       return recipe.id;
+    }).catch((e): null => {
+      acceptError = e;
+      return null;
     });
 
-    await syncRecipeToSearch(db, recipeId);
+    if (recipeId === null) {
+      const msg = acceptError instanceof Error ? acceptError.message : String(acceptError);
+      console.error(`[imports] akceptacja #${id} nie powiodła się:`, acceptError);
+      return res.status(500).json({ error: `Nie udało się utworzyć przepisu: ${msg}` });
+    }
+
+    // The recipe is committed at this point — a search hiccup must not fail
+    // the accept; the index can be rebuilt anytime (npm run search:reindex)
+    await syncRecipeToSearch(db, recipeId).catch((e) =>
+      console.error(`[imports] search sync przepisu ${recipeId} nieudany:`, e)
+    );
     return res.json({ ok: true, recipeId });
   }
 

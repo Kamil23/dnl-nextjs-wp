@@ -138,6 +138,7 @@ export default function AdminTikTok({ imports: initial }) {
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [heroFrames, setHeroFrames] = useState<Record<number, string>>({});
+  const [actErrors, setActErrors] = useState<Record<number, string>>({});
   const [workerRunning, setWorkerRunning] = useState(false);
   const [workerError, setWorkerError] = useState("");
 
@@ -190,25 +191,32 @@ export default function AdminTikTok({ imports: initial }) {
   }
 
   async function act(id: number, action: string) {
+    setActErrors((e) => ({ ...e, [id]: "" }));
     const res = await fetch(`/api/admin/imports/${id}/`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, heroImage: heroFrames[id] ?? null }),
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (action === "accept" && data.recipeId) {
-        router.push(`/admin/przepisy/${data.recipeId}`);
-        return;
-      }
-      setRows((rs) =>
-        rs.map((r) =>
-          r.id === id
-            ? { ...r, status: action === "reject" ? "rejected" : action === "retry" ? "pending" : r.status }
-            : r
-        )
-      );
+    if (!res.ok) {
+      const msg = await res
+        .json()
+        .then((j) => j.error)
+        .catch(() => null);
+      setActErrors((e) => ({ ...e, [id]: msg || `Błąd serwera (${res.status})` }));
+      return;
     }
+    const data = await res.json();
+    if (action === "accept" && data.recipeId) {
+      router.push(`/admin/przepisy/${data.recipeId}`);
+      return;
+    }
+    setRows((rs) =>
+      rs.map((r) =>
+        r.id === id
+          ? { ...r, status: action === "reject" ? "rejected" : action === "retry" ? "pending" : r.status }
+          : r
+      )
+    );
   }
 
   return (
@@ -301,6 +309,9 @@ export default function AdminTikTok({ imports: initial }) {
                 )}
               </div>
             </div>
+            {actErrors[imp.id] && (
+              <p className="mt-2 text-sm text-red-600">{actErrors[imp.id]}</p>
+            )}
             {imp.status === "processing" && imp.progress && (
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
