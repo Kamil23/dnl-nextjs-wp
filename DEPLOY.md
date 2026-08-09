@@ -220,3 +220,25 @@ Jeśli 80/443 są wolne — zostaje nasze Caddy bez zmian. (Ustalimy na podstawi
 - `DATABASE_URL` jako build-arg trafia do warstw obrazu (`docker history`) — to lokalne dane dostępowe do bazy na Twoim VPS, nie współdziel obrazu publicznie.
 - Panel admina: zrotuj `ADMIN_PASSWORD` na mocne hasło przed startem (login ma limit prób: 5 → blokada 15 min).
 - Importy TikTok na VPS wymagają `ffmpeg` + `yt-dlp` — są w obrazie `tools` (Dockerfile, warstwa `source`).
+
+---
+
+## Ruch server-side (niezależny od zgód cookies)
+
+Caddy pisze access log (JSON) do wolumenu. Szybka analiza dziennych wejść na strony
+(bez assetów, botów nie filtruje — trендy i tak widać):
+
+```bash
+# odsłony HTML dziś (bez /_next, mediów i API)
+docker compose exec caddy sh -c 'cat /data/access/access.log' \
+ | grep '"status":200' \
+ | grep -vE '"uri":"/(_next|wp-content|uploads|pobrane|api|favicon)' \
+ | grep -oE '"uri":"[^"]*"' | sort | uniq -c | sort -rn | head -20
+
+# unikalne IP dziś
+docker compose exec caddy sh -c 'cat /data/access/access.log' \
+ | grep -oE '"client_ip":"[^"]*"' | sort -u | wc -l
+```
+
+Po co: GA po banerze cookies liczy tylko osoby, które kliknęły „Akceptuję"
+(zwykle 50-70%). Prawdziwy poziom ruchu odczytujemy z logów serwera.

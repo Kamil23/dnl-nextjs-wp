@@ -9,6 +9,16 @@
 }
 
 {$SITE_DOMAIN:dietanaluzie.pl} {
+	# Server-side traffic truth: consent-independent access log (stays on our
+	# box, GDPR-fine). GA undercounts by design since the cookie banner — this
+	# is the objective baseline. Analyze: see DEPLOY.md "Ruch server-side".
+	log {
+		output file /data/access/access.log {
+			roll_size 50mb
+			roll_keep 7
+		}
+		format json
+	}
 	encode zstd gzip
 	header {
 		X-Content-Type-Options nosniff
