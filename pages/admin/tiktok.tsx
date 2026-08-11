@@ -51,19 +51,26 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
         <div>
           <div className="font-medium text-gray-500 text-xs uppercase mb-2">
             Zdjęcie główne — kliknij klatkę, aby wybrać
+            {draft.heroFrame && <span className="normal-case font-normal"> (★ = propozycja AI)</span>}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {draft.frames.map((f: string) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={f}
-                src={f}
-                alt=""
-                onClick={() => onPickFrame(f)}
-                className={`h-32 rounded-lg cursor-pointer border-4 transition ${
-                  (heroFrame ?? draft.frames[0]) === f ? "border-amber-500" : "border-transparent hover:border-gray-300"
-                }`}
-              />
+              <div key={f} className="relative shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={f}
+                  alt=""
+                  onClick={() => onPickFrame(f)}
+                  className={`h-32 rounded-lg cursor-pointer border-4 transition ${
+                    (heroFrame ?? draft.heroFrame ?? draft.frames[0]) === f
+                      ? "border-amber-500"
+                      : "border-transparent hover:border-gray-300"
+                  }`}
+                />
+                {draft.heroFrame === f && (
+                  <span className="absolute top-1 right-1 text-amber-500 drop-shadow">★</span>
+                )}
+              </div>
             ))}
           </div>
         </div>
@@ -111,9 +118,17 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
         </div>
         <div>
           <div className="font-medium text-gray-500 text-xs uppercase mb-1">Kroki</div>
-          <ol className="list-decimal ml-4 text-gray-700">
+          <ol className="list-decimal ml-4 text-gray-700 space-y-2">
             {(draft.steps ?? []).map((s: any, n: number) => (
-              <li key={n}>{s.body}</li>
+              <li key={n}>
+                <div className="flex items-start gap-2">
+                  <span className="flex-1">{s.body}</span>
+                  {s.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={s.image} alt="" className="h-14 rounded shrink-0" />
+                  )}
+                </div>
+              </li>
             ))}
           </ol>
         </div>

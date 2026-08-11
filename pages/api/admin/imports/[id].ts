@@ -64,8 +64,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
     let slug = baseSlug;
     for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
+    // Operator's pick wins; otherwise the frame the AI flagged as the best
+    // hero shot, falling back to the first frame
     const heroImage =
       (typeof req.body?.heroImage === "string" && req.body.heroImage) ||
+      d.heroFrame ||
       d.frames?.[0] ||
       null;
 
@@ -124,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             title: s.title ?? null,
             body: s.body,
             tip: s.tip ?? null,
+            image: s.image ?? null,
           }))
         );
       }

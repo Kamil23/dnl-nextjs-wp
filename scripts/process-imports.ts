@@ -3,7 +3,7 @@
  *
  * Picks `pending` rows from the `imports` table and for each one:
  *   1. downloads the video + caption (yt-dlp)
- *   2. extracts up to 8 frames (ffmpeg) and the audio track
+ *   2. extracts frames (ffmpeg; ~1 per 2.5 s, 8-24 total) and the audio track
  *   3. builds a structured recipe draft with an AI model:
  *      - GEMINI_API_KEY    -> Gemini (frames + audio natively; free tier, no Whisper needed)
  *      - ANTHROPIC_API_KEY -> Claude (frames + Whisper transcript if OPENAI_API_KEY is set)
@@ -69,7 +69,13 @@ const RecipeDraft = z.object({
       title: optStr,
       body: z.string(),
       tip: optStr,
+      frameIndex: optNum.describe(
+        "Numer klatki (1-N), która najlepiej pokazuje ten krok; null gdy żadna nie pasuje"
+      ),
     })
+  ),
+  heroFrameIndex: optNum.describe(
+    "Numer klatki (1-N) najlepszej na zdjęcie główne: gotowe danie, apetyczny kadr; null gdy brak dobrej"
   ),
   prepTimeMin: optNum,
   totalTimeMin: optNum,
@@ -121,7 +127,7 @@ async function downloadVideo(url: string, dir: string) {
   };
 }
 
-async function extractFrames(videoPath: string, dir: string, maxFrames = 8) {
+async function extractFrames(videoPath: string, dir: string) {
   const framesDir = path.join(dir, "frames");
   fs.mkdirSync(framesDir, { recursive: true });
   // Even sampling across the whole clip regardless of its length
@@ -129,6 +135,10 @@ async function extractFrames(videoPath: string, dir: string, maxFrames = 8) {
     "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", videoPath,
   ]);
   const duration = Math.max(1, parseFloat(stdout.trim()) || 30);
+  // ~1 frame per 2.5 s so every step of the recipe is on some frame (the
+  // model assigns them to steps), clamped so short clips don't produce
+  // near-duplicates and long ones don't blow up the AI payload
+  const maxFrames = Math.min(24, Math.max(8, Math.round(duration / 2.5)));
   const fps = maxFrames / duration;
   // 1080px wide: good enough for the model AND as hero-image candidates
   await run("ffmpeg", [
@@ -194,6 +204,11 @@ const SYSTEM_PROMPT =
   "TAGI: pole tags[] to 2-5 slugów wybranych WYŁĄCZNIE z listy dozwolonych tagów; nie wymyślaj " +
   "własnych. Najwyżej jeden tag z grupy 'sezon' i tylko wtedy, gdy przepis naprawdę pasuje " +
   "do okresu (np. sernik na zimno -> sezon-lato). " +
+  "KLATKI: klatki wideo są ponumerowane chronologicznie (Klatka 1..N). Do każdego kroku przypisz " +
+  "w polu frameIndex numer klatki, która najlepiej ten krok ilustruje (moment czynności, nie planszę " +
+  "tytułową); jeśli żadna klatka nie pasuje, zostaw null zamiast naciągać. Ta sama klatka może " +
+  "ilustrować najwyżej jeden krok. W polu heroFrameIndex wskaż klatkę najlepszą na zdjęcie główne: " +
+  "gotowe, wyeksponowane danie, ostry i apetyczny kadr. " +
   "Pole 'about' to sekcja 'Kilka słów o tym przepisie' pod przepisem — pisz ją tak, jakby Roksana " +
   "opowiadała czytelniczce przy kawie: pierwsza osoba, konkrety o smaku, konsystencji i okazji " +
   "('robię go, gdy...'), naturalnie wplecione frazy, których ludzie szukają w Google. " +
@@ -235,10 +250,12 @@ const GEMINI_SCHEMA = {
           title: { type: "STRING", nullable: true },
           body: { type: "STRING" },
           tip: { type: "STRING", nullable: true },
+          frameIndex: { type: "NUMBER", nullable: true },
         },
         required: ["body"],
       },
     },
+    heroFrameIndex: { type: "NUMBER", nullable: true },
     prepTimeMin: { type: "NUMBER", nullable: true },
     totalTimeMin: { type: "NUMBER", nullable: true },
     servings: { type: "NUMBER", nullable: true },
@@ -273,12 +290,17 @@ async function draftRecipeGemini(
   categoryOptions: string,
   tagOptions: string
 ) {
-  const parts: any[] = frames.map((f) => ({
-    inline_data: {
-      mime_type: "image/jpeg",
-      data: fs.readFileSync(f).toString("base64"),
+  // Numbered labels before each frame so frameIndex/heroFrameIndex in the
+  // draft can point back at a concrete image
+  const parts: any[] = frames.flatMap((f, i) => [
+    { text: `Klatka ${i + 1}:` },
+    {
+      inline_data: {
+        mime_type: "image/jpeg",
+        data: fs.readFileSync(f).toString("base64"),
+      },
     },
-  }));
+  ]);
   if (audioPath && fs.existsSync(audioPath)) {
     parts.push({
       inline_data: {
@@ -337,10 +359,13 @@ async function draftRecipeOpenAICompat(
   categoryOptions: string,
   tagOptions: string
 ) {
-  const content: any[] = frames.map((f) => ({
-    type: "image_url",
-    image_url: { url: `data:image/jpeg;base64,${fs.readFileSync(f).toString("base64")}` },
-  }));
+  const content: any[] = frames.flatMap((f, i) => [
+    { type: "text", text: `Klatka ${i + 1}:` },
+    {
+      type: "image_url",
+      image_url: { url: `data:image/jpeg;base64,${fs.readFileSync(f).toString("base64")}` },
+    },
+  ]);
   content.push({
     type: "text",
     text:
@@ -352,7 +377,9 @@ async function draftRecipeOpenAICompat(
       "Odpowiedz WYŁĄCZNIE poprawnym JSON-em o polach: title, lead, about (sekcja 'Kilka słów " +
       "o tym przepisie', 2-3 akapity rozdzielone pustą linią), categorySlugs[] (1-2 slugi z listy " +
       "dozwolonych), difficulty ('latwy'|'sredni'|'trudny'|null), ingredientGroups " +
-      "[{title|null, items[]}], steps [{title|null, body, tip|null}], prepTimeMin|null, " +
+      "[{title|null, items[]}], steps " +
+      "[{title|null, body, tip|null, frameIndex|null (numer klatki 1-N ilustrującej krok)}], " +
+      "heroFrameIndex|null (numer klatki najlepszej na zdjęcie główne), prepTimeMin|null, " +
       "totalTimeMin|null, servings|null, kcal|null, protein|null, fat|null, carbs|null, " +
       "seoTitle, seoDescription, keywords, tags[] (slugi z listy dozwolonych), " +
       "confidence ('high'|'medium'|'low'), notes|null, " +
@@ -571,11 +598,24 @@ async function processOne(
 
     await setProgress(imp.id, 5, "Zapisywanie draftu...");
     const frameUrls = publishFrames(imp.id, frames);
+    // Resolve frameIndex/heroFrameIndex to published URLs right away, so the
+    // admin preview and the accept endpoint deal only in URLs
+    const frameAt = (n: number | null) => {
+      const i = n == null ? NaN : Math.round(n);
+      return i >= 1 && i <= frameUrls.length ? frameUrls[i - 1] : null;
+    };
     await db
       .update(imports)
       .set({
         status: "ready",
-        aiDraft: { ...draft, frames: frameUrls, videoDurationSec: durationSec, videoViews: viewCount },
+        aiDraft: {
+          ...draft,
+          steps: draft.steps.map((s) => ({ ...s, image: frameAt(s.frameIndex) })),
+          heroFrame: frameAt(draft.heroFrameIndex),
+          frames: frameUrls,
+          videoDurationSec: durationSec,
+          videoViews: viewCount,
+        },
         transcript,
         videoPath: null,
         progress: null,

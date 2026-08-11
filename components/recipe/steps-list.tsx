@@ -37,6 +37,15 @@ export default function StepsList({ steps }) {
                 <p className={`leading-relaxed ${done[i] ? "text-gray-400" : "text-gray-700"}`}>
                   {step.body}
                 </p>
+                {step.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={step.image}
+                    alt={step.title || `Krok ${i + 1}`}
+                    loading="lazy"
+                    className={`mt-3 rounded-2xl max-h-80 w-auto transition ${done[i] ? "opacity-50" : ""}`}
+                  />
+                )}
                 {step.tip && (
                   <p className="mt-3 text-sm bg-amber-50 border border-amber-100 text-amber-900 rounded-xl px-3 py-2">
                     💡 {step.tip}
