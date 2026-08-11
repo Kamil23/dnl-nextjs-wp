@@ -17,6 +17,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // Never intercept on dev: /_next/static/* has stable names but changing
+  // content there, so cache-first serves chunks from a previous compile and
+  // Fast Refresh ends up in an infinite reload loop
+  if (self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1") return;
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);

@@ -66,8 +66,11 @@ export default function ShoppingListPage() {
     refresh()
     window.addEventListener(SHOPPING_EVENT, refresh)
     setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent))
-    // Offline shell + installability for the PWA
-    navigator.serviceWorker?.register('/sw.js').catch(() => {})
+    // Offline shell + installability for the PWA (prod only — on dev the SW
+    // cache serves stale webpack chunks and breaks Fast Refresh)
+    if (process.env.NODE_ENV === 'production') {
+      navigator.serviceWorker?.register('/sw.js').catch(() => {})
+    }
     return () => window.removeEventListener(SHOPPING_EVENT, refresh)
   }, [])
 

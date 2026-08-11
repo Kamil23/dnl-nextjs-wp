@@ -24,6 +24,17 @@ function MyApp({ Component, pageProps }: AppProps) {
     return () => window.removeEventListener('dnl-cookies-reset', reset)
   }, [])
 
+  // Self-heal dev browsers that still carry the shopping-list service worker
+  // from an earlier session: its cache-first /_next/static/* strategy serves
+  // stale chunks on localhost and locks the page in a Fast Refresh reload loop
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return
+    navigator.serviceWorker?.getRegistrations().then((regs) => {
+      regs.forEach((r) => r.unregister())
+      if (regs.length) caches?.keys().then((ks) => ks.forEach((k) => caches.delete(k)))
+    }).catch(() => {})
+  }, [])
+
   return (
     <>
       <Head>
