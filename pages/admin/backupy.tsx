@@ -42,7 +42,8 @@ export default function Backupy({ initial }: { initial: BackupFile[] }) {
           <h1 className="text-2xl font-bold">Backupy</h1>
           <p className="text-sm text-gray-500 mt-1">
             Baza danych i pliki mediów. Automatyczny backup co 3 dni; tutaj możesz
-            zrobić go ręcznie i pobrać dowolny plik. Trzymane są ostatnie 8 z każdego rodzaju.
+            zrobić go ręcznie i pobrać dowolny plik. Retencja: baza 14 kopii
+            (ok. 6 tygodni historii), media 2 kopie (poprzednia + świeża).
           </p>
         </div>
         <div className="flex items-center gap-3">

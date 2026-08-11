@@ -11,9 +11,11 @@ import path from "path";
 const execFileP = promisify(execFile);
 const BACKUP_DIR = process.env.BACKUP_DIR || "/srv/backups";
 const MEDIA_DIR = process.env.BACKUP_MEDIA_DIR || "/srv/media";
-// Max 2 per kind at any moment: the previous one + the one just created
-// (media tarballs are ~330 MB, the 38 GB disk fills up fast otherwise)
-const KEEP_PER_KIND = 2;
+// Retention by value, not by file type: DB dumps are the irreplaceable part
+// (recipes, subscribers, ratings, comments) and cost ~160 KB each, so we keep
+// weeks of history — protects against corruption noticed late. Media tarballs
+// are ~330 MB and mostly re-derivable, so only previous + freshly created.
+const KEEP: Record<"db" | "media", number> = { db: 14, media: 2 };
 
 export type BackupFile = {
   name: string;
@@ -94,7 +96,7 @@ function prune() {
   const byKind: Record<"db" | "media", BackupFile[]> = { db: [], media: [] };
   for (const b of listBackups()) byKind[b.kind].push(b); // newest-first
   for (const kind of ["db", "media"] as const) {
-    for (const b of byKind[kind].slice(KEEP_PER_KIND)) {
+    for (const b of byKind[kind].slice(KEEP[kind])) {
       try {
         fs.unlinkSync(path.join(BACKUP_DIR, b.name));
       } catch {
