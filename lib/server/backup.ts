@@ -11,7 +11,9 @@ import path from "path";
 const execFileP = promisify(execFile);
 const BACKUP_DIR = process.env.BACKUP_DIR || "/srv/backups";
 const MEDIA_DIR = process.env.BACKUP_MEDIA_DIR || "/srv/media";
-const KEEP_PER_KIND = 8;
+// Max 2 per kind at any moment: the previous one + the one just created
+// (media tarballs are ~330 MB, the 38 GB disk fills up fast otherwise)
+const KEEP_PER_KIND = 2;
 
 export type BackupFile = {
   name: string;

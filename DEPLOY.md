@@ -149,13 +149,13 @@ DEST=/srv/dnl/backups; mkdir -p "$DEST"
 STAMP=$(date +%Y-%m-%dT%H-%M-%S)
 docker compose exec -T db pg_dump --no-owner --no-privileges -U dnl dietanaluzie | gzip > "$DEST/db-$STAMP.sql.gz"
 tar czf "$DEST/media-$STAMP.tar.gz" -C /srv/dnl/media .
-ls -1t "$DEST"/db-*.sql.gz    2>/dev/null | tail -n +9 | xargs -r rm -f
-ls -1t "$DEST"/media-*.tar.gz 2>/dev/null | tail -n +9 | xargs -r rm -f
+ls -1t "$DEST"/db-*.sql.gz    2>/dev/null | tail -n +3 | xargs -r rm -f
+ls -1t "$DEST"/media-*.tar.gz 2>/dev/null | tail -n +3 | xargs -r rm -f
 EOF
 chmod +x /opt/dnl/backup.sh
 ( crontab -l 2>/dev/null | grep -v '/opt/dnl/backup.sh'; echo "0 3 */3 * * /opt/dnl/backup.sh >> /var/log/dnl-backup.log 2>&1" ) | crontab -
 ```
-(nazwy `db-<stamp>.sql.gz` / `media-<stamp>.tar.gz` są wspólne z panelem, więc lista w adminie pokazuje jedno i drugie; trzymane ostatnie 8 z każdego rodzaju.)
+(nazwy `db-<stamp>.sql.gz` / `media-<stamp>.tar.gz` są wspólne z panelem, więc lista w adminie pokazuje jedno i drugie; retencja: **max 2 z każdego rodzaju** — poprzedni + świeżo utworzony, starsze są kasowane przy każdym nowym backupie.)
 
 **Odtworzenie:**
 ```bash
