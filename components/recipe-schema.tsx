@@ -71,6 +71,7 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
               name: s.title || undefined,
               text: s.body,
               url: `${SITE_URL}${recipe.uri}#krok-${i + 1}`,
+              image: s.image ? absUrl(s.image) : undefined,
             }))
           : undefined,
         nutrition: recipe.kcal
@@ -81,6 +82,20 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
               fatContent: recipe.fat ? `${recipe.fat} g` : undefined,
               carbohydrateContent: recipe.carbs ? `${recipe.carbs} g` : undefined,
             }
+          : undefined,
+        // Approved comments are real engagement signals — expose them the same
+        // way the old WP theme did (scrapowalne w JSON-LD, jak oceny)
+        commentCount: recipe.comments.length || undefined,
+        comment: recipe.comments.length
+          ? recipe.comments
+              .filter((c) => !c.parentId)
+              .slice(0, 20)
+              .map((c) => ({
+                "@type": "Comment",
+                author: { "@type": "Person", name: c.authorName },
+                text: c.body,
+                dateCreated: iso(c.createdAt),
+              }))
           : undefined,
         aggregateRating: recipe.rating
           ? {

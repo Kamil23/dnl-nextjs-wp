@@ -8,6 +8,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "import:wp": "tsx scripts/import-wp.ts",
+    "import:wp-comments": "tsx scripts/import-wp-comments.ts",
     "imports:process": "tsx scripts/process-imports.ts",
     "imports:watch": "tsx scripts/process-imports.ts --watch",
     "search:reindex": "tsx scripts/reindex-search.ts"

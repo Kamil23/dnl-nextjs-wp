@@ -4,7 +4,7 @@
 import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { db, dbSchema } from "./db";
 
-const { recipes, ingredientGroups, ingredients, steps, categories, recipeCategories, tags, recipeTags, pages, ratings, imports } = dbSchema;
+const { recipes, ingredientGroups, ingredients, steps, categories, recipeCategories, tags, recipeTags, pages, ratings, imports, comments, redirects } = dbSchema;
 
 import { AUTHOR_AVATAR_URL } from "./constants";
 
@@ -85,7 +85,7 @@ export async function listAllCategories() {
 }
 
 async function loadRecipeRelations(recipe: RecipeRow) {
-  const [groups, stepRows, catRows, tagRows, ratingAgg] = await Promise.all([
+  const [groups, stepRows, catRows, tagRows, ratingAgg, commentRows] = await Promise.all([
     db
       .select({
         groupId: ingredientGroups.id,
@@ -126,6 +126,18 @@ async function loadRecipeRelations(recipe: RecipeRow) {
       })
       .from(ratings)
       .where(and(eq(ratings.recipeId, recipe.id), eq(ratings.status, "approved"))),
+    db
+      .select({
+        id: comments.id,
+        parentId: comments.parentId,
+        authorName: comments.authorName,
+        body: comments.body,
+        isAuthor: comments.isAuthor,
+        createdAt: comments.createdAt,
+      })
+      .from(comments)
+      .where(and(eq(comments.recipeId, recipe.id), eq(comments.status, "approved")))
+      .orderBy(comments.createdAt),
   ]);
 
   // Rating detox: once a recipe has collected enough REAL approved votes, the
@@ -146,6 +158,7 @@ async function loadRecipeRelations(recipe: RecipeRow) {
     steps: stepRows,
     categories: catRows,
     tags: tagRows,
+    comments: commentRows,
     rating:
       totalCount > 0
         ? { value: Math.round((totalSum / totalCount) * 10) / 10, count: totalCount }
@@ -189,6 +202,13 @@ export function toLegacyPost(r: FullRecipe, siteUrl: string) {
     },
     tags: { edges: r.tags.map((t) => ({ node: { name: t.name, slug: t.slug } })) },
   };
+}
+
+// Editorial redirects (curated in the DB, e.g. for URLs Google knows from
+// the WP era): the catch-all consults this as its last resort before a 404.
+export async function getRedirectBySource(sourcePath: string) {
+  const [r] = await db.select().from(redirects).where(eq(redirects.sourcePath, sourcePath));
+  return r ?? null;
 }
 
 export async function getPageByUri(uri: string) {

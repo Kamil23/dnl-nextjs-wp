@@ -18,12 +18,14 @@ import TikTokEmbed from '../components/recipe/tiktok-embed'
 import ShareCard from '../components/recipe/share-card'
 import RatingWidget from '../components/recipe/rating-widget'
 import SponsorCard from '../components/recipe/sponsor-card'
+import CommentsSection from '../components/recipe/comments-section'
 import { stripRecipeBlocks } from '../lib/recipe-parser'
 import {
   getRecipeByUri,
   getPageByUri,
   getAllRecipeUris,
   getAllPageUris,
+  getRedirectBySource,
   listRecipeArchive,
   listPublishedRecipes,
   toLegacyPost,
@@ -117,6 +119,10 @@ export default function Content({
                 </div>
               )}
 
+              <div className="print:hidden mt-12 max-w-2xl mx-auto">
+                <CommentsSection recipeId={recipe.id} comments={recipe.comments} />
+              </div>
+
               <div className="print:hidden">
                 <footer>
                   {post.tags.edges.length > 0 && <Tags tags={post.tags} />}
@@ -152,6 +158,9 @@ export default function Content({
                 {post.tags.edges.length > 0 && <Tags tags={post.tags} />}
               </footer>
               <ShareBtns url={post.link} mediaUrl={post.featuredImage?.node.sourceUrl} title={post.title} />
+              <div className="mt-12 max-w-2xl mx-auto">
+                <CommentsSection recipeId={recipe.id} comments={recipe.comments} />
+              </div>
             </article>
 
             <SectionSeparator />
@@ -272,6 +281,16 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         morePosts: [],
         seo: JSON.parse(JSON.stringify(buildSeoForPage(page))),
       },
+      revalidate: 60,
+    }
+  }
+
+  // Nothing lives here — honour a curated redirect (old WP URLs, slug
+  // collisions from re-imports) before giving up with a 404
+  const redirect = await getRedirectBySource(uri)
+  if (redirect) {
+    return {
+      redirect: { destination: redirect.targetPath, permanent: redirect.permanent },
       revalidate: 60,
     }
   }

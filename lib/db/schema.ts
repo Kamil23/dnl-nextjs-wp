@@ -187,6 +187,35 @@ export const ratings = pgTable(
   (t) => [uniqueIndex("ratings_recipe_fp_idx").on(t.recipeId, t.fingerprint)]
 );
 
+// Reader comments under a recipe/article. Same trust model as ratings:
+// everything lands as `pending` and only admin-approved comments render
+// publicly (and count towards commentCount in the JSON-LD).
+// `parentId` holds one level of nesting — replies (typically Roksana
+// answering from the admin, marked with isAuthor) render indented.
+export const comments = pgTable(
+  "comments",
+  {
+    id: serial("id").primaryKey(),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    parentId: integer("parent_id"),
+    authorName: text("author_name").notNull(),
+    body: text("body").notNull(),
+    // Admin replies are published as the blog author (highlighted in the UI)
+    isAuthor: boolean("is_author").notNull().default(false),
+    fingerprint: text("fingerprint").notNull(),
+    status: text("status", { enum: ["pending", "approved", "rejected"] })
+      .notNull()
+      .default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("comments_recipe_status_idx").on(t.recipeId, t.status),
+    index("comments_status_idx").on(t.status),
+  ]
+);
+
 export const pages = pgTable(
   "pages",
   {

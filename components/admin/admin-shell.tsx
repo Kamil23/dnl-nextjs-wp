@@ -25,6 +25,7 @@ export default function AdminShell({ title, children }: { title: string; childre
             <nav className="flex gap-4 text-sm text-gray-600">
               <Link href="/admin" className="hover:text-gray-900">Przepisy</Link>
               <Link href="/admin/oceny" className="hover:text-gray-900">Oceny</Link>
+              <Link href="/admin/komentarze" className="hover:text-gray-900">Komentarze</Link>
               <Link href="/admin/tiktok" className="hover:text-gray-900">Import TikTok</Link>
               <Link href="/admin/newsletter" className="hover:text-gray-900">Newsletter</Link>
               <Link href="/admin/backupy" className="hover:text-gray-900">Backupy</Link>
