@@ -26,9 +26,13 @@ FROM source AS builder
 ARG WORDPRESS_API_URL
 ARG APP_ORIGIN
 ARG DATABASE_URL
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so the
+# Turnstile site key must be a build arg, not just runtime env
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV WORDPRESS_API_URL=$WORDPRESS_API_URL \
     APP_ORIGIN=$APP_ORIGIN \
-    DATABASE_URL=$DATABASE_URL
+    DATABASE_URL=$DATABASE_URL \
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 RUN npm run build
 
 # ---- runner: minimal runtime image, only the standalone server + static assets.

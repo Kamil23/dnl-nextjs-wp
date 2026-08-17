@@ -1,7 +1,20 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Source = "recipe-slodkie" | "recipe-slone" | "kalkulator" | "cook-mode" | "stopka";
+
+// Cloudflare Turnstile guards the footer variant only: the footer sits on every
+// page, so it is the form spambots find. The CF script and widget load lazily on
+// first focus to stay off the critical path. No site key configured → no captcha
+// (dev, or before the keys land in .env).
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+declare global {
+  interface Window {
+    turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string };
+  }
+}
 
 const COPY: Record<Source, { emoji: string; title: string; text: string; cta: string }> = {
   "recipe-slodkie": {
@@ -49,18 +62,55 @@ export default function NewsletterSignup({
   // Anti-bot: honeypot value (must stay empty) + mount time, checked server-side
   const [website, setWebsite] = useState("");
   const [mountedAt] = useState(() => Date.now());
+  const captcha = source === "stopka" && !!TURNSTILE_SITE_KEY;
+  const captchaRef = useRef<HTMLDivElement>(null);
+  const captchaMounted = useRef(false);
+  const [captchaToken, setCaptchaToken] = useState("");
   const c = COPY[source];
+
+  function mountCaptcha() {
+    if (!captcha || captchaMounted.current || !captchaRef.current) return;
+    captchaMounted.current = true;
+    const render = () =>
+      window.turnstile?.render(captchaRef.current!, {
+        sitekey: TURNSTILE_SITE_KEY,
+        appearance: "interaction-only",
+        size: "flexible",
+        callback: (t: string) => setCaptchaToken(t),
+        "expired-callback": () => setCaptchaToken(""),
+      });
+    if (window.turnstile) {
+      render();
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = TURNSTILE_SRC;
+    s.async = true;
+    s.onload = render;
+    document.head.appendChild(s);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
+    if (captcha && !captchaToken) {
+      setState("error");
+      setError("Chwila, trwa weryfikacja antybotowa. Spróbuj za moment.");
+      return;
+    }
     setState("sending");
     setError("");
     try {
       const res = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), source, hp: website, ts: mountedAt }),
+        body: JSON.stringify({
+          email: email.trim(),
+          source,
+          hp: website,
+          ts: mountedAt,
+          cf: captchaToken || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Coś poszło nie tak");
@@ -104,6 +154,7 @@ export default function NewsletterSignup({
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onFocus={mountCaptcha}
           placeholder="twoj@email.pl"
           className="flex-1 rounded-full border border-amber-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
         />
@@ -115,6 +166,7 @@ export default function NewsletterSignup({
           {state === "sending" ? "Wysyłam…" : c.cta}
         </button>
       </form>
+      {captcha && <div ref={captchaRef} className="mt-2 empty:hidden" />}
       {state === "error" && <p className="text-sm text-red-600 mt-2">{error}</p>}
       <p className="text-[11px] text-gray-400 mt-2">
         Zapisując się akceptujesz{" "}

@@ -19,12 +19,17 @@ const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 6;
 const hits = new Map<string, { n: number; since: number }>();
 
-function throttled(req: NextApiRequest): boolean {
+function clientIp(req: NextApiRequest): string {
   const fwd = req.headers["x-forwarded-for"];
-  const ip =
+  return (
     (Array.isArray(fwd) ? fwd[0] : fwd?.split(",")[0].trim()) ||
     req.socket.remoteAddress ||
-    "unknown";
+    "unknown"
+  );
+}
+
+function throttled(req: NextApiRequest): boolean {
+  const ip = clientIp(req);
   const now = Date.now();
   const rec = hits.get(ip);
   if (!rec || now - rec.since > WINDOW_MS) {
@@ -42,7 +47,29 @@ const Body = z.object({
   // empty, `ts` is the form-mount timestamp (humans need a moment to type).
   hp: z.string().max(200).optional(),
   ts: z.number().int().optional(),
+  // Turnstile token, required for the footer form when the secret is configured
+  cf: z.string().max(3000).optional(),
 });
+
+// Verify a Turnstile token with Cloudflare. Fail-open on network trouble: CF
+// being down must not block real signups (the honeypot layer still stands).
+async function turnstileOk(token: string | undefined, ip: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) return true;
+  if (!token) return false;
+  try {
+    const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ secret, response: token, remoteip: ip }),
+    });
+    const data = await r.json();
+    return !!data.success;
+  } catch (e: any) {
+    console.error("turnstile verify:", e.message);
+    return true;
+  }
+}
 
 // Aug 2026: subscription-bombing bots flooded the footer form (~40/day). They
 // POST straight to the API or autofill every field, so an empty honeypot plus
@@ -62,6 +89,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Bot signature → pretend success so the operator has no signal to adapt to
   if (hp || !ts || Date.now() - ts < MIN_FILL_MS) {
     return res.status(200).json({ ok: true });
+  }
+  // Footer only: Turnstile. Explicit error here — a human with an expired
+  // token deserves feedback; the dumb bots already died silently above.
+  if (source === "stopka" && !(await turnstileOk(parsed.data.cf, clientIp(req)))) {
+    return res
+      .status(400)
+      .json({ error: "Weryfikacja antybotowa nie przeszła. Odśwież stronę i spróbuj ponownie." });
   }
   const email = normalizeEmail(parsed.data.email);
   const magnet = magnetForSource(source as SignupSource);

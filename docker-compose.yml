@@ -46,6 +46,7 @@ services:
       args:
         APP_ORIGIN: ${APP_ORIGIN}
         DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     restart: unless-stopped
     depends_on:
       db:
@@ -63,6 +64,8 @@ services:
       # Newsletter delivery (Resend); the subscriber list itself lives in Postgres
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       NEWSLETTER_FROM: ${NEWSLETTER_FROM:-}
+      # Turnstile antybot (formularz w stopce); puste = weryfikacja wyłączona
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
       GA4_SERVICE_ACCOUNT_KEY_PATH: ${GA4_SERVICE_ACCOUNT_KEY_PATH:-}
     volumes:
