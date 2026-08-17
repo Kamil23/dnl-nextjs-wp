@@ -41,6 +41,19 @@ export function newToken(): string {
   return randomBytes(24).toString("hex");
 }
 
+// Gmail ignores dots in the local part, which spambots exploit to slip the same
+// address past the unique email index ("pi.l.o.t.phil" vs "pilotphil"). Store
+// the canonical form so the dedupe holds; delivery is unaffected.
+export function normalizeEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (domain === "gmail.com" || domain === "googlemail.com") {
+    return `${local.split(".").join("")}@${domain}`;
+  }
+  return email;
+}
+
 export function confirmUrl(token: string) {
   return `${SITE_URL}/api/newsletter/potwierdz?t=${token}`;
 }

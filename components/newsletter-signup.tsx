@@ -46,6 +46,9 @@ export default function NewsletterSignup({
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [error, setError] = useState("");
+  // Anti-bot: honeypot value (must stay empty) + mount time, checked server-side
+  const [website, setWebsite] = useState("");
+  const [mountedAt] = useState(() => Date.now());
   const c = COPY[source];
 
   async function submit(e: React.FormEvent) {
@@ -57,7 +60,7 @@ export default function NewsletterSignup({
       const res = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), source }),
+        body: JSON.stringify({ email: email.trim(), source, hp: website, ts: mountedAt }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Coś poszło nie tak");
@@ -86,6 +89,16 @@ export default function NewsletterSignup({
       </p>
       <p className="text-sm text-gray-600 mt-1 mb-3">{c.text}</p>
       <form onSubmit={submit} className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="text"
+          name="website"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+        />
         <input
           type="email"
           required

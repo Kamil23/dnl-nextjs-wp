@@ -6,6 +6,7 @@ import {
   SIGNUP_SOURCES,
   magnetForSource,
   newToken,
+  normalizeEmail,
   confirmMail,
   sendMail,
   type SignupSource,
@@ -37,7 +38,16 @@ function throttled(req: NextApiRequest): boolean {
 const Body = z.object({
   email: z.string().trim().toLowerCase().email().max(200),
   source: z.enum(SIGNUP_SOURCES),
+  // Anti-bot fields set by NewsletterSignup: `hp` is a honeypot that must stay
+  // empty, `ts` is the form-mount timestamp (humans need a moment to type).
+  hp: z.string().max(200).optional(),
+  ts: z.number().int().optional(),
 });
+
+// Aug 2026: subscription-bombing bots flooded the footer form (~40/day). They
+// POST straight to the API or autofill every field, so an empty honeypot plus
+// a minimum fill time cuts them off.
+const MIN_FILL_MS = 3000;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -48,7 +58,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!parsed.success) {
     return res.status(400).json({ error: "Podaj poprawny adres e-mail" });
   }
-  const { email, source } = parsed.data;
+  const { source, hp, ts } = parsed.data;
+  // Bot signature → pretend success so the operator has no signal to adapt to
+  if (hp || !ts || Date.now() - ts < MIN_FILL_MS) {
+    return res.status(200).json({ ok: true });
+  }
+  const email = normalizeEmail(parsed.data.email);
   const magnet = magnetForSource(source as SignupSource);
 
   try {
