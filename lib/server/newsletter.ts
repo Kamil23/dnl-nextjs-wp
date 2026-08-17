@@ -80,12 +80,32 @@ async function resendRequest(path: string, body: unknown) {
   return res.json();
 }
 
+// HTML-only mail scores worse with spam filters; a multipart text/plain
+// alternative is expected of legitimate senders. Crude conversion is enough.
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+display:\s*none[^>]*>[\s\S]*?<\/[a-z]+>/gi, "")
+    .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)")
+    .replace(/<(?:br|\/p|\/td|\/tr|\/h[1-6]|\/li)[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function toPayload(m: Mail) {
   return {
     from: FROM,
     to: [m.to],
     subject: m.subject,
     html: m.html,
+    text: htmlToText(m.html),
     ...(m.unsubToken
       ? {
           headers: {
