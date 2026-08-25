@@ -1,12 +1,13 @@
 import { GetServerSideProps } from 'next'
 import { getAllRecipeUris, getCategoriesWithCounts, getAllPageUris } from '../lib/queries'
-import { THEMES } from '../lib/seasonal'
 import { SITE_URL, EXCLUDED_PAGE_URIS } from '../lib/constants'
-import { INGREDIENTS } from '../lib/measures'
-import { CALCULATORS } from '../lib/calculators'
+import { staticSitemapPaths } from '../lib/site-routes'
 
-// Serves /sitemap.xml with the same URL set as the old WordPress sitemap
-// (homepage + all recipes/articles at their permalinks + categories + pages).
+// Serves /sitemap.xml dynamically (getServerSideProps) — regenerowana przy każdym
+// żądaniu z żywej bazy. Treść z DB (przepisy/kategorie/strony) trafia tu sama;
+// trasy plikowe (kalkulatory, konwerter, kolekcje, sezony, narzędzia) pochodzą
+// z jednego rejestru lib/site-routes.ts, więc nowe pozycje pojawiają się
+// automatycznie bez edycji tego pliku.
 export default function Sitemap() {
   return null
 }
@@ -25,28 +26,18 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   ])
 
   const entries = [
-    urlEntry(`${SITE_URL}/`),
+    // Trasy plikowe / narzędzia / kolekcje / sezony — z rejestru (auto)
+    ...staticSitemapPaths().map((p) => urlEntry(`${SITE_URL}${p}`)),
+    // Treść z bazy (auto): przepisy + daty modyfikacji
     ...recipeUris.map(({ uri, updatedAt }) => urlEntry(`${SITE_URL}${uri}`, updatedAt)),
+    // Kategorie z zawartością
     ...categories
       .filter((c) => c.count > 0)
       .map((c) => urlEntry(`${SITE_URL}${c.uri}`)),
+    // Strony redakcyjne z tabeli `pages` (np. /do-pobrania, polityka prywatności)
     ...pageUris
       .filter(({ uri }) => uri !== '/' && !EXCLUDED_PAGE_URIS.includes(uri))
       .map(({ uri }) => urlEntry(`${SITE_URL}${uri}`)),
-    ...THEMES.map((t) => urlEntry(`${SITE_URL}/sezon/${t.key}/`)),
-    // Konwerter miar: hub + statyczne landingi składników (programmatic SEO)
-    urlEntry(`${SITE_URL}/konwerter/`),
-    ...INGREDIENTS.map((i) => urlEntry(`${SITE_URL}/konwerter/${i.slug}/`)),
-    // Kolekcje edytorskie (wysokie białko, GLP-1 friendly)
-    urlEntry(`${SITE_URL}/kolekcje/wysokie-bialko/`),
-    urlEntry(`${SITE_URL}/kolekcje/glp1/`),
-    // Kalkulatory dietetyczne: hub + poszczególne narzędzia
-    urlEntry(`${SITE_URL}/kalkulatory/`),
-    ...CALCULATORS.map((c) => urlEntry(`${SITE_URL}/${c.slug}/`)),
-    // Losownik obiadów
-    urlEntry(`${SITE_URL}/co-na-obiad/`),
-    // Encja autorki
-    urlEntry(`${SITE_URL}/autor/roksana/`),
   ]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
