@@ -68,6 +68,10 @@ services:
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
       GA4_SERVICE_ACCOUNT_KEY_PATH: ${GA4_SERVICE_ACCOUNT_KEY_PATH:-}
+      # Szacowanie kalorii/makr z AI: "Oszacuj z AI" w edytorze przepisu i
+      # "Porcje z AI" w /admin/qc wołają estimateMacros (OpenAI) w kontenerze web.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
     volumes:
       # TikTok frames also served from public/ (belt-and-suspenders; the app now
       # emits absolute image URLs so next/image fetches them via Caddy anyway).
