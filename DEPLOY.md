@@ -89,6 +89,11 @@ du -sh /srv/dnl/media                                     # rozmiar
 
 ## 🔄 Jak robić aktualizacje
 
+> ⚠️ **`db:push` i `search:reindex` uruchamiają się z obrazu `tools`.** `docker compose build web worker`
+> **NIE** przebudowuje `tools`. Po każdej zmianie **schematu** lub **wyszukiwarki** rebuilduj też `tools`
+> (albo `docker compose build` bez argumentów) — inaczej migracja/reindeks pójdą na **starym kodzie**
+> i po cichu nic nie zrobią (`db:push` powie „No changes detected" mimo brakujących kolumn).
+
 ### A. Zmiana w kodzie (najczęstsze)
 ```bash
 cd dnl
@@ -100,15 +105,21 @@ docker compose up -d web worker # podmiana kontenerów; caddy/db/meili/media nie
 ### B. Zmiana schematu bazy
 ```bash
 git pull
-docker compose run --rm tools npm run db:push
-docker compose build web
-docker compose up -d web
+docker compose build tools          # WAŻNE: db:push idzie z obrazu tools → musi mieć nowy schema.ts
+docker compose run --rm tools npm run db:push   # przejrzyj output; ADD COLUMN/CREATE TABLE = OK, DROP = STOP
+docker compose build web worker
+docker compose up -d web worker
 ```
 
 ### C. Zmiana w wyszukiwarce / masowa zmiana przepisów
 ```bash
+git pull
+docker compose build tools          # WAŻNE: reindex idzie z obrazu tools → musi mieć nowy search.ts
 docker compose run --rm tools npm run search:reindex
 ```
+
+> **Zmiana kodu + schematu + wyszukiwarki naraz** (jak przy dużym release): najprościej `docker compose build`
+> (wszystko), potem `db:push` → `search:reindex` → `up -d web worker`. Kolejność: schemat przed reindeksem przed startem.
 
 > **ISR:** edycje treści w panelu admina odświeżają się same (`revalidate: 60`) - redeploy tylko przy zmianach **kodu** lub **schematu**. Media dodane w panelu/imporcie lądują na wolumenie `/srv/dnl/media` i są od razu serwowane przez Caddy (bez rebuildu).
 
@@ -209,6 +220,10 @@ Jeśli 80/443 są wolne - zostaje nasze Caddy bez zmian. (Ustalimy na podstawie 
 **Import z TikToka wisi w „W kolejce"** - sprawdź `docker compose ps worker` (musi być up) i `docker compose logs -f worker`; najczęstsza przyczyna to brak klucza AI w `.env` (`OPENAI_API_KEY` lub `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`).
 
 **`docker compose build web` nie widzi bazy** - db musi być `up`/healthy przed buildem. Build używa `network: host` i łączy się z `127.0.0.1:5432`.
+
+**`db:push` mówi „No changes detected", a aplikacja rzuca `column ... does not exist`** - obraz `tools` jest stary. Przebuduj go: `docker compose build tools`, potem powtórz `db:push`/`search:reindex` (patrz callout w „Jak robić aktualizacje").
+
+**500 na stronach z obrazami / `sharp is required in standalone mode`** - `sharp` musi być w `dependencies` (jest od 0.35.x). W `output:'standalone'` Next 14 wymaga go w produkcji do `next/image`; bez niego `/_next/image` zwraca 500. Fix: `npm i sharp`, commit, rebuild `web worker`.
 
 **Caddy nie dostaje certu** - DNS apexu musi już wskazywać na VPS, porty 80/443 otwarte. Do testów przed cutoverem: IP/`/etc/hosts` + `curl -k`.
 
