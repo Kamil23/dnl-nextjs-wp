@@ -99,7 +99,9 @@ export default function SearchHero({
             Ponad 100 fit przepisów, każdy sprawdzony w mojej kuchni.
           </p>
         )}
-        <form onSubmit={submit} className="flex justify-center gap-2 px-4 max-w-xl mx-auto">
+        {/* Wspólny kontener: panel sugestii siada dokładnie pod inputem, na jego szerokość */}
+        <div className="max-w-xl mx-auto px-4">
+        <form onSubmit={submit} className="flex gap-2">
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -129,7 +131,7 @@ export default function SearchHero({
           )}
         </form>
         {showIdeas && (
-          <div className="mx-auto max-w-md mt-3 rounded-2xl border border-gray-100 bg-white shadow-bottomSmall p-4 text-left">
+          <div className="w-full mt-3 rounded-2xl border border-gray-100 bg-white shadow-bottomSmall p-4 text-left">
             <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Szukasz pod cel?</p>
             <div className="flex flex-wrap gap-2 mb-4">
               {GOALS.map((g) => (
@@ -165,6 +167,7 @@ export default function SearchHero({
             </div>
           </div>
         )}
+        </div>
       </section>
 
       {active && (
