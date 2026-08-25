@@ -58,6 +58,15 @@ const HOME_JSONLD = {
       description: SITE_DESCRIPTION,
       inLanguage: 'pl-PL',
       publisher: { '@id': `${SITE_URL}/#organization` },
+      // Sitelinks searchbox: Google może pokazać pole szukania pod domeną
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${SITE_URL}/szukaj/?q={search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
     },
   ],
 }

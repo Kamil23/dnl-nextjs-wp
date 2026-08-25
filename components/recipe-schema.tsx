@@ -1,6 +1,8 @@
 import {
   SITE_URL,
   SITE_TITLE,
+  AUTHOR_NAME,
+  AUTHOR_PAGE_PATH,
   SOCIAL_TIKTOK_URL,
   SOCIAL_INSTAGRAM_URL,
 } from "../lib/constants";
@@ -16,9 +18,24 @@ function iso(d: Date | string | null | undefined) {
   return d ? new Date(d).toISOString() : undefined;
 }
 
+// Tagi diety -> wartości DietTypeEnumeration; brak trafienia = undefined
+// (tagów dietowych nie ma jeszcze w słowniku, mapper czeka na nie)
+const DIET_PATTERNS: [RegExp, string][] = [
+  [/wegan|wegań|vegan/i, "https://schema.org/VeganDiet"],
+  [/wegetaria|^wege\b|-wege\b|wege$/i, "https://schema.org/VegetarianDiet"],
+  [/gluten/i, "https://schema.org/GlutenFreeDiet"],
+  [/laktoza|laktozy/i, "https://schema.org/LowLactoseDiet"],
+];
+
+function dietFromTags(tagTexts: string[]): string[] {
+  const hits = DIET_PATTERNS.map(([re, uri]) =>
+    tagTexts.some((t) => re.test(t)) ? uri : null
+  ).filter(Boolean) as string[];
+  return hits;
+}
+
 export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
-  const ingredientTexts = recipe.ingredientGroups.flatMap((g) => g.items);
-  // Articles never emit Recipe schema, even if stray list data exists.
+  const ingredientTexts = recipe.ingredientGroups.flatMap((g) => g.items);  // Articles never emit Recipe schema, even if stray list data exists.
   // `image` is a REQUIRED Recipe property for the Google rich result — emitting
   // a Recipe without one gets it rejected and reported as an error in Search
   // Console, so we suppress the Recipe block (keeping BreadcrumbList) rather than
@@ -44,9 +61,11 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
         description: recipe.seoDescription || recipe.lead || undefined,
         author: {
           "@type": "Person",
-          name: recipe.authorName || "Roksana",
-          url: SOCIAL_INSTAGRAM_URL,
-          sameAs: [SOCIAL_INSTAGRAM_URL, SOCIAL_TIKTOK_URL],
+          name: recipe.authorName || AUTHOR_NAME,
+          // Własna strona autorki = kotwica encji (E-E-A-T); profile społeczne
+          // jako sameAs spinają tożsamość między platformami
+          url: `${SITE_URL}${AUTHOR_PAGE_PATH}`,
+          sameAs: [`${SITE_URL}${AUTHOR_PAGE_PATH}`, SOCIAL_INSTAGRAM_URL, SOCIAL_TIKTOK_URL],
         },
         // keywords is a recommended Recipe rich-result property — merge the
         // editorial keywords with tag names, deduplicated
@@ -60,6 +79,9 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
             )
           ).join(", ") || undefined,
         recipeCategory: categoryNames.length ? categoryNames.join(", ") : undefined,
+        // Diety z tagów — tylko jednoznaczne wzorce, bo Google waliduje
+        // wartości względem enumeracji schema.org (DietTypeEnumeration)
+        suitableForDiet: dietFromTags(recipe.tags.map((t) => `${t.slug} ${t.name}`)) || undefined,
         recipeYield: recipe.servingsText || (recipe.servings ? `${recipe.servings} porcje` : undefined),
         prepTime: minutesToIso8601(recipe.prepTimeMin) || undefined,
         cookTime: minutesToIso8601(recipe.cookTimeMin) || undefined,
@@ -142,10 +164,19 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
 
   const blocks = [breadcrumbSchema, ...(recipeSchema ? [recipeSchema] : [])];
 
+  // One <script> per schema object. A single tag with an array is valid for
+  // Google, but naive JSON-LD consumers (browser extensions, recipe scrapers)
+  // do JSON.parse(tag)["@context"] and crash on the array — and scrapability
+  // is a feature here (ratings/comments are meant to be machine-readable).
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(blocks) }}
-    />
+    <>
+      {blocks.map((b, i) => (
+        <script
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(b) }}
+        />
+      ))}
+    </>
   );
 }

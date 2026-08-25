@@ -8,23 +8,32 @@ import CalculatorLinks from '../components/calculator-links'
 import PostTitle from '../components/post-title'
 import { MENU_EDGES } from '../lib/menu'
 import { SITE_TITLE, SITE_URL } from '../lib/constants'
-import { ACTIVITY_LEVELS, mifflinBmr, tdee, validBody, type Sex } from '../lib/nutrition'
+import {
+  ACTIVITY_LEVELS,
+  mifflinBmr,
+  tdee,
+  validBody,
+  deficitTarget,
+  weeklyLoss,
+  DEFICIT_TIERS,
+  type Sex,
+} from '../lib/nutrition'
 
-// Own BMR/CPM calculator (Mifflin-St Jeor) — replaces the old WP plugin page
-// at the same URL, same title/description as the live site.
+// Dedicated calorie-deficit page — "kalkulator deficytu kalorycznego" is a
+// distinct high-volume query from "kalkulator kalorii", worth its own URL.
 
 const FAQ = [
   {
-    q: 'Czym różni się BMR od CPM?',
-    a: 'BMR (podstawowa przemiana materii) to kalorie, które organizm zużywa w spoczynku na podtrzymanie funkcji życiowych. CPM (całkowita przemiana materii) to BMR pomnożone przez współczynnik aktywności — czyli ile realnie potrzebujesz przy swoim trybie życia.',
+    q: 'Jaki deficyt kaloryczny jest bezpieczny?',
+    a: 'Najczęściej zaleca się deficyt 10–20% względem całkowitego zapotrzebowania (CPM). Głębszy deficyt daje szybsze efekty, ale zwiększa ryzyko utraty mięśni, spadku energii i efektu jo-jo.',
   },
   {
-    q: 'Ile kalorii jeść, żeby schudnąć?',
-    a: 'Najczęściej celuje się w deficyt 10–20% względem CPM. Dokładne wartości i tempo chudnięcia policzysz w kalkulatorze deficytu kalorycznego.',
+    q: 'Ile można schudnąć w tydzień?',
+    a: 'Zdrowe tempo to zwykle 0,3–0,7 kg tygodniowo. 1 kg tkanki tłuszczowej to około 7700 kcal, więc deficyt 500 kcal dziennie daje w przybliżeniu 0,45 kg na tydzień.',
   },
   {
-    q: 'Jak dokładny jest wzór Mifflina-St Jeor?',
-    a: 'To jeden z najdokładniejszych wzorów szacunkowych dla populacji ogólnej, ale wynik jest orientacyjny — realne zapotrzebowanie zależy też od masy mięśniowej, genetyki i stanu zdrowia.',
+    q: 'Czy można jeść za mało?',
+    a: 'Tak. Zbyt niska podaż (poniżej ok. 1200 kcal u kobiet i 1500 u mężczyzn) utrudnia dostarczenie składników odżywczych i bywa niemożliwa do utrzymania. Nasz kalkulator nie schodzi poniżej tych wartości.',
   },
 ]
 
@@ -38,7 +47,11 @@ const faqSchema = {
   })),
 }
 
-export default function CalorieCalculator() {
+function formatKgWeek(kg: number) {
+  return `${kg.toFixed(2).replace('.', ',')} kg/tydz.`
+}
+
+export default function DeficitCalculator() {
   const [sex, setSex] = useState<Sex>('k')
   const [age, setAge] = useState('')
   const [weight, setWeight] = useState('')
@@ -59,25 +72,26 @@ export default function CalorieCalculator() {
   return (
     <Layout menu={MENU_EDGES} preview={false}>
       <Head>
-        <title>{`Kalkulator kalorii (BMR i CPM) - ${SITE_TITLE}`}</title>
-        <meta name="description" content="Oblicz podstawową przemianę materii (BMR) i całkowite dzienne zapotrzebowanie kaloryczne (CPM) wzorem Mifflina-St Jeor. Za darmo, bez rejestracji." />
+        <title>{`Kalkulator deficytu kalorycznego - ${SITE_TITLE}`}</title>
+        <meta name="description" content="Policz, ile kalorii jeść, żeby schudnąć. Kalkulator deficytu kalorycznego pokazuje docelowe kalorie i prognozę tempa chudnięcia dla lekkiego, umiarkowanego i agresywnego deficytu." />
         <meta
           name="robots"
           content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
         />
-        <link rel="canonical" href={`${SITE_URL}/kalkulator-kalorii/`} />
+        <link rel="canonical" href={`${SITE_URL}/kalkulator-deficytu-kalorycznego/`} />
         <meta property="og:locale" content="pl_PL" />
-        <meta property="og:title" content={`Kalkulator kalorii (BMR i CPM) - ${SITE_TITLE}`} />
-        <meta property="og:url" content={`${SITE_URL}/kalkulator-kalorii/`} />
+        <meta property="og:title" content={`Kalkulator deficytu kalorycznego - ${SITE_TITLE}`} />
+        <meta property="og:url" content={`${SITE_URL}/kalkulator-deficytu-kalorycznego/`} />
         <meta property="og:site_name" content={SITE_TITLE} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       </Head>
       <Container>
         <article className="max-w-xl mx-auto mb-24">
-          <PostTitle>Kalkulator kalorii</PostTitle>
+          <PostTitle>Kalkulator deficytu kalorycznego</PostTitle>
           <p className="text-gray-600 mb-8">
-            Oblicz swoją podstawową przemianę materii (BMR) i całkowite dzienne
-            zapotrzebowanie kaloryczne (CPM) według wzoru Mifflina-St Jeor.
+            Żeby chudnąć, trzeba jeść mniej, niż wynosi dzienne zapotrzebowanie.
+            Policz swój deficyt i zobacz, ile kalorii jeść oraz jak szybko
+            zejdzie waga przy różnym tempie.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -111,30 +125,39 @@ export default function CalorieCalculator() {
             </select>
           </label>
 
-          {bmr && cpm ? (
-            <div className="rounded-xl border border-gray-200 shadow-small p-6 text-center">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-sm text-gray-500">BMR</div>
-                  <div className="text-3xl font-bold">{bmr} kcal</div>
-                  <div className="text-xs text-gray-400 mt-1">podstawowa przemiana materii</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500">CPM</div>
-                  <div className="text-3xl font-bold">{cpm} kcal</div>
-                  <div className="text-xs text-gray-400 mt-1">całkowite zapotrzebowanie</div>
-                </div>
+          {cpm ? (
+            <div className="rounded-xl border border-gray-200 shadow-small p-6">
+              <div className="text-center mb-6">
+                <div className="text-sm text-gray-500">Twoje zapotrzebowanie (CPM)</div>
+                <div className="text-3xl font-bold">{cpm} kcal</div>
+                <div className="text-xs text-gray-400 mt-1">tyle jesz, żeby utrzymać wagę</div>
               </div>
-              <p className="text-sm text-gray-600 mt-6">
-                Chcesz schudnąć? Celuj w ok. {Math.round(cpm * 0.85)} kcal
-                (deficyt ~15%). Budujesz masę? Ok. {Math.round(cpm * 1.1)} kcal.
+              <div className="space-y-3">
+                {DEFICIT_TIERS.map((t) => {
+                  const target = deficitTarget(cpm, t.pct, sex)
+                  const realDeficit = cpm - target.kcal
+                  return (
+                    <div key={t.key} className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
+                      <div>
+                        <div className="font-semibold text-sm">{t.label}</div>
+                        <div className="text-xs text-gray-500">
+                          ~{formatKgWeek(weeklyLoss(realDeficit))}
+                          {target.floored && ' · ograniczono do minimum'}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-bold">{target.kcal} kcal</div>
+                        <div className="text-xs text-gray-400">−{realDeficit} kcal/dzień</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-sm text-gray-500 mt-5 text-center">
+                Chcesz rozłożyć te kalorie na białko, tłuszcze i węgle?{' '}
+                <Link href="/kalkulator-makro/" className="underline">Kalkulator makro</Link>.
               </p>
-              <p className="text-sm text-gray-500 mt-2">
-                <Link href="/kalkulator-deficytu-kalorycznego/" className="underline">Policz deficyt dokładnie</Link>
-                {' · '}
-                <Link href="/kalkulator-makro/" className="underline">rozłóż na makro</Link>
-              </p>
-              <div className="mt-6 text-left">
+              <div className="mt-5">
                 <NewsletterSignup source="kalkulator" />
               </div>
             </div>
@@ -154,7 +177,7 @@ export default function CalorieCalculator() {
             ))}
           </div>
 
-          <CalculatorLinks current="kalkulator-kalorii" />
+          <CalculatorLinks current="kalkulator-deficytu-kalorycznego" />
         </article>
       </Container>
     </Layout>

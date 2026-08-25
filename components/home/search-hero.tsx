@@ -3,7 +3,26 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import RecipeTile, { type RecipeTileData } from "../recipe-tile";
 
-const SUGGESTIONS = ["sernik", "obiad w 30 minut", "owsianka", "bez pieczenia"];
+// Focus-panel suggestions, steered by the market research: the highest-demand
+// niches (high-protein — driven by the GLP-1 wave — and calorie-aware satiety)
+// get top billing and point at STATIC collection pages, so they always work and
+// never depend on the search engine being up.
+const GOALS = [
+  { label: "🍽️ Co na obiad?", href: "/co-na-obiad/" },
+  { label: "💪 Wysokobiałkowe", href: "/kolekcje/wysokie-bialko/" },
+  { label: "🥗 Sycące do 500 kcal", href: "/kolekcje/glp1/" },
+];
+
+// Dish ideas run a live search (typo-tolerant); kept to terms that return hits.
+const IDEAS = ["owsianka", "sernik", "kurczak", "naleśniki"];
+
+// Browse entry points — static category pages (also work without the engine).
+const BROWSE = [
+  { label: "Śniadania", path: "/kategoria/przepisy/sniadania/" },
+  { label: "Obiad", path: "/kategoria/przepisy/obiad/" },
+  { label: "Fit słodycze", path: "/kategoria/przepisy/fit-slodycze/" },
+  { label: "Jednoporcjowe", path: "/kategoria/przepisy/jednoporcjowe/" },
+];
 
 // Instant search: typing renders a grid of big recipe tiles right under
 // the box (the rest of the homepage steps aside via onActiveChange) —
@@ -20,9 +39,12 @@ export default function SearchHero({
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<RecipeTileData[]>([]);
   const [searching, setSearching] = useState(false);
+  const [focused, setFocused] = useState(false);
   const lastQuery = useRef("");
 
   const active = q.trim().length >= 2;
+  // Show the idea panel only while the empty box has focus.
+  const showIdeas = focused && !active;
 
   useEffect(() => {
     onActiveChange?.(active);
@@ -52,7 +74,10 @@ export default function SearchHero({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    router.push(`/szukaj/?q=${encodeURIComponent(q.trim())}`);
+    const query = q.trim();
+    // Empty box → do nothing (stay on the homepage; the idea panel guides the
+    // user). Only a real query goes to the full results page.
+    if (query) router.push(`/szukaj/?q=${encodeURIComponent(query)}`);
   }
 
   return (
@@ -78,6 +103,9 @@ export default function SearchHero({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onFocus={() => setFocused(true)}
+            // delay so a click on a suggestion registers before the panel hides
+            onBlur={() => setTimeout(() => setFocused(false), 150)}
             placeholder="np. sernik, kurczak, śniadanie..."
             className="w-full rounded-full border border-gray-200 bg-white px-5 py-3 shadow-bottomSmall focus:outline-none focus:ring-2 focus:ring-amber-400"
             aria-label="Szukaj przepisu"
@@ -100,17 +128,41 @@ export default function SearchHero({
             </button>
           )}
         </form>
-        {!active && (
-          <div className="mt-4 flex justify-center gap-2 flex-wrap text-sm px-4">
-            {SUGGESTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => setQ(s)}
-                className="rounded-full bg-white/70 border border-gray-200 px-3 py-1 text-gray-600 hover:border-amber-400 hover:text-gray-900 transition"
-              >
-                {s}
-              </button>
-            ))}
+        {showIdeas && (
+          <div className="mx-auto max-w-md mt-3 rounded-2xl border border-gray-100 bg-white shadow-bottomSmall p-4 text-left">
+            <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Szukasz pod cel?</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {GOALS.map((g) => (
+                <Link
+                  key={g.href}
+                  href={g.href}
+                  className="rounded-full bg-amber-500 text-white px-3 py-1.5 text-sm hover:bg-amber-600 transition"
+                >
+                  {g.label}
+                </Link>
+              ))}
+            </div>
+            <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Może na to masz ochotę?</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {IDEAS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={() => setQ(s)}
+                  className="rounded-full bg-amber-50 border border-amber-100 text-amber-800 px-3 py-1.5 text-sm hover:border-amber-300 transition"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs uppercase tracking-wide text-gray-400 mb-2">Albo przeglądaj</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {BROWSE.map((c) => (
+                <Link key={c.path} href={c.path} className="text-gray-600 hover:text-gray-900 hover:underline underline-offset-2">
+                  {c.label}
+                </Link>
+              ))}
+            </div>
           </div>
         )}
       </section>

@@ -23,7 +23,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { estimateMacros } from "../lib/server/estimate-macros";
-import { eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, like, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import Anthropic from "@anthropic-ai/sdk";
@@ -124,7 +124,35 @@ async function downloadVideo(url: string, dir: string) {
     caption: info.description || info.title || "",
     durationSec: Math.round(info.duration) || null,
     viewCount: Number.isFinite(info.view_count) ? info.view_count : null,
+    videoId: info.id ? String(info.id) : null,
   };
+}
+
+// The submit endpoint already blocks obvious duplicates, but short links it
+// failed to resolve (and legacy rows without video_id) only reveal the real
+// video id here, after the download. Returns what the video duplicates, or null.
+async function findDuplicate(impId: number, videoId: string) {
+  const { recipes } = schema;
+  const others = await db
+    .select()
+    .from(imports)
+    .where(
+      and(
+        ne(imports.id, impId),
+        or(eq(imports.videoId, videoId), like(imports.tiktokUrl, `%/video/${videoId}%`))
+      )
+    );
+  const dup = others.find(
+    (o) =>
+      ["processing", "ready", "approved"].includes(o.status) ||
+      (o.status === "pending" && o.id < impId)
+  );
+  if (dup) return { importId: dup.id, recipeId: dup.recipeId ?? null };
+  const [rec] = await db
+    .select({ id: recipes.id })
+    .from(recipes)
+    .where(like(recipes.videoUrl, `%${videoId}%`));
+  return rec ? { importId: null, recipeId: rec.id } : null;
 }
 
 async function extractFrames(videoPath: string, dir: string) {
@@ -152,15 +180,103 @@ async function extractFrames(videoPath: string, dir: string) {
 // In production the worker (tools container) and the web server are separate
 // containers, so frames must land on the shared media volume (UPLOADS_DIR),
 // not the ephemeral public/ dir. Caddy serves /uploads/* from that volume.
-function publishFrames(importId: number, frames: string[]): string[] {
+function publishFile(importId: number, file: string): string {
   const baseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
   const outDir = path.join(baseDir, "imports", String(importId));
   fs.mkdirSync(outDir, { recursive: true });
-  return frames.map((f) => {
-    const name = path.basename(f);
-    fs.copyFileSync(f, path.join(outDir, name));
-    return `/uploads/imports/${importId}/${name}`;
-  });
+  const name = path.basename(file);
+  fs.copyFileSync(file, path.join(outDir, name));
+  return `/uploads/imports/${importId}/${name}`;
+}
+
+function publishFrames(importId: number, frames: string[]): string[] {
+  return frames.map((f) => publishFile(importId, f));
+}
+
+// ---------- AI hero-image cleanup ----------
+// Video frames make soft hero shots (motion blur, compression). If an
+// image-capable key is configured, produce a cleaned-up variant of the chosen
+// hero frame; the operator picks original vs enhanced in /admin/tiktok.
+// The prompt pins composition and food so the photo stays truthful — it must
+// still look like a phone shot of the actual dish, not an AI render.
+
+const ENHANCE_PROMPT =
+  "Turn this video frame into a clean, appetizing food photo. " +
+  "Remove ALL overlaid graphics: captions, titles, subtitles, emojis, stickers, " +
+  "watermarks, usernames and any UI elements — reconstruct the food and " +
+  "background naturally where they were. " +
+  "Remove motion blur and compression artifacts, sharpen details, reduce noise, " +
+  "correct white balance and exposure so the dish looks crisp and appetizing. " +
+  "Keep the same composition, framing, dishes, ingredients, food quantities and " +
+  "background — do not add, remove or restyle any real object in the scene. " +
+  "The result must look like a natural, unedited smartphone food photo, " +
+  "not an AI render or a stock photo.";
+
+async function enhanceHeroFrame(framePath: string, dir: string): Promise<string | null> {
+  const out = path.join(dir, "hero-ai.jpg");
+
+  if (process.env.GEMINI_API_KEY) {
+    const model = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY!,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: fs.readFileSync(framePath).toString("base64"),
+                  },
+                },
+                { text: ENHANCE_PROMPT },
+              ],
+            },
+          ],
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`Gemini image: ${res.status} ${await res.text()}`);
+    const json = await res.json();
+    const parts = json.candidates?.[0]?.content?.parts ?? [];
+    const data = parts
+      .map((p: any) => p.inlineData?.data ?? p.inline_data?.data)
+      .find(Boolean);
+    if (!data) throw new Error("Gemini image nie zwrócił obrazu");
+    fs.writeFileSync(out, Buffer.from(data, "base64"));
+    return out;
+  }
+
+  if (process.env.OPENAI_API_KEY) {
+    const form = new FormData();
+    form.append("model", "gpt-image-1");
+    form.append("image", new Blob([fs.readFileSync(framePath)], { type: "image/jpeg" }), "frame.jpg");
+    form.append("prompt", ENHANCE_PROMPT);
+    // high fidelity keeps the input photo's look instead of re-imagining it
+    form.append("input_fidelity", "high");
+    form.append("size", "auto");
+    const res = await fetch("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: form,
+    });
+    if (!res.ok) throw new Error(`gpt-image-1: ${res.status} ${await res.text()}`);
+    const json = await res.json();
+    const b64 = json.data?.[0]?.b64_json;
+    if (!b64) throw new Error("gpt-image-1 nie zwrócił obrazu");
+    fs.writeFileSync(out, Buffer.from(b64, "base64"));
+    return out;
+  }
+
+  return null;
 }
 
 async function extractAudio(videoPath: string, dir: string): Promise<string> {
@@ -208,7 +324,8 @@ const SYSTEM_PROMPT =
   "w polu frameIndex numer klatki, która najlepiej ten krok ilustruje (moment czynności, nie planszę " +
   "tytułową); jeśli żadna klatka nie pasuje, zostaw null zamiast naciągać. Ta sama klatka może " +
   "ilustrować najwyżej jeden krok. W polu heroFrameIndex wskaż klatkę najlepszą na zdjęcie główne: " +
-  "gotowe, wyeksponowane danie, ostry i apetyczny kadr. " +
+  "gotowe, wyeksponowane danie, ostry i apetyczny kadr; przy porównywalnych kadrach wybierz ten " +
+  "z jak najmniejszą ilością nałożonych napisów i grafik. " +
   "Pole 'about' to sekcja 'Kilka słów o tym przepisie' pod przepisem — pisz ją tak, jakby Roksana " +
   "opowiadała czytelniczce przy kawie: pierwsza osoba, konkrety o smaku, konsystencji i okazji " +
   "('robię go, gdy...'), naturalnie wplecione frazy, których ludzie szukają w Google. " +
@@ -518,7 +635,7 @@ async function loadTagOptions() {
   };
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 // Progress lands in the DB (live view in /admin/tiktok) and in the terminal
 async function setProgress(impId: number, step: number, label: string) {
@@ -541,8 +658,31 @@ async function processOne(
     await db.update(imports).set({ status: "processing" }).where(eq(imports.id, imp.id));
 
     await setProgress(imp.id, 1, "Pobieranie wideo z TikToka...");
-    const { videoPath, caption, durationSec, viewCount } = await downloadVideo(imp.tiktokUrl, dir);
-    await db.update(imports).set({ caption: caption || null }).where(eq(imports.id, imp.id));
+    const { videoPath, caption, durationSec, viewCount, videoId } =
+      await downloadVideo(imp.tiktokUrl, dir);
+    await db
+      .update(imports)
+      .set({ caption: caption || null, videoId: videoId ?? imp.videoId })
+      .where(eq(imports.id, imp.id));
+
+    if (videoId && !imp.force) {
+      const dup = await findDuplicate(imp.id, videoId);
+      if (dup) {
+        await db
+          .update(imports)
+          .set({
+            status: "duplicate",
+            recipeId: dup.recipeId,
+            operatorNotes: dup.recipeId
+              ? "Ten film jest już w opublikowanym przepisie"
+              : `Ten film czeka już w kolejce jako import #${dup.importId}`,
+            progress: null,
+          })
+          .where(eq(imports.id, imp.id));
+        console.log(`[${imp.id}] ⏭ Duplikat wideo ${videoId} — pomijam przetwarzanie`);
+        return;
+      }
+    }
 
     await setProgress(imp.id, 2, "Wyciąganie klatek z wideo...");
     const frames = await extractFrames(videoPath, dir);
@@ -596,7 +736,22 @@ async function processOne(
       }
     }
 
-    await setProgress(imp.id, 5, "Zapisywanie draftu...");
+    // Best-effort AI cleanup of the hero frame — a failure or a missing image
+    // key just means the operator only sees the original frames
+    let heroEnhanced: string | null = null;
+    const heroIdx = draft.heroFrameIndex == null ? NaN : Math.round(draft.heroFrameIndex);
+    const heroLocal = (heroIdx >= 1 && heroIdx <= frames.length ? frames[heroIdx - 1] : frames[0]) ?? null;
+    if (heroLocal && (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY)) {
+      await setProgress(imp.id, 5, "AI poprawia zdjęcie główne...");
+      try {
+        const enhancedPath = await enhanceHeroFrame(heroLocal, dir);
+        if (enhancedPath) heroEnhanced = publishFile(imp.id, enhancedPath);
+      } catch (e: any) {
+        console.warn(`[${imp.id}] Poprawa zdjęcia nieudana: ${String(e.message).slice(0, 200)}`);
+      }
+    }
+
+    await setProgress(imp.id, 6, "Zapisywanie draftu...");
     const frameUrls = publishFrames(imp.id, frames);
     // Resolve frameIndex/heroFrameIndex to published URLs right away, so the
     // admin preview and the accept endpoint deal only in URLs
@@ -612,6 +767,7 @@ async function processOne(
           ...draft,
           steps: draft.steps.map((s) => ({ ...s, image: frameAt(s.frameIndex) })),
           heroFrame: frameAt(draft.heroFrameIndex),
+          heroEnhanced,
           frames: frameUrls,
           videoDurationSec: durationSec,
           videoViews: viewCount,

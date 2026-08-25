@@ -46,6 +46,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ ok: true });
   }
 
+  // Duplicate override: requeue with force=true so the worker skips the dedup
+  // check; recipeId pointed at the duplicated recipe, so clear it
+  if (action === "force") {
+    if (imp.status !== "duplicate") {
+      return res.status(400).json({ error: "Ten import nie jest duplikatem" });
+    }
+    await db
+      .update(imports)
+      .set({ status: "pending", force: true, recipeId: null, operatorNotes: null })
+      .where(eq(imports.id, id));
+    return res.json({ ok: true });
+  }
+
   if (action === "accept") {
     if (imp.status !== "ready" || !imp.aiDraft) {
       return res.status(400).json({ error: "Draft nie jest gotowy" });
@@ -64,10 +77,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
     let slug = baseSlug;
     for (let n = 2; taken.has(slug); n++) slug = `${baseSlug}-${n}`;
-    // Operator's pick wins; otherwise the frame the AI flagged as the best
-    // hero shot, falling back to the first frame
+    // Operator's pick wins; otherwise the AI-enhanced hero variant when the
+    // worker produced one, then the frame the AI flagged as the best hero
+    // shot, falling back to the first frame
     const heroImage =
       (typeof req.body?.heroImage === "string" && req.body.heroImage) ||
+      d.heroEnhanced ||
       d.heroFrame ||
       d.frames?.[0] ||
       null;

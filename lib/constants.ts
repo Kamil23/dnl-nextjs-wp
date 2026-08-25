@@ -6,6 +6,9 @@ export const HOME_OG_IMAGE_URL =
   export const SITE_TITLE = 'Dieta na luzie';
   export const SITE_DESCRIPTION = 'Jak jeść i nie zwariować?';
   export const SITE_URL = 'https://dietanaluzie.pl';
+  export const AUTHOR_NAME = 'Roksana Cieplicka';
+  // Encja autorki (Person) — cel dla author.url w Recipe JSON-LD
+  export const AUTHOR_PAGE_PATH = '/autor/roksana/';
   export const SOCIAL_TIKTOK_URL = 'https://www.tiktok.com/@roksanacieplicka';
   export const SOCIAL_INSTAGRAM_URL = 'https://www.instagram.com/roksanacieplicka/';
   // GA4 web stream measurement id (public by design — it ships in the page HTML)

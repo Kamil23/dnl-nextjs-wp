@@ -191,6 +191,14 @@ export default function CookMode({ recipe, factor, onClose }) {
             <div className="text-amber-400 font-bold text-sm uppercase tracking-widest mb-3">
               Krok {idx + 1} z {total}
             </div>
+            {step.image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={step.image}
+                alt={step.title || `Krok ${idx + 1}`}
+                className="mx-auto mb-5 max-h-[32vh] w-auto rounded-2xl"
+              />
+            )}
             {step.title && <h2 className="text-3xl font-bold mb-4">{step.title}</h2>}
             <p className="text-2xl md:text-3xl leading-relaxed">{step.body}</p>
             {step.tip && (

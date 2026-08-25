@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { absUrl } from "../../lib/seo";
 import Link from "next/link";
 
 function Stars({ value }: { value: number }) {
@@ -19,6 +18,22 @@ function Fact({ icon, label, value }: { icon: string; label: string; value: stri
     </div>
   );
 }
+
+// Kompaktowy pasek makro na porcję — białko wyróżnione (główny hak diety).
+function Macro({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-baseline gap-1.5 rounded-full px-3 py-1.5 text-sm border ${
+        highlight ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-gray-50 border-gray-100 text-gray-700"
+      }`}
+    >
+      <span className="font-bold">{value}</span>
+      <span className="text-xs text-gray-400">{label}</span>
+    </span>
+  );
+}
+
+const g = (v: unknown) => `${Math.round(Number(v))} g`;
 
 const DIFFICULTY_LABELS = { latwy: "Łatwy", sredni: "Średni", trudny: "Trudny" };
 
@@ -40,8 +55,11 @@ export default function RecipeHero({ recipe }) {
     <section className="grid md:grid-cols-2 gap-8 md:gap-12 items-center mb-12">
       {recipe.heroImage && (
         <div className="relative aspect-[4/3] md:aspect-square rounded-3xl overflow-hidden shadow-medium">
+          {/* Relative /uploads/* paths stay relative so next/image reads them
+              from the origin being browsed (localhost in dev, the app in prod);
+              absolutizing them pointed dev at files that live only locally */}
           <Image
-            src={absUrl(recipe.heroImage)}
+            src={recipe.heroImage}
             alt={`Zdjęcie: ${recipe.title}`}
             fill
             priority
@@ -76,10 +94,18 @@ export default function RecipeHero({ recipe }) {
           <p className="text-gray-600 leading-relaxed mb-6 line-clamp-4">{recipe.lead}</p>
         )}
         {facts.length > 0 && (
-          <div className="flex flex-wrap gap-3 mb-8">
+          <div className="flex flex-wrap gap-3 mb-3">
             {facts.map((f) => (
               <Fact key={f.label} {...f} />
             ))}
+          </div>
+        )}
+        {(recipe.protein || recipe.fat || recipe.carbs) && (
+          <div className="flex flex-wrap items-center gap-2 mb-8">
+            <span className="text-[11px] uppercase tracking-wide text-gray-400 mr-1">Makro / porcję</span>
+            {recipe.protein && <Macro label="białka" value={g(recipe.protein)} highlight />}
+            {recipe.fat && <Macro label="tłuszczu" value={g(recipe.fat)} />}
+            {recipe.carbs && <Macro label="węgli" value={g(recipe.carbs)} />}
           </div>
         )}
         <div className="flex flex-wrap gap-3">

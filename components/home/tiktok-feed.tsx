@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { absUrl } from "../../lib/seo";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SOCIAL_TIKTOK_URL } from "../../lib/constants";
@@ -37,7 +36,7 @@ function CardInner({ v, showViews }: { v: TikTokFeedItem; showViews: boolean }) 
     <>
       {v.heroImage && (
         <Image
-          src={absUrl(v.heroImage)}
+          src={v.heroImage}
           alt={v.title}
           fill
           sizes="176px"

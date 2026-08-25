@@ -16,6 +16,7 @@ export default function MoreStories({ posts }) {
             author={node.author}
             uri={node.uri}
             excerpt={node.excerpt}
+            protein={node.protein}
           />
         ))}
       </div>

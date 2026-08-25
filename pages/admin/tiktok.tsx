@@ -14,6 +14,7 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   approved: { label: "Zaakceptowany", cls: "bg-green-100 text-green-800" },
   rejected: { label: "Odrzucony", cls: "bg-red-100 text-red-700" },
   failed: { label: "Błąd", cls: "bg-red-100 text-red-700" },
+  duplicate: { label: "Duplikat", cls: "bg-purple-100 text-purple-700" },
 };
 
 function SourceMaterials({ caption, transcript }: { caption?: string | null; transcript?: string | null }) {
@@ -51,10 +52,11 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
         <div>
           <div className="font-medium text-gray-500 text-xs uppercase mb-2">
             Zdjęcie główne — kliknij klatkę, aby wybrać
+            {draft.heroEnhanced && <span className="normal-case font-normal"> (✨ = klatka poprawiona przez AI)</span>}
             {draft.heroFrame && <span className="normal-case font-normal"> (★ = propozycja AI)</span>}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {draft.frames.map((f: string) => (
+            {[...(draft.heroEnhanced ? [draft.heroEnhanced] : []), ...draft.frames].map((f: string) => (
               <div key={f} className="relative shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -62,11 +64,16 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
                   alt=""
                   onClick={() => onPickFrame(f)}
                   className={`h-32 rounded-lg cursor-pointer border-4 transition ${
-                    (heroFrame ?? draft.heroFrame ?? draft.frames[0]) === f
+                    (heroFrame ?? draft.heroEnhanced ?? draft.heroFrame ?? draft.frames[0]) === f
                       ? "border-amber-500"
                       : "border-transparent hover:border-gray-300"
                   }`}
                 />
+                {draft.heroEnhanced === f && (
+                  <span className="absolute top-1 left-1 text-[10px] font-semibold bg-black/60 text-white rounded px-1.5 py-0.5">
+                    ✨ AI
+                  </span>
+                )}
                 {draft.heroFrame === f && (
                   <span className="absolute top-1 right-1 text-amber-500 drop-shadow">★</span>
                 )}
@@ -151,6 +158,9 @@ export default function AdminTikTok({ imports: initial }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Set when the submitted link turns out to be a duplicate — the message
+  // comes with a link to the existing recipe/import
+  const [dupOf, setDupOf] = useState<{ recipeId: number | null } | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [heroFrames, setHeroFrames] = useState<Record<number, string>>({});
   const [actErrors, setActErrors] = useState<Record<number, string>>({});
@@ -189,6 +199,7 @@ export default function AdminTikTok({ imports: initial }) {
     e.preventDefault();
     setBusy(true);
     setError("");
+    setDupOf(null);
     const res = await fetch("/api/admin/imports/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -201,8 +212,17 @@ export default function AdminTikTok({ imports: initial }) {
       const { id } = await res.json();
       setRows((r) => [{ id, tiktokUrl: url, status: "pending", createdAt: new Date().toISOString() }, ...r]);
     } else {
-      setError((await res.json()).error || "Błąd");
+      const body = await res.json().catch(() => ({}));
+      setError(body.error || "Błąd");
+      if (res.status === 409 && body.duplicate) {
+        setDupOf({ recipeId: body.duplicate.recipeId ?? null });
+      }
     }
+  }
+
+  async function del(id: number) {
+    const res = await fetch(`/api/admin/imports/${id}/`, { method: "DELETE" });
+    if (res.ok) setRows((rs) => rs.filter((r) => r.id !== id));
   }
 
   async function act(id: number, action: string) {
@@ -228,7 +248,15 @@ export default function AdminTikTok({ imports: initial }) {
     setRows((rs) =>
       rs.map((r) =>
         r.id === id
-          ? { ...r, status: action === "reject" ? "rejected" : action === "retry" ? "pending" : r.status }
+          ? {
+              ...r,
+              status:
+                action === "reject"
+                  ? "rejected"
+                  : action === "retry" || action === "force"
+                    ? "pending"
+                    : r.status,
+            }
           : r
       )
     );
@@ -257,7 +285,16 @@ export default function AdminTikTok({ imports: initial }) {
           Dodaj do kolejki
         </button>
       </form>
-      {error && <p className="text-sm text-red-600 -mt-6 mb-6">{error}</p>}
+      {error && (
+        <p className="text-sm text-red-600 -mt-6 mb-6">
+          {error}
+          {dupOf?.recipeId && (
+            <Link href={`/admin/przepisy/${dupOf.recipeId}`} className="ml-2 underline hover:no-underline">
+              Otwórz istniejący przepis →
+            </Link>
+          )}
+        </p>
+      )}
 
       {(pendingCount > 0 || workerRunning) && (
         <div className="flex items-center gap-3 mb-8 -mt-2">
@@ -293,6 +330,9 @@ export default function AdminTikTok({ imports: initial }) {
                   {imp.status === "failed" && imp.operatorNotes && (
                     <span className="text-red-500 ml-2">{imp.operatorNotes}</span>
                   )}
+                  {imp.status === "duplicate" && imp.operatorNotes && (
+                    <span className="text-purple-600 ml-2">{imp.operatorNotes}</span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -317,7 +357,17 @@ export default function AdminTikTok({ imports: initial }) {
                     ↻ Ponów
                   </button>
                 )}
-                {imp.status === "approved" && imp.recipeId && (
+                {imp.status === "duplicate" && (
+                  <>
+                    <button onClick={() => act(imp.id, "force")} className="text-sm text-gray-600 hover:text-gray-900">
+                      ↻ Importuj mimo to
+                    </button>
+                    <button onClick={() => del(imp.id)} className="text-sm text-red-500 hover:text-red-700">
+                      🗑 Usuń
+                    </button>
+                  </>
+                )}
+                {(imp.status === "approved" || imp.status === "duplicate") && imp.recipeId && (
                   <Link href={`/admin/przepisy/${imp.recipeId}`} className="text-sm text-gray-600 hover:text-gray-900">
                     Otwórz przepis →
                   </Link>

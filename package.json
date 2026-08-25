@@ -11,7 +11,8 @@
     "import:wp-comments": "tsx scripts/import-wp-comments.ts",
     "imports:process": "tsx scripts/process-imports.ts",
     "imports:watch": "tsx scripts/process-imports.ts --watch",
-    "search:reindex": "tsx scripts/reindex-search.ts"
+    "search:reindex": "tsx scripts/reindex-search.ts",
+    "qc:recipes": "tsx scripts/qc-recipes.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

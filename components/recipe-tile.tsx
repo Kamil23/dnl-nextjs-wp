@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { absUrl } from "../lib/seo";
 import Link from "next/link";
 
 // Big clickable recipe tile for instant-search results: photo-first,
@@ -10,6 +9,7 @@ export type RecipeTileData = {
   heroImage?: string | null;
   lead?: string | null;
   kcal?: number | null;
+  protein?: number | null;
   totalTimeMin?: number | null;
   ratingValue?: number | null;
 };
@@ -18,6 +18,7 @@ export default function RecipeTile({ recipe }: { recipe: RecipeTileData }) {
   const chips = [
     recipe.totalTimeMin && `⏱ ${recipe.totalTimeMin} min`,
     recipe.kcal && `🔥 ${recipe.kcal} kcal`,
+    recipe.protein && `💪 ${Math.round(Number(recipe.protein))} g białka`,
     recipe.ratingValue && `⭐ ${Number(recipe.ratingValue).toFixed(1)}`,
   ].filter(Boolean) as string[];
 
@@ -26,7 +27,7 @@ export default function RecipeTile({ recipe }: { recipe: RecipeTileData }) {
       <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-bottomSmall bg-amber-50">
         {recipe.heroImage && (
           <Image
-            src={absUrl(recipe.heroImage)}
+            src={recipe.heroImage}
             alt={recipe.title}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

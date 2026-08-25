@@ -18,7 +18,9 @@ export default function Footer() {
           </div>
           <nav className="flex flex-wrap gap-5">
             <Link href="/kategoria/przepisy/" className="hover:text-gray-900">Przepisy</Link>
+            <Link href="/kolekcje/wysokie-bialko/" className="hover:text-gray-900">Wysokie białko</Link>
             <Link href="/kalkulator-kalorii/" className="hover:text-gray-900">Kalkulator kalorii</Link>
+            <Link href="/konwerter/" className="hover:text-gray-900">Konwerter miar</Link>
             <Link href="/polityka-prywatnosci/" className="hover:text-gray-900">Polityka prywatności</Link>
             <Link href="/regulamin/" className="hover:text-gray-900">Regulamin</Link>
             <button onClick={resetConsent} className="hover:text-gray-900">Ustawienia cookies</button>

@@ -10,12 +10,13 @@ export default function PostPreview({
   excerpt,
   author,
   uri,
+  protein,
 }) {
   return (
     <div>
       <div className="mb-5">
         {coverImage && (
-          <CoverImage title={title} coverImage={coverImage} uri={uri} />
+          <CoverImage title={title} coverImage={coverImage} uri={uri} protein={protein} />
         )}
       </div>
       <h3 className="text-base text-gray-800 mb-1 leading-snug">

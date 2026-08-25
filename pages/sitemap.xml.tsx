@@ -2,6 +2,8 @@ import { GetServerSideProps } from 'next'
 import { getAllRecipeUris, getCategoriesWithCounts, getAllPageUris } from '../lib/queries'
 import { THEMES } from '../lib/seasonal'
 import { SITE_URL, EXCLUDED_PAGE_URIS } from '../lib/constants'
+import { INGREDIENTS } from '../lib/measures'
+import { CALCULATORS } from '../lib/calculators'
 
 // Serves /sitemap.xml with the same URL set as the old WordPress sitemap
 // (homepage + all recipes/articles at their permalinks + categories + pages).
@@ -32,6 +34,19 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
       .filter(({ uri }) => uri !== '/' && !EXCLUDED_PAGE_URIS.includes(uri))
       .map(({ uri }) => urlEntry(`${SITE_URL}${uri}`)),
     ...THEMES.map((t) => urlEntry(`${SITE_URL}/sezon/${t.key}/`)),
+    // Konwerter miar: hub + statyczne landingi składników (programmatic SEO)
+    urlEntry(`${SITE_URL}/konwerter/`),
+    ...INGREDIENTS.map((i) => urlEntry(`${SITE_URL}/konwerter/${i.slug}/`)),
+    // Kolekcje edytorskie (wysokie białko, GLP-1 friendly)
+    urlEntry(`${SITE_URL}/kolekcje/wysokie-bialko/`),
+    urlEntry(`${SITE_URL}/kolekcje/glp1/`),
+    // Kalkulatory dietetyczne: hub + poszczególne narzędzia
+    urlEntry(`${SITE_URL}/kalkulatory/`),
+    ...CALCULATORS.map((c) => urlEntry(`${SITE_URL}/${c.slug}/`)),
+    // Losownik obiadów
+    urlEntry(`${SITE_URL}/co-na-obiad/`),
+    // Encja autorki
+    urlEntry(`${SITE_URL}/autor/roksana/`),
   ]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

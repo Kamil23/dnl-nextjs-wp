@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { useState } from "react";
-import { absUrl } from "../../lib/seo";
 
 // Facade embed: looks like a ready player (real video frame as the poster),
 // but TikTok's heavy iframe + cookies load only on click — good Core Web
@@ -43,7 +42,7 @@ export default function TikTokEmbed({
         >
           {poster && (
             <Image
-              src={absUrl(poster)}
+              src={poster}
               alt=""
               fill
               sizes="325px"

@@ -3,11 +3,20 @@
 // backfill script (scripts/estimate-macros.ts) and the TikTok import fallback.
 
 export type MacroEstimate = {
+  // NA PORCJĘ, licząc przez efektywną liczbę porcji (podaną albo — gdy brak —
+  // assumedServings). Zachowuje kontrakt dla dotychczasowych wywołań.
   kcal: number;
   protein: number | null;
   fat: number | null;
   carbs: number | null;
+  // Niezależna, realistyczna ocena liczby porcji przez AI (może różnić się od
+  // podanej — edytor/QC to wykorzystują, żeby wychwycić np. "1 porcja = 1394 kcal").
   assumedServings: number;
+  // Sumy dla CAŁEGO przepisu — pozwalają przeliczyć makra pod dowolną liczbę porcji.
+  totalKcal: number;
+  totalProtein: number | null;
+  totalFat: number | null;
+  totalCarbs: number | null;
 };
 
 export async function estimateMacros(
@@ -29,16 +38,18 @@ export async function estimateMacros(
         {
           role: "system",
           content:
-            "Jesteś dietetykiem. Szacujesz wartości odżywcze przepisu NA JEDNĄ PORCJĘ na podstawie listy składników. " +
-            'Zwracasz WYŁĄCZNIE JSON: {"kcal": int, "protein": number, "fat": number, "carbs": number, "assumedServings": int}. ' +
-            "assumedServings = liczba porcji użyta do podziału (podana albo Twoje realistyczne założenie, np. ciasto ~12 kawałków). " +
-            "Wartości realistyczne; gramy zaokrąglaj do 1 miejsca.",
+            "Jesteś dietetykiem. Na podstawie listy składników szacujesz wartości odżywcze dla CAŁEGO przepisu (suma) " +
+            "oraz realistyczną liczbę porcji. " +
+            'Zwracasz WYŁĄCZNIE JSON: {"kcalTotal": int, "proteinTotal": number, "fatTotal": number, "carbsTotal": number, "assumedServings": int}. ' +
+            "assumedServings = Twoja NIEZALEŻNA, realistyczna ocena, na ile porcji dzieli się ten przepis (po ilości i typie potrawy, " +
+            "np. ciasto 8–12 kawałków, deser jednoporcjowy 1–2, obiad z 500 g mięsa ~4). Oceniaj sam, nawet jeśli autor poda inną liczbę. " +
+            "Sumy liczysz dla całości; gramy zaokrąglaj do 1 miejsca.",
         },
         {
           role: "user",
-          content: `Przepis: ${title}\nLiczba porcji: ${
-            servings ?? "nieznana — załóż realistyczną i zwróć w assumedServings"
-          }\nSkładniki:\n${items.join("\n")}`,
+          content: `Przepis: ${title}\nLiczba porcji podana przez autora: ${
+            servings ?? "nieznana"
+          } (oceń realistyczną samodzielnie)\nSkładniki:\n${items.join("\n")}`,
         },
       ],
     }),
@@ -48,14 +59,29 @@ export async function estimateMacros(
   const m = JSON.parse(
     json.choices[0].message.content.replace(/^```json?\s*|\s*```$/g, "")
   );
-  if (!m.kcal || m.kcal < 20 || m.kcal > 3000) {
-    throw new Error(`podejrzane kcal: ${m.kcal}`);
+  const totalKcal = Number(m.kcalTotal);
+  if (!totalKcal || totalKcal < 20 || totalKcal > 20000) {
+    throw new Error(`podejrzane kcalTotal: ${m.kcalTotal}`);
   }
+  const assumed = m.assumedServings > 0 ? Math.round(m.assumedServings) : 1;
+  // Efektywna liczba porcji do podziału: preferuj podaną przez autora, w jej
+  // braku użyj oceny AI. (Edytor pokazuje rozbieżność i pozwala ją zastosować.)
+  const eff = servings && servings > 0 ? servings : assumed;
+
+  const totalProtein = m.proteinTotal != null ? Number(m.proteinTotal) : null;
+  const totalFat = m.fatTotal != null ? Number(m.fatTotal) : null;
+  const totalCarbs = m.carbsTotal != null ? Number(m.carbsTotal) : null;
+  const per = (v: number | null) => (v != null ? Math.round((v / eff) * 10) / 10 : null);
+
   return {
-    kcal: Math.round(m.kcal),
-    protein: m.protein != null ? Number(m.protein) : null,
-    fat: m.fat != null ? Number(m.fat) : null,
-    carbs: m.carbs != null ? Number(m.carbs) : null,
-    assumedServings: m.assumedServings > 0 ? Math.round(m.assumedServings) : 0,
+    kcal: Math.round(totalKcal / eff),
+    protein: per(totalProtein),
+    fat: per(totalFat),
+    carbs: per(totalCarbs),
+    assumedServings: assumed,
+    totalKcal: Math.round(totalKcal),
+    totalProtein,
+    totalFat,
+    totalCarbs,
   };
 }

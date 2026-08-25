@@ -25,8 +25,10 @@ export const MENU_EDGES = [
       },
     },
   },
+  item("cG9zdDpvYmlhZA==", "Co na obiad?", "/co-na-obiad/"),
   item("cG9zdDo3NTQ=", "Artykuły", "/kategoria/artykuly/"),
-  item("cG9zdDoxMjk0", "Kalkulator kalorii", "/kalkulator-kalorii/"),
+  item("cG9zdDoxMjk0", "Kalkulatory", "/kalkulatory/"),
+  item("cG9zdDprb253ZXJ0ZXI=", "Konwerter miar", "/konwerter/"),
   item("cG9zdDo3NTk=", "Do pobrania", "/do-pobrania/"),
 ];
 

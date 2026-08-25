@@ -231,24 +231,34 @@ export const pages = pgTable(
   (t) => [uniqueIndex("pages_uri_idx").on(t.uri)]
 );
 
-export const imports = pgTable("imports", {
-  id: serial("id").primaryKey(),
-  tiktokUrl: text("tiktok_url").notNull(),
-  videoPath: text("video_path"),
-  caption: text("caption"),
-  transcript: text("transcript"),
-  aiDraft: jsonb("ai_draft"),
-  status: text("status", {
-    enum: ["pending", "processing", "ready", "approved", "rejected", "failed"],
-  })
-    .notNull()
-    .default("pending"),
-  // Live progress while processing: { step, total, label }
-  progress: jsonb("progress"),
-  recipeId: integer("recipe_id").references(() => recipes.id),
-  operatorNotes: text("operator_notes"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+export const imports = pgTable(
+  "imports",
+  {
+    id: serial("id").primaryKey(),
+    tiktokUrl: text("tiktok_url").notNull(),
+    // Canonical TikTok video id (the digits in .../video/<id>) — the dedup key.
+    // Filled at submit time when resolvable (short vm./vt. links get followed),
+    // and always after yt-dlp downloads the clip.
+    videoId: text("video_id"),
+    // Operator override: process even though the video was flagged a duplicate
+    force: boolean("force").notNull().default(false),
+    videoPath: text("video_path"),
+    caption: text("caption"),
+    transcript: text("transcript"),
+    aiDraft: jsonb("ai_draft"),
+    status: text("status", {
+      enum: ["pending", "processing", "ready", "approved", "rejected", "failed", "duplicate"],
+    })
+      .notNull()
+      .default("pending"),
+    // Live progress while processing: { step, total, label }
+    progress: jsonb("progress"),
+    recipeId: integer("recipe_id").references(() => recipes.id),
+    operatorNotes: text("operator_notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("imports_video_id_idx").on(t.videoId)]
+);
 
 // Shared shopping lists: anyone with the UUID link can read and edit
 // (same trust model as a shared note). `data` mirrors the localStorage
@@ -263,6 +273,26 @@ export const sharedLists = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (t) => [index("shared_lists_updated_idx").on(t.updatedAt)]
+);
+
+// Log wyszukiwań (FEATURES.md §0): fraza + liczba wyników + źródło,
+// bez ID użytkownika. Fingerprint służy TYLKO do odszumiania (throttling
+// sugestii hero pisanych literka po literce), nie do profilowania.
+// Top frazy = popyt; frazy bez wyników = luki w treści = brief na rolki.
+export const searchLog = pgTable(
+  "search_log",
+  {
+    id: serial("id").primaryKey(),
+    phrase: text("phrase").notNull(),
+    results: integer("results").notNull().default(0),
+    source: text("source", { enum: ["hero", "szukaj"] }).notNull(),
+    fingerprint: text("fingerprint"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    index("search_log_phrase_idx").on(t.phrase),
+    index("search_log_created_idx").on(t.createdAt),
+  ]
 );
 
 export const redirects = pgTable(

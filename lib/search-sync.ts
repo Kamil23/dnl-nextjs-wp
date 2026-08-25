@@ -4,12 +4,14 @@
 import { eq } from "drizzle-orm";
 import * as schema from "./db/schema";
 import { searchEnabled, upsertDocs, deleteDoc, type RecipeDoc } from "./search";
+import { dietsFromTags } from "./diets";
 
 const { recipes, ingredientGroups, ingredients, categories, recipeCategories, tags, recipeTags } = schema;
 
 export async function buildRecipeDoc(db: any, recipeId: number): Promise<RecipeDoc | null> {
   const [r] = await db.select().from(recipes).where(eq(recipes.id, recipeId));
-  if (!r || r.status !== "published") return null;
+  // Artykuły (/artykuly/) nie są przepisami — nie trafiają do wyszukiwarki.
+  if (!r || r.status !== "published" || r.uri.startsWith("/artykuly/")) return null;
 
   const [ing, cats, tagRows, allCats] = await Promise.all([
     db
@@ -23,7 +25,7 @@ export async function buildRecipeDoc(db: any, recipeId: number): Promise<RecipeD
       .innerJoin(categories, eq(categories.id, recipeCategories.categoryId))
       .where(eq(recipeCategories.recipeId, r.id)),
     db
-      .select({ name: tags.name })
+      .select({ name: tags.name, slug: tags.slug })
       .from(recipeTags)
       .innerJoin(tags, eq(tags.id, recipeTags.tagId))
       .where(eq(recipeTags.recipeId, r.id)),
@@ -49,6 +51,7 @@ export async function buildRecipeDoc(db: any, recipeId: number): Promise<RecipeD
     uri: r.uri,
     heroImage: r.heroImage,
     kcal: r.kcal,
+    protein: r.protein != null ? Number(r.protein) : null,
     totalTimeMin: r.totalTimeMin,
     ratingValue: r.legacyRatingValue ? Number(r.legacyRatingValue) : null,
     ratingCount: legacyCount || null,
@@ -56,6 +59,7 @@ export async function buildRecipeDoc(db: any, recipeId: number): Promise<RecipeD
     keywords: r.keywords,
     ingredients: ing.map((i: any) => i.rawText),
     categories: Array.from(catSlugs),
+    diets: dietsFromTags(tagRows.flatMap((t: any) => [t.slug, t.name])),
     publishedAt: r.publishedAt ? new Date(r.publishedAt).getTime() : null,
   };
 }

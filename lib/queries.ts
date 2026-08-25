@@ -7,6 +7,7 @@ import { db, dbSchema } from "./db";
 const { recipes, ingredientGroups, ingredients, steps, categories, recipeCategories, tags, recipeTags, pages, ratings, imports, comments, redirects } = dbSchema;
 
 import { AUTHOR_AVATAR_URL } from "./constants";
+import { DIET_FACETS } from "./diets";
 
 export type RecipeRow = typeof recipes.$inferSelect;
 
@@ -32,6 +33,11 @@ export function toListingEdge(r: RecipeRow) {
       date: r.publishedAt?.toISOString() ?? null,
       featuredImage: r.heroImage ? { node: { sourceUrl: r.heroImage } } : null,
       author: authorNode(r.authorName),
+      // białko na porcję — plakietka na kaflu; tylko przepisy (artykuły nie mają makr)
+      protein:
+        r.uri.startsWith("/artykuly/") || r.protein == null
+          ? null
+          : Math.round(Number(r.protein)),
     },
   };
 }
@@ -461,22 +467,47 @@ export type SearchParams = {
   q?: string;
   maxTime?: number;
   categorySlug?: string;
+  maxKcal?: number;
+  minProtein?: number;
+  diet?: string;
   sort?: "najnowsze" | "oceny" | "najszybsze";
 };
 
-export async function searchRecipes({ q, maxTime, categorySlug, sort }: SearchParams) {
+export async function searchRecipes({ q, maxTime, categorySlug, maxKcal, minProtein, diet, sort }: SearchParams) {
   const conditions = [eq(recipes.status, "published")];
 
   if (q?.trim()) {
+    // Ingredient search rides the same query: tag names AND the recipe's
+    // ingredient rows are matched, so "cukinia" finds recipes that use it.
     const like = `%${q.trim()}%`;
     conditions.push(
       sql`(${recipes.title} ILIKE ${like} OR ${recipes.keywords} ILIKE ${like} OR ${recipes.lead} ILIKE ${like}
         OR EXISTS (SELECT 1 FROM ${recipeTags} rt JOIN ${tags} t ON t.id = rt.tag_id
-                   WHERE rt.recipe_id = ${recipes.id} AND t.name ILIKE ${like}))` as any
+                   WHERE rt.recipe_id = ${recipes.id} AND t.name ILIKE ${like})
+        OR EXISTS (SELECT 1 FROM ${ingredientGroups} ig JOIN ${ingredients} i ON i.group_id = ig.id
+                   WHERE ig.recipe_id = ${recipes.id} AND i.raw_text ILIKE ${like}))` as any
     );
   }
   if (maxTime) {
     conditions.push(sql`${recipes.totalTimeMin} <= ${maxTime}` as any);
+  }
+  if (maxKcal) {
+    conditions.push(sql`${recipes.kcal} <= ${maxKcal}` as any);
+  }
+  if (minProtein) {
+    conditions.push(sql`${recipes.protein} >= ${minProtein}` as any);
+  }
+  if (diet) {
+    const facet = DIET_FACETS.find((d) => d.key === diet);
+    if (facet) {
+      // Reuse the same pattern the index uses; Postgres ~* is case-insensitive
+      // POSIX regex, matching the JS RegExp source closely enough for tags.
+      const pat = facet.pattern.source;
+      conditions.push(
+        sql`EXISTS (SELECT 1 FROM ${recipeTags} rt JOIN ${tags} t ON t.id = rt.tag_id
+                    WHERE rt.recipe_id = ${recipes.id} AND (t.slug ~* ${pat} OR t.name ~* ${pat}))` as any
+      );
+    }
   }
   if (categorySlug) {
     const [cat] = await db.select().from(categories).where(eq(categories.slug, categorySlug));
@@ -500,6 +531,35 @@ export async function searchRecipes({ q, maxTime, categorySlug, sort }: SearchPa
     .from(recipes)
     .where(and(...conditions))
     .orderBy(...order)
+    .limit(60);
+}
+
+// Kolekcja "wysokie białko": makra są per porcja, więc próg 25 g białka
+// na porcję to realny "high-protein", nie marketing.
+export async function listHighProteinRecipes(minProtein = 25) {
+  return db
+    .select()
+    .from(recipes)
+    .where(
+      and(eq(recipes.status, "published"), sql`${recipes.protein} >= ${minProtein}` as any)
+    )
+    .orderBy(sql`${recipes.protein} DESC NULLS LAST` as any, desc(recipes.publishedAt))
+    .limit(60);
+}
+
+// GLP-1 friendly: sytość przy małej objętości — wysokie białko w umiarkowanej
+// kaloryczności (kryteria edytorskie; strona zrzeka się porad medycznych).
+export async function listGlp1FriendlyRecipes() {
+  return db
+    .select()
+    .from(recipes)
+    .where(
+      and(
+        eq(recipes.status, "published"),
+        sql`${recipes.protein} >= 25 and ${recipes.kcal} <= 500` as any
+      )
+    )
+    .orderBy(sql`${recipes.kcal} ASC` as any)
     .limit(60);
 }
 

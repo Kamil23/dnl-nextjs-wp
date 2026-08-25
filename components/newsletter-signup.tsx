@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 
-type Source = "recipe-slodkie" | "recipe-slone" | "kalkulator" | "cook-mode" | "stopka";
+type Source =
+  | "recipe-slodkie"
+  | "recipe-slone"
+  | "kalkulator"
+  | "cook-mode"
+  | "stopka"
+  | "konwerter"
+  | "kolekcje";
 
 // Cloudflare Turnstile guards the footer variant only: the footer sits on every
 // page, so it is the form spambots find. The CF script and widget load lazily on
@@ -45,6 +52,18 @@ const COPY: Record<Source, { emoji: string; title: string; text: string; cta: st
     emoji: "💌",
     title: "Nowe przepisy prosto na maila",
     text: "Co dwa tygodnie: nowości z rolek i sezonowe pomysły.",
+    cta: "Zapisuję się",
+  },
+  konwerter: {
+    emoji: "💌",
+    title: "Więcej kulinarnych ściąg?",
+    text: "Nowe przepisy, tabele przeliczników i sezonowe pomysły prosto na maila.",
+    cta: "Zapisuję się",
+  },
+  kolekcje: {
+    emoji: "💌",
+    title: "Chcesz więcej takich przepisów?",
+    text: "Nowe przepisy z tej kolekcji trafiają też do newslettera — zapisz się, żeby nic nie przegapić.",
     cta: "Zapisuję się",
   },
 };

@@ -58,6 +58,7 @@ export default function RecipeEditor({ initial, allCategories }) {
   const [tagsText, setTagsText] = useState(form.tags.join(", "));
   const [saving, setSaving] = useState(false);
   const [estimating, setEstimating] = useState(false);
+  const [estimate, setEstimate] = useState<any>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
@@ -123,6 +124,7 @@ export default function RecipeEditor({ initial, allCategories }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Błąd estymacji");
+      setEstimate(data);
       setForm((f) => ({
         ...f,
         kcal: String(data.kcal),
@@ -137,6 +139,21 @@ export default function RecipeEditor({ initial, allCategories }) {
     } finally {
       setEstimating(false);
     }
+  }
+
+  // Przelicz makra pod inną liczbę porcji, korzystając z sum z ostatniej estymaty.
+  function applyServings(n: number) {
+    if (!estimate || n <= 0) return;
+    const per = (v: any) => (v != null ? String(Math.round((Number(v) / n) * 10) / 10) : "");
+    setForm((f) => ({
+      ...f,
+      servings: String(n),
+      kcal: String(Math.round(Number(estimate.totalKcal) / n)),
+      protein: per(estimate.totalProtein),
+      fat: per(estimate.totalFat),
+      carbs: per(estimate.totalCarbs),
+    }));
+    setMessage({ ok: true, text: `Ustawiono ${n} porcji i przeliczono makra — zapisz, by utrwalić` });
   }
 
   async function remove() {
@@ -408,9 +425,25 @@ export default function RecipeEditor({ initial, allCategories }) {
             >
               {estimating ? "Szacuję…" : "✨ Oszacuj kalorie i makro z AI"}
             </button>
+            {estimate?.assumedServings > 0 &&
+              String(estimate.assumedServings) !== String(form.servings) && (
+                <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm">
+                  <p className="text-amber-900">
+                    💡 AI ocenia, że to realnie <strong>{estimate.assumedServings} porcji</strong> (masz {form.servings || "—"}).
+                    Cały przepis to ok. {estimate.totalKcal} kcal.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => applyServings(estimate.assumedServings)}
+                    className="mt-2 rounded-full bg-amber-500 text-white px-3 py-1.5 text-xs font-medium hover:bg-amber-600"
+                  >
+                    Ustaw {estimate.assumedServings} porcji i przelicz makra
+                  </button>
+                </div>
+              )}
             <p className="text-xs text-gray-400 mt-2">
-              Szacuje kcal/białko/tłuszcz/węgle na porcję ze składników i uzupełnia
-              pola powyżej. Pamiętaj kliknąć „Zapisz".
+              Szacuje wartości odżywcze ze składników, sam ocenia realistyczną liczbę
+              porcji i uzupełnia pola powyżej. Pamiętaj kliknąć „Zapisz".
             </p>
           </Section>
 
