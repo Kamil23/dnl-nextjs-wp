@@ -32,7 +32,7 @@ import {
 } from '../lib/constants'
 
 // Publisher identity for Google (knowledge panel, sitelinks logo) + site search
-// box — the live WP site emitted an Organization block on the homepage; this
+// box - the live WP site emitted an Organization block on the homepage; this
 // restores that brand signal from our own data.
 const HOME_JSONLD = {
   '@context': 'https://schema.org',
@@ -83,7 +83,7 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 }
 
 export default function Index({ latest, collection, tiles, totalPages, tiktokVideos, tiktokHits }) {
-  // While the visitor types a query, the tile results own the page —
+  // While the visitor types a query, the tile results own the page -
   // everything else steps aside so the choice is purely visual
   const [searchActive, setSearchActive] = useState(false)
   return (
@@ -161,7 +161,7 @@ export const getStaticProps: GetStaticProps = async () => {
   ])
 
   // "Kalendarz smaków": the seasonal theme owns the section when it has a
-  // full row of matches. Otherwise fall back to "Hity czytelników" —
+  // full row of matches. Otherwise fall back to "Hity czytelników" -
   // most-read last 30 days (GA4), or all-time top-rated until GA has data.
   let collection
   if (themed.length >= 4) {

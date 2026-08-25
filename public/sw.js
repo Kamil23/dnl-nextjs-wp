@@ -1,5 +1,5 @@
 // Minimal offline shell for the shopping list PWA. Only /lista-zakupow/
-// navigations are cached (network-first, cache as offline fallback) —
+// navigations are cached (network-first, cache as offline fallback) -
 // intercepting every page made a stale shell possible after deploys.
 // Static assets are cache-first; /api/* is never cached because the list
 // itself lives in localStorage and works offline anyway.

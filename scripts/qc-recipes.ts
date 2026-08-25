@@ -82,7 +82,7 @@ async function main() {
   }
 
   console.log(
-    `\nSprawdzono ${recs.length} przepisów — ${errorRecipes} z błędami, ${warningRecipes} z ostrzeżeniami.`
+    `\nSprawdzono ${recs.length} przepisów - ${errorRecipes} z błędami, ${warningRecipes} z ostrzeżeniami.`
   );
   await client.end();
   process.exit(errorRecipes > 0 ? 1 : 0);

@@ -1,6 +1,6 @@
 // Turns QC findings into concrete, deterministic auto-fixes. Shared by the admin
 // QC page (to describe what a fix would do) and the /api/admin/qc-fix endpoint
-// (to apply it), so both always agree. Only unambiguous fixes live here — things
+// (to apply it), so both always agree. Only unambiguous fixes live here - things
 // like "which serving count is right" or "write an image" are left to a human.
 import { extractStructured, type ExtractedStep } from "./recipe-html-extract";
 
@@ -46,7 +46,7 @@ export function planRecipeFixes(r: QcFixInput): FixPlan {
 
   // 1. Wartości "dla całości" zamiast na porcję → podziel przez liczbę porcji.
   //    Trigger tylko gdy kcal jest nieprawdopodobne per porcja, a po podziale
-  //    wpada w sensowny zakres — i dzielimy makra spójnie z kcal.
+  //    wpada w sensowny zakres - i dzielimy makra spójnie z kcal.
   if (kcal != null && servings > 1 && kcal > 1500) {
     const perKcal = kcal / servings;
     if (perKcal >= 30 && perKcal <= 1000) {

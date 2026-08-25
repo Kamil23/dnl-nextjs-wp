@@ -1,4 +1,4 @@
-// In-memory pub/sub for shared shopping lists — the SSE equivalent of the
+// In-memory pub/sub for shared shopping lists - the SSE equivalent of the
 // old freshlist websocket server's session broadcast. Single Next.js
 // process assumption (self-hosted VPS); cached on globalThis to survive
 // dev hot reloads.

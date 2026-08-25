@@ -5,7 +5,7 @@ import { db, dbSchema } from "../../../../lib/db";
 
 const { subscribers } = dbSchema;
 
-// CSV export of the whole list (the data is OURS — portable to any mail tool)
+// CSV export of the whole list (the data is OURS - portable to any mail tool)
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdminApi(req, res)) return;
   const rows = await db.select().from(subscribers).orderBy(desc(subscribers.createdAt));

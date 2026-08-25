@@ -1,5 +1,5 @@
 // Meilisearch layer: typo-tolerant search over published recipes.
-// Server-side only (master key) — the /szukaj page and /api/szukaj proxy
+// Server-side only (master key) - the /szukaj page and /api/szukaj proxy
 // use it; everything degrades to the Postgres path when MEILI_HOST is unset.
 import { Meilisearch } from "meilisearch";
 
@@ -179,7 +179,7 @@ export async function searchMeiliFull(
   };
 }
 
-// Diet facet keys that actually have at least one recipe — lets the UI hide
+// Diet facet keys that actually have at least one recipe - lets the UI hide
 // diet filters with no matches (recipes aren't diet-tagged yet). Returns null
 // on failure so callers can fall back to showing all diets.
 export async function availableDietKeys(): Promise<string[] | null> {

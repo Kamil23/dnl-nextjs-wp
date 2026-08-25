@@ -1,4 +1,4 @@
-// Data layer over Postgres — the only place pages read content from.
+// Data layer over Postgres - the only place pages read content from.
 // Mappers return the legacy WPGraphQL-ish shapes so existing components
 // (MoreStories, PostHeader, Breadcrumbs…) keep working unchanged.
 import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
@@ -33,7 +33,7 @@ export function toListingEdge(r: RecipeRow) {
       date: r.publishedAt?.toISOString() ?? null,
       featuredImage: r.heroImage ? { node: { sourceUrl: r.heroImage } } : null,
       author: authorNode(r.authorName),
-      // białko na porcję — plakietka na kaflu; tylko przepisy (artykuły nie mają makr)
+      // białko na porcję - plakietka na kaflu; tylko przepisy (artykuły nie mają makr)
       protein:
         r.uri.startsWith("/artykuly/") || r.protein == null
           ? null
@@ -256,7 +256,7 @@ export async function listRecipesInCategoryTree(categoryId: number) {
     .filter((r) => r.status === "published");
 }
 
-// The /przepisy/ archive — same recipe set the old site's canonical
+// The /przepisy/ archive - same recipe set the old site's canonical
 // (/kategoria/przepisy/) points at; falls back to uri prefix if the
 // category is missing.
 export async function listRecipeArchive() {
@@ -361,7 +361,7 @@ export async function listThemedRecipes(
 }
 
 // Homepage TikTok strip: recipes that came from (or link to) a TikTok
-// video. Thumbnails are our own hero images — TikTok CDN thumbnail URLs
+// video. Thumbnails are our own hero images - TikTok CDN thumbnail URLs
 // are signed and expire, and their embed script is ~0.5 MB of JS.
 // COALESCE covers older imports approved before videoUrl was copied over.
 export async function listTikTokVideos(limit = 8) {
@@ -385,7 +385,7 @@ export async function listTikTokVideos(limit = 8) {
       )
     )
     .orderBy(desc(recipes.publishedAt));
-  // A recipe with several approved imports would repeat — keep the first
+  // A recipe with several approved imports would repeat - keep the first
   const seen = new Set<number>();
   return rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true))).slice(0, limit);
 }
@@ -425,7 +425,7 @@ export async function getCategoryTiles() {
     .orderBy(categories.name);
 
   // Recipes live in several categories, so two tiles could pick the same
-  // hero — track used covers and take each category's first unused one
+  // hero - track used covers and take each category's first unused one
   // (falling back to a duplicate only when every candidate is taken)
   const usedCovers = new Set<string>();
   const tiles = [];
@@ -444,7 +444,7 @@ export async function getCategoryTiles() {
     });
   }
 
-  // The tile grid is 2/4 columns — keep the tile count a multiple of 4 so
+  // The tile grid is 2/4 columns - keep the tile count a multiple of 4 so
   // every breakpoint fills its rows. Biggest categories stay, the closing
   // tile links to the full /przepisy/ archive.
   tiles.sort((a, b) => b.count - a.count);
@@ -547,7 +547,7 @@ export async function listHighProteinRecipes(minProtein = 25) {
     .limit(60);
 }
 
-// GLP-1 friendly: sytość przy małej objętości — wysokie białko w umiarkowanej
+// GLP-1 friendly: sytość przy małej objętości - wysokie białko w umiarkowanej
 // kaloryczności (kryteria edytorskie; strona zrzeka się porad medycznych).
 export async function listGlp1FriendlyRecipes() {
   return db

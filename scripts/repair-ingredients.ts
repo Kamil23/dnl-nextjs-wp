@@ -48,7 +48,7 @@ async function main() {
           g.items.map((rawText, i) => ({ groupId: group.id, rawText, position: i }))
         );
       }
-      // macros were computed on incomplete ingredients — recompute later
+      // macros were computed on incomplete ingredients - recompute later
       await tx
         .update(recipes)
         .set({ kcal: null, protein: null, fat: null, carbs: null })
@@ -58,7 +58,7 @@ async function main() {
     repaired++;
     console.log(
       `✎ ${r.title}: ${current.length} -> ${newCount} składników (${parsed
-        .map((g) => g.title || "—")
+        .map((g) => g.title || "-")
         .join(" / ")})`
     );
   }

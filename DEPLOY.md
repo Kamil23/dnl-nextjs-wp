@@ -1,6 +1,6 @@
-# Wdrożenie i utrzymanie — dietanaluzie.pl
+# Wdrożenie i utrzymanie - dietanaluzie.pl
 
-Self-hosting na VPS (Hetzner) w Docker Compose: **Postgres + Meilisearch + Next.js (standalone) + Caddy** (TLS/reverse proxy). **WordPress jest wyłączony** — wszystkie media hostujemy u siebie, Caddy serwuje je bezpośrednio z dysku.
+Self-hosting na VPS (Hetzner) w Docker Compose: **Postgres + Meilisearch + Next.js (standalone) + Caddy** (TLS/reverse proxy). **WordPress jest wyłączony** - wszystkie media hostujemy u siebie, Caddy serwuje je bezpośrednio z dysku.
 
 ```
 Internet ──▶ Caddy (:80/:443, auto-TLS)
@@ -20,7 +20,7 @@ WordPress (stary box Plesk) nie jest już częścią architektury. Trzymamy go *
 ## Wymagania na VPS
 
 - Docker Engine + Docker Compose v2 (`docker compose version`)
-- Otwarte porty 80 i 443 (uwaga: jeśli działa tam już inna appka z własnym reverse proxy — patrz "Współdzielenie serwera")
+- Otwarte porty 80 i 443 (uwaga: jeśli działa tam już inna appka z własnym reverse proxy - patrz "Współdzielenie serwera")
 - Kontrola DNS dla `dietanaluzie.pl` (rekord A/AAAA apex + www)
 - Katalog na media, np. `/srv/dnl/media`, z podkatalogami `wp-content/uploads/` (legacy) i `uploads/` (nowe)
 
@@ -48,7 +48,7 @@ mkdir -p /srv/dnl/media/wp-content/uploads /srv/dnl/media/uploads
 docker compose up -d db meili
 docker compose run --rm tools npm run db:push        # schemat (Drizzle)
 
-# 4. Dane: załaduj gotową bazę (zrzut z lokalnego/dev Postgresa — 114 przepisów).
+# 4. Dane: załaduj gotową bazę (zrzut z lokalnego/dev Postgresa - 114 przepisów).
 #    Na maszynie z danymi:  pg_dump "$DATABASE_URL" | gzip > dnl.sql.gz
 #    Skopiuj dnl.sql.gz na VPS, potem:
 gunzip -c dnl.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie
@@ -61,23 +61,23 @@ docker compose up -d web worker caddy
 # 6. Smoke-test (sekcja "Weryfikacja po starcie")
 ```
 
-> **Alternatywa dla kroku 4** (jeśli nie robisz zrzutu): `docker compose run --rm tools npm run import:wp` — ale wymaga ŻYWEGO WordPressa (skrypt scrapuje apex po ocenach), więc uruchom PRZED przełączeniem DNS i ustaw `WORDPRESS_API_URL` na stary apex.
+> **Alternatywa dla kroku 4** (jeśli nie robisz zrzutu): `docker compose run --rm tools npm run import:wp` - ale wymaga ŻYWEGO WordPressa (skrypt scrapuje apex po ocenach), więc uruchom PRZED przełączeniem DNS i ustaw `WORDPRESS_API_URL` na stary apex.
 
 ---
 
 ## Transfer mediów (~0,3 GB, jednorazowo)
 
-Kopiujemy **cały** katalog `wp-content/uploads/` (z wariantami rozmiarów — inline `<img>` i `next/image` odwołują się do konkretnych nazw plików).
+Kopiujemy **cały** katalog `wp-content/uploads/` (z wariantami rozmiarów - inline `<img>` i `next/image` odwołują się do konkretnych nazw plików).
 
-**Opcja A — rsync (jeśli masz SSH do Plesku):**
+**Opcja A - rsync (jeśli masz SSH do Plesku):**
 ```bash
 rsync -avz --progress \
   plesk-user@51.75.54.187:/var/www/vhosts/dietanaluzie.pl/httpdocs/wp-content/uploads/ \
   /srv/dnl/media/wp-content/uploads/
-# (ścieżkę źródłową zweryfikuj `ls` na Plesku — układ vhostów bywa różny)
+# (ścieżkę źródłową zweryfikuj `ls` na Plesku - układ vhostów bywa różny)
 ```
 
-**Opcja B — panel Plesk (bez SSH):** File Manager → spakuj `wp-content/uploads/` do ZIP → pobierz → wgraj na VPS → rozpakuj do `/srv/dnl/media/wp-content/uploads/`.
+**Opcja B - panel Plesk (bez SSH):** File Manager → spakuj `wp-content/uploads/` do ZIP → pobierz → wgraj na VPS → rozpakuj do `/srv/dnl/media/wp-content/uploads/`.
 
 Weryfikacja kompletności:
 ```bash
@@ -110,7 +110,7 @@ docker compose up -d web
 docker compose run --rm tools npm run search:reindex
 ```
 
-> **ISR:** edycje treści w panelu admina odświeżają się same (`revalidate: 60`) — redeploy tylko przy zmianach **kodu** lub **schematu**. Media dodane w panelu/imporcie lądują na wolumenie `/srv/dnl/media` i są od razu serwowane przez Caddy (bez rebuildu).
+> **ISR:** edycje treści w panelu admina odświeżają się same (`revalidate: 60`) - redeploy tylko przy zmianach **kodu** lub **schematu**. Media dodane w panelu/imporcie lądują na wolumenie `/srv/dnl/media` i są od razu serwowane przez Caddy (bez rebuildu).
 
 ---
 
@@ -120,18 +120,18 @@ docker compose run --rm tools npm run search:reindex
 |---|---|
 | Dodanie/edycja przepisu | Panel `https://dietanaluzie.pl/admin` (edycja robi on-demand ISR) |
 | Moderacja ocen | `/admin/oceny` (tylko zatwierdzone liczą się do JSON-LD) |
-| Import z TikToka | `/admin/tiktok` (wklej link) — serwis `worker` podejmuje kolejkę sam w ~10 s (`docker compose logs -f worker`) |
+| Import z TikToka | `/admin/tiktok` (wklej link) - serwis `worker` podejmuje kolejkę sam w ~10 s (`docker compose logs -f worker`) |
 | Reindeks wyszukiwarki | `docker compose run --rm tools npm run search:reindex` |
 | Logi aplikacji / proxy | `docker compose logs -f web` / `docker compose logs -f caddy` |
 | Restart aplikacji | `docker compose restart web` |
 | Status | `docker compose ps` |
 
-### Backupy (DB **oraz** media — jedyne źródło prawdy)
+### Backupy (DB **oraz** media - jedyne źródło prawdy)
 
 Backupy lądują w **`/srv/dnl/backups`** (DB dump + tar mediów). Trzy drogi tworzenia, wszystkie do tego samego katalogu:
 
-- **Panel admina** `/admin/backupy` — lista, przycisk „Zrób backup teraz", pobieranie plików. (Kontener `web` ma `pg_dump` i zamontowane media + katalog backupów.)
-- **Cron co 3 dni** (host) — patrz niżej.
+- **Panel admina** `/admin/backupy` - lista, przycisk „Zrób backup teraz", pobieranie plików. (Kontener `web` ma `pg_dump` i zamontowane media + katalog backupów.)
+- **Cron co 3 dni** (host) - patrz niżej.
 - **Ręcznie z hosta** (awaryjnie): `/opt/dnl/backup.sh`.
 
 **Jednorazowy setup katalogu** (musi być zapisywalny przez usera kontenera, uid 1001):
@@ -155,14 +155,14 @@ EOF
 chmod +x /opt/dnl/backup.sh
 ( crontab -l 2>/dev/null | grep -v '/opt/dnl/backup.sh'; echo "0 3 */3 * * /opt/dnl/backup.sh >> /var/log/dnl-backup.log 2>&1" ) | crontab -
 ```
-(nazwy `db-<stamp>.sql.gz` / `media-<stamp>.tar.gz` są wspólne z panelem, więc lista w adminie pokazuje jedno i drugie; retencja wg wartości danych: **baza 14 kopii** (~160 KB/szt., ok. 6 tygodni historii — chroni przed uszkodzeniem zauważonym późno), **media 2 kopie** (~330 MB/szt., poprzednia + świeża — treść prawie się nie zmienia).)
+(nazwy `db-<stamp>.sql.gz` / `media-<stamp>.tar.gz` są wspólne z panelem, więc lista w adminie pokazuje jedno i drugie; retencja wg wartości danych: **baza 14 kopii** (~160 KB/szt., ok. 6 tygodni historii - chroni przed uszkodzeniem zauważonym późno), **media 2 kopie** (~330 MB/szt., poprzednia + świeża - treść prawie się nie zmienia).)
 
 **Odtworzenie:**
 ```bash
 gunzip -c /srv/dnl/backups/db-<stamp>.sql.gz | docker compose exec -T db psql -U dnl dietanaluzie
 tar xzf /srv/dnl/backups/media-<stamp>.tar.gz -C /srv/dnl/media
 ```
-**Pełny restore wymaga OBU** — sama baza bez mediów = strony bez obrazów. Dla DR co jakiś czas ściągnij `db-*.sql.gz` off-box.
+**Pełny restore wymaga OBU** - sama baza bez mediów = strony bez obrazów. Dla DR co jakiś czas ściągnij `db-*.sql.gz` off-box.
 
 ---
 
@@ -191,42 +191,42 @@ curl -s https://dietanaluzie.pl/sitemap.xml | grep -c '<loc>'
 ## Współdzielenie serwera (inna appka już działa na tym Dockerze)
 
 Jeśli na VPS działa już inna aplikacja z **własnym reverse proxy** na 80/443, NIE uruchamiaj naszego Caddy na tych portach. Dwa wyjścia:
-- Wepnij nasz `web` (i serwowanie mediów) w istniejące proxy — skieruj `dietanaluzie.pl` na `web:3000`, a `/wp-content/uploads/*` i `/uploads/*` na katalog `/srv/dnl/media` (statyczny root w tamtym proxy). Wtedy usuń serwis `caddy` z compose.
+- Wepnij nasz `web` (i serwowanie mediów) w istniejące proxy - skieruj `dietanaluzie.pl` na `web:3000`, a `/wp-content/uploads/*` i `/uploads/*` na katalog `/srv/dnl/media` (statyczny root w tamtym proxy). Wtedy usuń serwis `caddy` z compose.
 - Albo daj naszemu Caddy inne porty i postaw je za tamtym proxy.
 
-Jeśli 80/443 są wolne — zostaje nasze Caddy bez zmian. (Ustalimy na podstawie rekonesansu: `docker ps`, `sudo ss -tlnp | grep -E ':80|:443'`.)
+Jeśli 80/443 są wolne - zostaje nasze Caddy bez zmian. (Ustalimy na podstawie rekonesansu: `docker ps`, `sudo ss -tlnp | grep -E ':80|:443'`.)
 
 ---
 
 ## Troubleshooting
 
-**Obrazy 404** — sprawdź, czy pliki są w `/srv/dnl/media/wp-content/uploads/...` i czy `MEDIA_DIR` w `.env` wskazuje właściwy katalog; `docker compose logs caddy` pokaże, czy `file_server` je znajduje.
+**Obrazy 404** - sprawdź, czy pliki są w `/srv/dnl/media/wp-content/uploads/...` i czy `MEDIA_DIR` w `.env` wskazuje właściwy katalog; `docker compose logs caddy` pokaże, czy `file_server` je znajduje.
 
-**`next/image` nie ładuje hero** — apex musi być w `images.domains` (dzieje się automatycznie z `APP_ORIGIN`). Jeśli optymalizator w kontenerze `web` nie dosięga publicznego hosta (brak hairpin NAT), dodaj alias sieciowy `dietanaluzie.pl` na serwis `caddy` w compose, żeby self-fetch rozwiązał się wewnątrz sieci Dockera.
+**`next/image` nie ładuje hero** - apex musi być w `images.domains` (dzieje się automatycznie z `APP_ORIGIN`). Jeśli optymalizator w kontenerze `web` nie dosięga publicznego hosta (brak hairpin NAT), dodaj alias sieciowy `dietanaluzie.pl` na serwis `caddy` w compose, żeby self-fetch rozwiązał się wewnątrz sieci Dockera.
 
-**Klatki TikTok znikają po imporcie** — `worker`/`tools` musi mieć zamontowany wolumen `/srv/dnl/media` i `UPLOADS_DIR=/srv/media/uploads` (jest w compose). Pliki mają lądować w `/srv/dnl/media/uploads/imports/<id>/`.
+**Klatki TikTok znikają po imporcie** - `worker`/`tools` musi mieć zamontowany wolumen `/srv/dnl/media` i `UPLOADS_DIR=/srv/media/uploads` (jest w compose). Pliki mają lądować w `/srv/dnl/media/uploads/imports/<id>/`.
 
-**Import z TikToka wisi w „W kolejce"** — sprawdź `docker compose ps worker` (musi być up) i `docker compose logs -f worker`; najczęstsza przyczyna to brak klucza AI w `.env` (`OPENAI_API_KEY` lub `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`).
+**Import z TikToka wisi w „W kolejce"** - sprawdź `docker compose ps worker` (musi być up) i `docker compose logs -f worker`; najczęstsza przyczyna to brak klucza AI w `.env` (`OPENAI_API_KEY` lub `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`).
 
-**`docker compose build web` nie widzi bazy** — db musi być `up`/healthy przed buildem. Build używa `network: host` i łączy się z `127.0.0.1:5432`.
+**`docker compose build web` nie widzi bazy** - db musi być `up`/healthy przed buildem. Build używa `network: host` i łączy się z `127.0.0.1:5432`.
 
-**Caddy nie dostaje certu** — DNS apexu musi już wskazywać na VPS, porty 80/443 otwarte. Do testów przed cutoverem: IP/`/etc/hosts` + `curl -k`.
+**Caddy nie dostaje certu** - DNS apexu musi już wskazywać na VPS, porty 80/443 otwarte. Do testów przed cutoverem: IP/`/etc/hosts` + `curl -k`.
 
 ---
 
 ## Uwagi
 
-- `.env` jest w `.gitignore` — sekrety nigdy nie trafiają do repo.
-- `DATABASE_URL` jako build-arg trafia do warstw obrazu (`docker history`) — to lokalne dane dostępowe do bazy na Twoim VPS, nie współdziel obrazu publicznie.
+- `.env` jest w `.gitignore` - sekrety nigdy nie trafiają do repo.
+- `DATABASE_URL` jako build-arg trafia do warstw obrazu (`docker history`) - to lokalne dane dostępowe do bazy na Twoim VPS, nie współdziel obrazu publicznie.
 - Panel admina: zrotuj `ADMIN_PASSWORD` na mocne hasło przed startem (login ma limit prób: 5 → blokada 15 min).
-- Importy TikTok na VPS wymagają `ffmpeg` + `yt-dlp` — są w obrazie `tools` (Dockerfile, warstwa `source`).
+- Importy TikTok na VPS wymagają `ffmpeg` + `yt-dlp` - są w obrazie `tools` (Dockerfile, warstwa `source`).
 
 ---
 
 ## Ruch server-side (niezależny od zgód cookies)
 
 Caddy pisze access log (JSON) do wolumenu. Szybka analiza dziennych wejść na strony
-(bez assetów, botów nie filtruje — trендy i tak widać):
+(bez assetów, botów nie filtruje - trендy i tak widać):
 
 ```bash
 # odsłony HTML dziś (bez /_next, mediów i API)

@@ -11,7 +11,7 @@ export default function AboutBox() {
       <div className="relative w-24 h-24 md:w-28 md:h-28 shrink-0">
         <Image
           src={AUTHOR_AVATAR_URL}
-          alt="Roksana — autorka bloga Dieta na luzie"
+          alt="Roksana - autorka bloga Dieta na luzie"
           fill
           sizes="112px"
           className="rounded-full object-cover ring-4 ring-amber-400"

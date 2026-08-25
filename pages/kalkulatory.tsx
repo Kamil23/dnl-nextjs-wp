@@ -7,7 +7,7 @@ import { MENU_EDGES } from '../lib/menu'
 import { SITE_TITLE, SITE_URL } from '../lib/constants'
 import { CALCULATORS } from '../lib/calculators'
 
-// Hub linking every calculator — a landing for "kalkulatory dietetyczne" and
+// Hub linking every calculator - a landing for "kalkulatory dietetyczne" and
 // the internal-linking anchor that ties the tool cluster together.
 
 export default function CalculatorsHub() {
@@ -31,7 +31,7 @@ export default function CalculatorsHub() {
           <PostTitle>Kalkulatory dietetyczne</PostTitle>
           <p className="text-gray-600 mb-8">
             Darmowe narzędzia, które policzą za Ciebie kalorie, deficyt, makro,
-            BMI i ładunek glikemiczny. Bez logowania — wpisujesz dane, wynik
+            BMI i ładunek glikemiczny. Bez logowania - wpisujesz dane, wynik
             pojawia się od razu.
           </p>
 

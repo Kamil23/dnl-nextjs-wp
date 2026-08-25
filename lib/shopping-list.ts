@@ -5,7 +5,7 @@
 // model). The session is created lazily on the first mutation, so bots and
 // idle visitors never touch the database; until then the list is purely
 // local. localStorage stays the single source the badge reads from, and
-// doubles as the offline cache — if the server session expires, the next
+// doubles as the offline cache - if the server session expires, the next
 // mutation quietly recreates it from the cached items.
 
 import {

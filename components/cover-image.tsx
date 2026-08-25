@@ -9,7 +9,7 @@ interface Props {
     };
   };
   uri?: string;
-  // białko na porcję (g) — plakietka w rogu zdjęcia; ukryta gdy brak danych
+  // białko na porcję (g) - plakietka w rogu zdjęcia; ukryta gdy brak danych
   protein?: number | null;
 }
 

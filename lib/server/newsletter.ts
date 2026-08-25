@@ -1,5 +1,5 @@
 // Newsletter core: magnets, tokens and Resend delivery. The subscriber list
-// lives in our Postgres (lib/db/schema.ts:subscribers) — Resend is only the
+// lives in our Postgres (lib/db/schema.ts:subscribers) - Resend is only the
 // SMTP replacement. All copy is site content: no em-dashes in prose.
 import { randomBytes } from "crypto";
 import { SITE_TITLE, SITE_URL } from "../constants";
@@ -13,7 +13,7 @@ export const SIGNUP_SOURCES = [
 ] as const;
 export type SignupSource = (typeof SIGNUP_SOURCES)[number];
 
-// Lead magnets: PDFs live on the media volume (Caddy serves /pobrane/* — the
+// Lead magnets: PDFs live on the media volume (Caddy serves /pobrane/* - the
 // files are composed from our own recipes via /ebook/<key> printed to PDF).
 export const MAGNETS: Record<
   string,
@@ -140,7 +140,7 @@ export function escapeHtml(s: string) {
 
 // Table-based 600px shell (email clients have no flex/grid), warm brand
 // palette, hidden preheader (the line shown next to the subject in the inbox
-// list — a proven open-rate lever) and a spam-compliant footer.
+// list - a proven open-rate lever) and a spam-compliant footer.
 export function mailShell(inner: string, unsubToken?: string, preheader?: string) {
   const footer = unsubToken
     ? `<tr><td style="padding:20px 28px 28px;text-align:center;">

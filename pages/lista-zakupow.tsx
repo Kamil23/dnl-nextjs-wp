@@ -35,7 +35,7 @@ import {
 const CLEAR_CHECKED_AFTER_MS = 12 * 60 * 60 * 1000
 
 // Your list. Every list is a live shared session (created lazily on the
-// first item), so there is no local/shared split — the share button just
+// first item), so there is no local/shared split - the share button just
 // hands out the link. Other lists you joined live in "Moje listy".
 export default function ShoppingListPage() {
   const [list, setList] = useState<ShoppingItem[]>([])
@@ -45,7 +45,7 @@ export default function ShoppingListPage() {
   const [peerTyping, setPeerTyping] = useState(false)
   const [myLists, setMyLists] = useState<SavedList[]>([])
   const [copied, setCopied] = useState(false)
-  // Platform share glyph (iOS square-with-arrow vs Material nodes) —
+  // Platform share glyph (iOS square-with-arrow vs Material nodes) -
   // decided after mount so SSR and hydration render the same thing
   const [isIos, setIsIos] = useState(false)
   // Bumped to force a fresh SSE subscription after a transient "gone"
@@ -66,7 +66,7 @@ export default function ShoppingListPage() {
     refresh()
     window.addEventListener(SHOPPING_EVENT, refresh)
     setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent))
-    // Offline shell + installability for the PWA (prod only — on dev the SW
+    // Offline shell + installability for the PWA (prod only - on dev the SW
     // cache serves stale webpack chunks and breaks Fast Refresh)
     if (process.env.NODE_ENV === 'production') {
       navigator.serviceWorker?.register('/sw.js').catch(() => {})
@@ -75,7 +75,7 @@ export default function ShoppingListPage() {
   }, [])
 
   // Reminders-style cleanup: items checked off longer than 12h ago are a
-  // finished shopping trip — clear them once per visit
+  // finished shopping trip - clear them once per visit
   useEffect(() => {
     if (cleanedRef.current) return
     const cutoff = Date.now() - CLEAR_CHECKED_AFTER_MS
@@ -105,7 +105,7 @@ export default function ShoppingListPage() {
         }
       },
       onGone: async () => {
-        // Dropping the list is destructive — double-check it truly expired
+        // Dropping the list is destructive - double-check it truly expired
         // before acting (a flaky connection must not orphan the session)
         try {
           if ((await fetchSharedList(id)) !== null) {
@@ -116,7 +116,7 @@ export default function ShoppingListPage() {
           setReconnectNonce((n) => n + 1)
           return
         }
-        // Session really expired — the localStorage cache survives and the
+        // Session really expired - the localStorage cache survives and the
         // next mutation recreates a fresh session from it
         forgetList(id)
         clearSharedListId()
@@ -168,7 +168,7 @@ export default function ShoppingListPage() {
     } catch {}
   }
 
-  // Fresh empty list: just detach the current session — the next added
+  // Fresh empty list: just detach the current session - the next added
   // item lazily creates a new one. The old list stays in "Moje listy".
   function newList() {
     clearSharedListId()

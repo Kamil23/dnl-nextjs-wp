@@ -3,7 +3,7 @@ import Container from '../components/container'
 import Layout from '../components/layout'
 import { MENU_EDGES } from '../lib/menu'
 
-// Branded 404 — a renamed/removed slug should land the visitor (and a crawler)
+// Branded 404 - a renamed/removed slug should land the visitor (and a crawler)
 // back inside the site, not on Next's bare default error page.
 export default function NotFound() {
   return (

@@ -44,7 +44,7 @@ function parseStep(liHtml: string): ExtractedStep {
   return { title: null, body: stripTags(liHtml) };
 }
 
-// The first <ul> that appears BEFORE the steps section — a fallback for recipes
+// The first <ul> that appears BEFORE the steps section - a fallback for recipes
 // whose ingredient list has no "Składniki" heading (the list sits right after
 // the title). Bounded to the pre-steps area so we never grab a list of steps.
 function firstListBeforeSteps(html: string): string[] | null {
@@ -65,11 +65,11 @@ const ING_MARKER = /Składniki/i;
 const STEP_MARKER = /Przygotowanie|Wykonanie|Sposób przygotowania/i;
 
 // Returns extracted structure. Either list may be empty when that section isn't
-// present — callers decide per-recipe which piece to write.
+// present - callers decide per-recipe which piece to write.
 export function extractStructured(html: string | null): Extracted {
   if (!html) return { ingredients: [], steps: [] };
 
-  // Najpierw lista po nagłówku "Składniki"; gdy go brak — pierwsza <ul> przed krokami.
+  // Najpierw lista po nagłówku "Składniki"; gdy go brak - pierwsza <ul> przed krokami.
   const ingItems = listAfterMarker(html, ING_MARKER, "ul") ?? firstListBeforeSteps(html) ?? [];
   const ingredients = ingItems.map(stripTags).filter((t) => t.length > 0);
 

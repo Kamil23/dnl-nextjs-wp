@@ -8,7 +8,7 @@ import { newItemId } from "../../lib/shopping-list";
 // always-focused input as the first row, inline edit, delete with confirm
 // modal, checked items sink to the bottom, drag & drop reordering,
 // progress bar and confetti when the whole list is in the basket. Used by
-// both the local and the shared (live) list page — `dispatch` decides
+// both the local and the shared (live) list page - `dispatch` decides
 // where ops go.
 export default function ListEditor({
   items,
@@ -27,7 +27,7 @@ export default function ListEditor({
 
   const [toDelete, setToDelete] = useState<ShoppingItem | null>(null);
 
-  // Dragging covers the unchecked section only — checked items are done,
+  // Dragging covers the unchecked section only - checked items are done,
   // reordering them is pointless. The reorder op appends unlisted (checked)
   // ids at the end, preserving their order.
   function handleDragEnd(result: DropResult) {
@@ -82,7 +82,7 @@ export default function ListEditor({
       </DragDropContext>
 
       {/* Notes-style: the input IS the next row of the list, always right
-          below the last unchecked item — new items land where it points */}
+          below the last unchecked item - new items land where it points */}
       {typingActive && <TypingDots />}
       <AddInput
         onAdd={(title) => dispatch({ op: "addItems", items: [{ id: newItemId(), title }] })}

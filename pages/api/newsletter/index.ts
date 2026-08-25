@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (hp || !ts || Date.now() - ts < MIN_FILL_MS) {
     return res.status(200).json({ ok: true });
   }
-  // Footer only: Turnstile. Explicit error here — a human with an expired
+  // Footer only: Turnstile. Explicit error here - a human with an expired
   // token deserves feedback; the dumb bots already died silently above.
   if (source === "stopka" && !(await turnstileOk(parsed.data.cf, clientIp(req)))) {
     return res
@@ -107,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .where(eq(subscribers.email, email));
 
     if (existing?.status === "confirmed") {
-      // Already on the list — behave identically to a fresh signup (no status leak)
+      // Already on the list - behave identically to a fresh signup (no status leak)
       return res.status(200).json({ ok: true });
     }
 

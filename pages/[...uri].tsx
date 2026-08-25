@@ -44,7 +44,7 @@ import WpSeo from '../components/wp-seo'
 // the quick-meals one (matches the intent of the organic top pages)
 const SWEET_CATEGORY_SLUGS = new Set(['fit-ciasta', 'fit-slodycze', 'slodycze-domowe', 'wypieki'])
 
-// Recipes and static pages live at their original WordPress permalinks —
+// Recipes and static pages live at their original WordPress permalinks -
 // the URL set is the SEO contract with Google and never changes.
 export default function Content({
   kind,
@@ -209,7 +209,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
   const uri = `/${segments.join('/')}/`
 
   // /przepisy/ is the recipe archive (a WP query-loop page on the old site,
-  // canonical → /kategoria/przepisy/) — render it as the standard tile
+  // canonical → /kategoria/przepisy/) - render it as the standard tile
   // listing instead of the raw block HTML. /przepisy/<slug>/ stays a recipe.
   const isRecipeArchive =
     segments[0] === 'przepisy' &&
@@ -285,7 +285,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     }
   }
 
-  // Nothing lives here — honour a curated redirect (old WP URLs, slug
+  // Nothing lives here - honour a curated redirect (old WP URLs, slug
   // collisions from re-imports) before giving up with a 404
   const redirect = await getRedirectBySource(uri)
   if (redirect) {

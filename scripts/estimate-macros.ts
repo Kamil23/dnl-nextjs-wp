@@ -22,7 +22,7 @@ const { recipes, ingredientGroups, ingredients } = schema;
 async function main() {
   if (!process.env.OPENAI_API_KEY) throw new Error("Brak OPENAI_API_KEY");
 
-  // Every recipe with ingredients and no kcal — drafts included, so
+  // Every recipe with ingredients and no kcal - drafts included, so
   // TikTok imports awaiting review get macros too
   const targets = await db.select().from(recipes).where(isNull(recipes.kcal));
 
@@ -48,7 +48,7 @@ async function main() {
         fat: m.fat != null ? String(m.fat) : null,
         carbs: m.carbs != null ? String(m.carbs) : null,
       };
-      // kcal/porcję ma sens tylko przy jawnej liczbie porcji — gdy jej nie
+      // kcal/porcję ma sens tylko przy jawnej liczbie porcji - gdy jej nie
       // było, zapisujemy założenie modelu (operator może poprawić)
       if (!r.servings && m.assumedServings > 0) {
         patch.servings = m.assumedServings;

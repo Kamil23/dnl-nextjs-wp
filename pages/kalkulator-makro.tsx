@@ -18,7 +18,7 @@ import {
   type MacroGoal,
 } from '../lib/nutrition'
 
-// Macro calculator — takes body metrics + goal, derives calories, splits into
+// Macro calculator - takes body metrics + goal, derives calories, splits into
 // protein / fat / carbs. Protein anchored to bodyweight (matters for the
 // high-protein & GLP-1 audience the kolekcje pages already target).
 
@@ -39,7 +39,7 @@ const FAQ = [
   },
   {
     q: 'Czy makro są ważniejsze niż kalorie?',
-    a: 'O zmianie masy ciała decyduje bilans kaloryczny. Makroskładniki wpływają na sytość, skład ciała i samopoczucie — dlatego warto pilnować obu naraz.',
+    a: 'O zmianie masy ciała decyduje bilans kaloryczny. Makroskładniki wpływają na sytość, skład ciała i samopoczucie - dlatego warto pilnować obu naraz.',
   },
 ]
 

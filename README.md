@@ -132,7 +132,7 @@ To add [authentication to WPGraphQL](https://docs.wpgraphql.com/guides/authentic
 
 > Adding the WPGraphQL JWT plugin will disable your GraphQL API until you add a JWT secret ([GitHub issue](https://github.com/wp-graphql/wp-graphql-jwt-authentication/issues/91)).
 
-Once that's done, you'll need to access the WordPress filesystem to add the secret required to validate JWT tokens. We recommend using SFTP — the instructions vary depending on your hosting provider. For example:
+Once that's done, you'll need to access the WordPress filesystem to add the secret required to validate JWT tokens. We recommend using SFTP - the instructions vary depending on your hosting provider. For example:
 
 - [SFTP guide for WP Engine](https://wpengine.com/support/sftp/)
 - [SFTP guide for WordPress.com](https://wordpress.com/support/sftp/)

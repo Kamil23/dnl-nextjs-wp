@@ -10,13 +10,13 @@ import { MENU_EDGES } from '../lib/menu'
 import { SITE_TITLE, SITE_URL } from '../lib/constants'
 import { ACTIVITY_LEVELS, mifflinBmr, tdee, validBody, type Sex } from '../lib/nutrition'
 
-// Own BMR/CPM calculator (Mifflin-St Jeor) — replaces the old WP plugin page
+// Own BMR/CPM calculator (Mifflin-St Jeor) - replaces the old WP plugin page
 // at the same URL, same title/description as the live site.
 
 const FAQ = [
   {
     q: 'Czym różni się BMR od CPM?',
-    a: 'BMR (podstawowa przemiana materii) to kalorie, które organizm zużywa w spoczynku na podtrzymanie funkcji życiowych. CPM (całkowita przemiana materii) to BMR pomnożone przez współczynnik aktywności — czyli ile realnie potrzebujesz przy swoim trybie życia.',
+    a: 'BMR (podstawowa przemiana materii) to kalorie, które organizm zużywa w spoczynku na podtrzymanie funkcji życiowych. CPM (całkowita przemiana materii) to BMR pomnożone przez współczynnik aktywności - czyli ile realnie potrzebujesz przy swoim trybie życia.',
   },
   {
     q: 'Ile kalorii jeść, żeby schudnąć?',
@@ -24,7 +24,7 @@ const FAQ = [
   },
   {
     q: 'Jak dokładny jest wzór Mifflina-St Jeor?',
-    a: 'To jeden z najdokładniejszych wzorów szacunkowych dla populacji ogólnej, ale wynik jest orientacyjny — realne zapotrzebowanie zależy też od masy mięśniowej, genetyki i stanu zdrowia.',
+    a: 'To jeden z najdokładniejszych wzorów szacunkowych dla populacji ogólnej, ale wynik jest orientacyjny - realne zapotrzebowanie zależy też od masy mięśniowej, genetyki i stanu zdrowia.',
   },
 ]
 

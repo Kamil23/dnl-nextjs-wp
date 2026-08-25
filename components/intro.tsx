@@ -9,7 +9,7 @@ import { CATEGORIES } from "../lib/enum";
 export default function Intro({ menu }) {
   const title = SITE_TITLE.toLowerCase();
   const desc = SITE_DESCRIPTION.toLowerCase();
-  // Logo may only be the H1 on the homepage — on articles the recipe
+  // Logo may only be the H1 on the homepage - on articles the recipe
   // title owns the H1 (two H1s dilute the page's main heading for SEO)
   const isHome = useRouter().pathname === "/";
   const LogoTag = (isHome ? "h1" : "p") as any;
@@ -32,7 +32,7 @@ export default function Intro({ menu }) {
   );
 }
 
-// Downloads has no content worth surfacing — hidden until there is a plan for it
+// Downloads has no content worth surfacing - hidden until there is a plan for it
 const HIDDEN_MENU_IDS: string[] = [CATEGORIES.DOWNLOADS];
 
 const WPMenu = ({ menu }) => {
@@ -57,7 +57,7 @@ const WPMenu = ({ menu }) => {
   });
 };
 
-// Count is read from localStorage AFTER mount (SSR renders no badge) —
+// Count is read from localStorage AFTER mount (SSR renders no badge) -
 // deciding during render would cause a hydration mismatch
 const ShoppingListLink = () => {
   const [count, setCount] = useState(0);

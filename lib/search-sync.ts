@@ -10,7 +10,7 @@ const { recipes, ingredientGroups, ingredients, categories, recipeCategories, ta
 
 export async function buildRecipeDoc(db: any, recipeId: number): Promise<RecipeDoc | null> {
   const [r] = await db.select().from(recipes).where(eq(recipes.id, recipeId));
-  // Artykuły (/artykuly/) nie są przepisami — nie trafiają do wyszukiwarki.
+  // Artykuły (/artykuly/) nie są przepisami - nie trafiają do wyszukiwarki.
   if (!r || r.status !== "published" || r.uri.startsWith("/artykuly/")) return null;
 
   const [ing, cats, tagRows, allCats] = await Promise.all([

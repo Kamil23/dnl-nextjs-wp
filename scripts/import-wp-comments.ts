@@ -2,10 +2,10 @@
  * One-shot WordPress -> Postgres comment import.
  *
  * The live domain serves Next.js now, but the old WP install still runs on
- * the Plesk box — we reach it by IP with SNI pinned to the real hostname
+ * the Plesk box - we reach it by IP with SNI pinned to the real hostname
  * (the TLS cert there is for dietanaluzie.pl, so verification still passes).
  *
- * WPGraphQL publicly exposes only APPROVED comments — exactly the set worth
+ * WPGraphQL publicly exposes only APPROVED comments - exactly the set worth
  * migrating. Mapping to recipes is by URI (the permalinks never changed).
  * Threads deeper than one level are flattened to their top-level ancestor,
  * matching how the new UI renders replies. Roksana's replies (registered
@@ -70,7 +70,7 @@ function gql(query: string, variables: Record<string, any> = {}): Promise<any> {
 }
 
 // wptexturize leaves rendered HTML: paragraphs, <br>, entities (also numeric,
-// e.g. polskie cudzysłowy) — comments in the new system are plain text
+// e.g. polskie cudzysłowy) - comments in the new system are plain text
 function htmlToText(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
@@ -194,7 +194,7 @@ async function main() {
     console.log(`Pominięto ${skipped.length}: ${skipped.join(", ")}`);
   }
 
-  // Recipes with imported comments — handy to spot-check on the site
+  // Recipes with imported comments - handy to spot-check on the site
   const withComments = await db
     .selectDistinct({ uri: recipes.uri })
     .from(comments)

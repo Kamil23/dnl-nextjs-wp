@@ -7,7 +7,7 @@ export default function ShareCard({ url, mediaUrl, title }) {
   const [copied, setCopied] = useState(false);
   // navigator is browser-only: deciding during render causes a hydration
   // mismatch (SSR has no button, client does) which breaks React's event
-  // binding for the whole page — detect after mount instead
+  // binding for the whole page - detect after mount instead
   const [canNativeShare, setCanNativeShare] = useState(false);
   useEffect(() => {
     setCanNativeShare(typeof navigator.share === "function");

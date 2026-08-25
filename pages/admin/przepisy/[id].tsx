@@ -133,7 +133,7 @@ export default function RecipeEditor({ initial, allCategories }) {
         carbs: data.carbs != null ? String(data.carbs) : "",
         servings: f.servings || (data.assumedServings ? String(data.assumedServings) : ""),
       }));
-      setMessage({ ok: true, text: `Oszacowano: ${data.kcal} kcal/porcję — zapisz, by utrwalić` });
+      setMessage({ ok: true, text: `Oszacowano: ${data.kcal} kcal/porcję - zapisz, by utrwalić` });
     } catch (e: any) {
       setMessage({ ok: false, text: e.message || "Błąd estymacji" });
     } finally {
@@ -153,7 +153,7 @@ export default function RecipeEditor({ initial, allCategories }) {
       fat: per(estimate.totalFat),
       carbs: per(estimate.totalCarbs),
     }));
-    setMessage({ ok: true, text: `Ustawiono ${n} porcji i przeliczono makra — zapisz, by utrwalić` });
+    setMessage({ ok: true, text: `Ustawiono ${n} porcji i przeliczono makra - zapisz, by utrwalić` });
   }
 
   async function remove() {
@@ -239,7 +239,7 @@ export default function RecipeEditor({ initial, allCategories }) {
                   <input
                     value={g.title ?? ""}
                     onChange={(e) => setGroup(gi, { title: e.target.value })}
-                    placeholder="Nazwa sekcji (np. Ciasto) — opcjonalna"
+                    placeholder="Nazwa sekcji (np. Ciasto) - opcjonalna"
                     className={`${inputCls} mt-0 flex-1`}
                   />
                   <button
@@ -300,7 +300,7 @@ export default function RecipeEditor({ initial, allCategories }) {
                 <input
                   value={s.title}
                   onChange={(e) => setStep(si, { title: e.target.value })}
-                  placeholder="Nazwa kroku (np. Owsianka) — opcjonalna"
+                  placeholder="Nazwa kroku (np. Owsianka) - opcjonalna"
                   className={`${inputCls} mt-0 mb-2`}
                 />
                 <textarea
@@ -313,7 +313,7 @@ export default function RecipeEditor({ initial, allCategories }) {
                 <input
                   value={s.tip}
                   onChange={(e) => setStep(si, { tip: e.target.value })}
-                  placeholder="💡 Tip — opcjonalny"
+                  placeholder="💡 Tip - opcjonalny"
                   className={`${inputCls} mt-0`}
                 />
               </div>
@@ -326,7 +326,7 @@ export default function RecipeEditor({ initial, allCategories }) {
             </button>
           </Section>
 
-          <Section title="Treść artykułu (wstęp/historia — HTML)">
+          <Section title="Treść artykułu (wstęp/historia - HTML)">
             <textarea
               value={form.contentHtml}
               onChange={(e) => set("contentHtml", e.target.value)}
@@ -394,7 +394,7 @@ export default function RecipeEditor({ initial, allCategories }) {
               <label className={labelCls}>
                 Trudność
                 <select value={form.difficulty ?? ""} onChange={(e) => set("difficulty", e.target.value)} className={inputCls}>
-                  <option value="">—</option>
+                  <option value="">-</option>
                   <option value="latwy">Łatwy</option>
                   <option value="sredni">Średni</option>
                   <option value="trudny">Trudny</option>
@@ -429,7 +429,7 @@ export default function RecipeEditor({ initial, allCategories }) {
               String(estimate.assumedServings) !== String(form.servings) && (
                 <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm">
                   <p className="text-amber-900">
-                    💡 AI ocenia, że to realnie <strong>{estimate.assumedServings} porcji</strong> (masz {form.servings || "—"}).
+                    💡 AI ocenia, że to realnie <strong>{estimate.assumedServings} porcji</strong> (masz {form.servings || "-"}).
                     Cały przepis to ok. {estimate.totalKcal} kcal.
                   </p>
                   <button
@@ -482,7 +482,7 @@ export default function RecipeEditor({ initial, allCategories }) {
                       )
                     }
                   />
-                  {c.parentId ? `— ${c.name}` : c.name}
+                  {c.parentId ? `- ${c.name}` : c.name}
                 </label>
               ))}
             </div>
@@ -523,7 +523,7 @@ export default function RecipeEditor({ initial, allCategories }) {
 
           {form.status === "published" ? (
             <p className="text-xs text-gray-400 mb-12">
-              Opublikowanych przepisów nie można usunąć — najpierw zmień status
+              Opublikowanych przepisów nie można usunąć - najpierw zmień status
               na szkic, jeśli chcesz go wycofać ze strony.
             </p>
           ) : (

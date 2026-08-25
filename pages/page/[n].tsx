@@ -8,7 +8,7 @@ import { listPublishedRecipes, toListingEdge } from '../../lib/queries'
 import { MENU_EDGES } from '../../lib/menu'
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL, HOME_POSTS_PER_PAGE } from '../../lib/constants'
 
-// Paginated homepage archive: /page/2/ ... /page/N/ — same URLs as WordPress
+// Paginated homepage archive: /page/2/ ... /page/N/ - same URLs as WordPress
 export default function HomePage({ posts, page, totalPages }) {
   const title = `${SITE_TITLE} - Strona ${page} z ${totalPages} - ${SITE_DESCRIPTION}`
   const canonical = `${SITE_URL}/page/${page}/`

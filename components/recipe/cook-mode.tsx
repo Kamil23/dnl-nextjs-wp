@@ -92,7 +92,7 @@ export default function CookMode({ recipe, factor, onClose }) {
       });
       setRated(true);
     } catch {
-      /* silent — the classic widget below the recipe still works */
+      /* silent - the classic widget below the recipe still works */
     } finally {
       setRating(false);
     }

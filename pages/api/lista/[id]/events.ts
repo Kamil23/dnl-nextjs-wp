@@ -7,7 +7,7 @@ import { presenceCount, publish, subscribe } from "../../../../lib/server/list-b
 
 const { sharedLists } = dbSchema;
 
-// Long-lived SSE connection — resolved manually, not by returning
+// Long-lived SSE connection - resolved manually, not by returning
 export const config = { api: { externalResolver: true } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const [row] = await db.select().from(sharedLists).where(eq(sharedLists.id, id.data));
 
-  // Opening a list counts as activity — keeps a regularly-viewed list
+  // Opening a list counts as activity - keeps a regularly-viewed list
   // from hitting the 60-day TTL even if nobody edits it
   if (row) {
     await db
@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     25000
   );
 
-  // `req` never fires "close" on client disconnect for a bodyless GET —
+  // `req` never fires "close" on client disconnect for a bodyless GET -
   // the response side does, once the socket is torn down
   res.once("close", () => {
     clearInterval(heartbeat);

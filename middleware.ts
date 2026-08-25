@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Protects /admin/* (except the login page). The cookie is an HMAC of a
-// fixed message under ADMIN_SECRET — recompute it here (edge runtime) and
+// fixed message under ADMIN_SECRET - recompute it here (edge runtime) and
 // compare with what the login endpoint issued.
 async function expectedToken() {
   const secret = process.env.ADMIN_SECRET || "";

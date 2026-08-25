@@ -13,7 +13,7 @@ const BACKUP_DIR = process.env.BACKUP_DIR || "/srv/backups";
 const MEDIA_DIR = process.env.BACKUP_MEDIA_DIR || "/srv/media";
 // Retention by value, not by file type: DB dumps are the irreplaceable part
 // (recipes, subscribers, ratings, comments) and cost ~160 KB each, so we keep
-// weeks of history — protects against corruption noticed late. Media tarballs
+// weeks of history - protects against corruption noticed late. Media tarballs
 // are ~330 MB and mostly re-derivable, so only previous + freshly created.
 const KEEP: Record<"db" | "media", number> = { db: 14, media: 2 };
 
@@ -24,7 +24,7 @@ export type BackupFile = {
   mtime: string;
 };
 
-// Only these exact shapes are ever listed/served — guards path traversal.
+// Only these exact shapes are ever listed/served - guards path traversal.
 const NAME_RE = /^(db|media)-[0-9T:-]+\.(sql\.gz|tar\.gz)$/;
 
 export function listBackups(): BackupFile[] {
@@ -57,7 +57,7 @@ export function backupFilePath(name: string): string | null {
 }
 
 function stamp(): string {
-  // 2026-08-05T14-30-45 — filesystem-safe, sortable, matches the host cron
+  // 2026-08-05T14-30-45 - filesystem-safe, sortable, matches the host cron
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 }
 

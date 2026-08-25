@@ -35,7 +35,7 @@ export default function JoinSharedListPage() {
           router.replace('/lista-zakupow/')
         },
         () => {
-          // Network hiccup ≠ missing list — keep trying quietly
+          // Network hiccup ≠ missing list - keep trying quietly
           if (!cancelled) retry = setTimeout(open, 2500)
         }
       )

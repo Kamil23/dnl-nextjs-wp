@@ -19,7 +19,7 @@ function Fact({ icon, label, value }: { icon: string; label: string; value: stri
   );
 }
 
-// Kompaktowy pasek makro na porcję — białko wyróżnione (główny hak diety).
+// Kompaktowy pasek makro na porcję - białko wyróżnione (główny hak diety).
 function Macro({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <span

@@ -26,7 +26,7 @@ export default function StepsList({ steps }) {
                     ? "bg-amber-500 text-white"
                     : "bg-gray-900 text-white hover:bg-amber-500"
                 }`}
-                aria-label={done[i] ? `Krok ${i + 1} — zrobiony` : `Oznacz krok ${i + 1} jako zrobiony`}
+                aria-label={done[i] ? `Krok ${i + 1} - zrobiony` : `Oznacz krok ${i + 1} jako zrobiony`}
               >
                 {done[i] ? "✓" : i + 1}
               </button>

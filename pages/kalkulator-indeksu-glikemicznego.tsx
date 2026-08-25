@@ -10,7 +10,7 @@ import { SITE_TITLE, SITE_URL } from '../lib/constants'
 import { GI_PRODUCTS, glycemicLoad, glBand, giBand } from '../lib/nutrition'
 
 // Glycemic-load calculator. GI alone ignores portion size; GL = GI × carbs/100
-// answers "how much will this portion actually spike me" — the number that
+// answers "how much will this portion actually spike me" - the number that
 // matters for the insulin-resistance audience the research flagged as a gap.
 
 const FAQ = [
@@ -20,7 +20,7 @@ const FAQ = [
   },
   {
     q: 'Jak obliczyć ładunek glikemiczny?',
-    a: 'ŁG = IG × węglowodany przyswajalne (g) ÷ 100. Przykład: 150 g banana (IG 51, ~23 g węgli/100 g) to 51 × 34,5 ÷ 100 ≈ 17,6 — ładunek średni.',
+    a: 'ŁG = IG × węglowodany przyswajalne (g) ÷ 100. Przykład: 150 g banana (IG 51, ~23 g węgli/100 g) to 51 × 34,5 ÷ 100 ≈ 17,6 - ładunek średni.',
   },
   {
     q: 'Jakie wartości ładunku glikemicznego są niskie?',
@@ -79,7 +79,7 @@ export default function GlycemicCalculator() {
         <article className="max-w-2xl mx-auto mb-24">
           <PostTitle>Kalkulator ładunku glikemicznego</PostTitle>
           <p className="text-gray-600 mb-8">
-            Indeks glikemiczny (IG) nie uwzględnia wielkości porcji — dlatego
+            Indeks glikemiczny (IG) nie uwzględnia wielkości porcji - dlatego
             liczy się <strong>ładunek glikemiczny</strong> (ŁG). Wybierz produkt
             i podaj ile go zjadasz, a policzymy realny wpływ na poziom cukru.
           </p>
@@ -142,7 +142,7 @@ export default function GlycemicCalculator() {
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            Wartości orientacyjne — IG zmienia się z dojrzałością, obróbką i stopniem ugotowania produktu.
+            Wartości orientacyjne - IG zmienia się z dojrzałością, obróbką i stopniem ugotowania produktu.
           </p>
 
           <h2 className="font-bold text-lg mt-12 mb-4">Częste pytania</h2>

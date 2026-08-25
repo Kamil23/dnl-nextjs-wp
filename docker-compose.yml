@@ -72,16 +72,16 @@ services:
       # TikTok frames also served from public/ (belt-and-suspenders; the app now
       # emits absolute image URLs so next/image fetches them via Caddy anyway).
       - ${MEDIA_DIR:-/srv/dnl/media}/uploads:/app/public/uploads:ro
-      # Full media tree (ro) — read by the admin "backup" tar.
+      # Full media tree (ro) - read by the admin "backup" tar.
       - ${MEDIA_DIR:-/srv/dnl/media}:/srv/media:ro
-      # Backups dir (rw) — pg_dump + media tarballs land here (shared with the
+      # Backups dir (rw) - pg_dump + media tarballs land here (shared with the
       # host cron). Create it on the host owned by uid 1001 (see DEPLOY.md).
       - ${BACKUP_DIR:-/srv/dnl/backups}:/srv/backups
     expose:
       - "3000"
 
   # TikTok import worker: watches the `imports` table and processes pending
-  # rows automatically (the admin "Przetwórz kolejkę" button only enqueues —
+  # rows automatically (the admin "Przetwórz kolejkę" button only enqueues -
   # the web container can't run the worker itself: no ffmpeg/yt-dlp/tsx there).
   worker:
     build:
@@ -105,7 +105,7 @@ services:
     command: ["npm", "run", "imports:watch"]
 
   # One-off operational tasks (migrations, import, reindex). Not started by
-  # `up` — invoke with: docker compose run --rm tools npm run <script>
+  # `up` - invoke with: docker compose run --rm tools npm run <script>
   tools:
     build:
       context: .

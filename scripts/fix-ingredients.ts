@@ -39,10 +39,10 @@ async function audit(title: string, items: string[]) {
             "'łyżka miodu' -> '1 łyżka miodu', 'szklanka mleka' -> '1 szklanka mleka'. " +
             "NIE WOLNO wymyślać liczb, których nie ma w tekście!\n" +
             "- missing: składnik bez żadnej ilości, której nie da się bezpiecznie założyć " +
-            "(np. 'mąka pszenna', 'ser biały') — text zostaw bez zmian.\n" +
+            "(np. 'mąka pszenna', 'ser biały') - text zostaw bez zmian.\n" +
             "- ok: ma ilość albo celowo jej nie potrzebuje ('sól do smaku', 'oliwa do smażenia', " +
             "'aromat waniliowy', przyprawy do smaku).\n" +
-            'Zwróć JSON: {"items": [...]} — dokładnie tyle pozycji, ile dostałeś, w tej samej kolejności.',
+            'Zwróć JSON: {"items": [...]} - dokładnie tyle pozycji, ile dostałeś, w tej samej kolejności.',
         },
         { role: "user", content: `Przepis: ${title}\n${JSON.stringify(items)}` },
       ],
@@ -73,7 +73,7 @@ async function main() {
     try {
       const result = await audit(r.title, rows.map((x) => x.rawText));
       if (result.length !== rows.length) {
-        console.warn(`⚠ ${r.title}: liczba pozycji się nie zgadza — pomijam`);
+        console.warn(`⚠ ${r.title}: liczba pozycji się nie zgadza - pomijam`);
         continue;
       }
       for (let i = 0; i < rows.length; i++) {
@@ -95,7 +95,7 @@ async function main() {
 
   console.log(`\n== PODSUMOWANIE ==`);
   console.log(`Ujawnione domyślne ilości: ${normalized}${DRY ? " (dry-run, nic nie zapisano)" : ""}`);
-  console.log(`\nSkładniki BEZ ilości — do uzupełnienia w adminie (${missing.length}):`);
+  console.log(`\nSkładniki BEZ ilości - do uzupełnienia w adminie (${missing.length}):`);
   for (const m of missing) console.log(`  ? ${m}`);
   await sql.end();
 }

@@ -19,7 +19,7 @@ import {
   type Sex,
 } from '../lib/nutrition'
 
-// Dedicated calorie-deficit page — "kalkulator deficytu kalorycznego" is a
+// Dedicated calorie-deficit page - "kalkulator deficytu kalorycznego" is a
 // distinct high-volume query from "kalkulator kalorii", worth its own URL.
 
 const FAQ = [

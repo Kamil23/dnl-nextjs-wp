@@ -1,4 +1,4 @@
-// Recipe data quality checks. Pure functions, no I/O — the admin QC page and
+// Recipe data quality checks. Pure functions, no I/O - the admin QC page and
 // the `qc:recipes` CLI both feed recipes through checkRecipe() and render the
 // issues it returns. The trigger for this was a recipe showing 2700 kcal per
 // serving (kcal entered for the whole cake, not per portion); these rules catch
@@ -19,14 +19,14 @@ export type QcInput = {
   ingredientCount: number;
   stepCount: number;
   // legacy WP recipes render instructions from HTML instead of the structured
-  // steps/ingredients tables — missing structure is then a warning, not an error
+  // steps/ingredients tables - missing structure is then a warning, not an error
   hasContentHtml: boolean;
 };
 
 export type QcSeverity = "error" | "warning";
 export type QcIssue = { severity: QcSeverity; code: string; message: string };
 
-// Plausible per-serving bounds. Deliberately wide — we only want to catch clear
+// Plausible per-serving bounds. Deliberately wide - we only want to catch clear
 // data-entry mistakes, not police unusual-but-real recipes.
 const KCAL_MIN = 30;
 const KCAL_HARD_MAX = 1500; // above this per serving is almost always a mistake
@@ -69,13 +69,13 @@ export function checkRecipe(r: QcInput): QcIssue[] {
       add(
         "warning",
         "servings-suspicious",
-        `Podejrzana liczba porcji: ${kcal} kcal przy ${r.servings ?? "—"} porcji i ${r.ingredientCount} składnikach — to prawdopodobnie kilka porcji. Użyj „Porcje z AI”.`
+        `Podejrzana liczba porcji: ${kcal} kcal przy ${r.servings ?? "-"} porcji i ${r.ingredientCount} składnikach - to prawdopodobnie kilka porcji. Użyj „Porcje z AI”.`
       );
     } else {
-      add("warning", "kcal-high", `Wysoka kaloryczność na porcję: ${kcal} kcal — do weryfikacji.`);
+      add("warning", "kcal-high", `Wysoka kaloryczność na porcję: ${kcal} kcal - do weryfikacji.`);
     }
   } else if (kcal < KCAL_MIN) {
-    add("warning", "kcal-low", `Bardzo niska kaloryczność na porcję: ${kcal} kcal — do weryfikacji.`);
+    add("warning", "kcal-low", `Bardzo niska kaloryczność na porcję: ${kcal} kcal - do weryfikacji.`);
   }
 
   // --- Makra: wartości skrajne / ujemne ---
@@ -108,7 +108,7 @@ export function checkRecipe(r: QcInput): QcIssue[] {
 
   // --- Porcje ---
   if (r.servings == null || r.servings <= 0) {
-    add("warning", "servings-missing", "Brak liczby porcji — bez niej nie da się przeliczyć makr ani skalować przepisu.");
+    add("warning", "servings-missing", "Brak liczby porcji - bez niej nie da się przeliczyć makr ani skalować przepisu.");
   }
 
   // --- Kompletność treści ---
@@ -116,15 +116,15 @@ export function checkRecipe(r: QcInput): QcIssue[] {
   // dane strukturalne (schema, tryb gotowania, skalowanie) → ostrzeżenie.
   if (r.ingredientCount === 0) {
     if (r.hasContentHtml)
-      add("warning", "no-ingredients-structured", "Brak składników w strukturze (są w starej treści HTML) — brak listy do schema i skalowania.");
+      add("warning", "no-ingredients-structured", "Brak składników w strukturze (są w starej treści HTML) - brak listy do schema i skalowania.");
     else add("error", "no-ingredients", "Przepis bez składników.");
   }
   if (r.stepCount === 0) {
     if (r.hasContentHtml)
-      add("warning", "no-steps-structured", "Brak kroków w strukturze (renderowane ze starej treści HTML) — brak HowToStep i trybu gotowania.");
+      add("warning", "no-steps-structured", "Brak kroków w strukturze (renderowane ze starej treści HTML) - brak HowToStep i trybu gotowania.");
     else add("error", "no-steps", "Przepis bez kroków przygotowania.");
   }
-  if (!r.heroImage) add("warning", "image-missing", "Brak zdjęcia — wymagane dla wyniku Recipe w Google.");
+  if (!r.heroImage) add("warning", "image-missing", "Brak zdjęcia - wymagane dla wyniku Recipe w Google.");
   if (r.totalTimeMin == null) add("warning", "time-missing", "Brak czasu przygotowania.");
 
   return issues;

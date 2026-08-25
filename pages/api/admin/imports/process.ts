@@ -12,7 +12,7 @@ import { db, dbSchema } from "../../../../lib/db";
 // Two environments, two behaviours:
 //  - dev (repo on disk): spawn the worker as a child process, single-flight.
 //  - production (standalone build in Docker): the source tree, tsx and
-//    ffmpeg/yt-dlp are NOT in this container — the dedicated `worker` compose
+//    ffmpeg/yt-dlp are NOT in this container - the dedicated `worker` compose
 //    service polls the queue every 10 s instead, so POST is just an ack and
 //    "running" is inferred from the DB (any row in `processing`).
 const globalForWorker = globalThis as unknown as { importWorker?: { startedAt: number } };

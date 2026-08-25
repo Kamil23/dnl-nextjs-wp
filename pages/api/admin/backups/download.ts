@@ -4,7 +4,7 @@ import path from "path";
 import { requireAdminApi } from "../../../../lib/admin-auth";
 import { backupFilePath } from "../../../../lib/server/backup";
 
-// Media tarballs can be hundreds of MB — disable the default 4MB response cap.
+// Media tarballs can be hundreds of MB - disable the default 4MB response cap.
 export const config = { api: { responseLimit: false } };
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {

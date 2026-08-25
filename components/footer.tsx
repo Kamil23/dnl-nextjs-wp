@@ -30,7 +30,7 @@ export default function Footer() {
               href={SOCIAL_TIKTOK_URL}
               target="_blank"
               rel="noreferrer"
-              aria-label="TikTok — @roksanacieplicka"
+              aria-label="TikTok - @roksanacieplicka"
               className="hover:text-gray-900 transition-colors"
             >
               <TikTokIcon className="w-4 h-4" />
@@ -39,7 +39,7 @@ export default function Footer() {
               href={SOCIAL_INSTAGRAM_URL}
               target="_blank"
               rel="noreferrer"
-              aria-label="Instagram — @roksanacieplicka"
+              aria-label="Instagram - @roksanacieplicka"
               className="hover:text-gray-900 transition-colors"
             >
               <InstagramIcon className="w-4 h-4" />

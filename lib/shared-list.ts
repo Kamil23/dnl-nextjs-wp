@@ -24,7 +24,7 @@ export function getMyLists(): SavedList[] {
   }
 }
 
-// Unnamed lists surface their creation date instead — always current,
+// Unnamed lists surface their creation date instead - always current,
 // unlike a date baked into the name. When several unnamed lists share a
 // date (pass `all` for collision detection), the time disambiguates:
 // "Lista z 3.08, 14:32".
@@ -111,7 +111,7 @@ export async function createSharedList(
 
 // Fire-and-forget by design: the UI already updated optimistically and the
 // SSE echo will reconcile any divergence.
-// Resolves null ONLY on a definite 404 — network/server errors throw, so
+// Resolves null ONLY on a definite 404 - network/server errors throw, so
 // callers can tell "the list is gone" from "the connection hiccuped"
 export async function fetchSharedList(
   id: string

@@ -63,7 +63,7 @@ const COPY: Record<Source, { emoji: string; title: string; text: string; cta: st
   kolekcje: {
     emoji: "💌",
     title: "Chcesz więcej takich przepisów?",
-    text: "Nowe przepisy z tej kolekcji trafiają też do newslettera — zapisz się, żeby nic nie przegapić.",
+    text: "Nowe przepisy z tej kolekcji trafiają też do newslettera - zapisz się, żeby nic nie przegapić.",
     cta: "Zapisuję się",
   },
 };

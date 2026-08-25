@@ -11,7 +11,7 @@
  *
  * Requirements: yt-dlp and ffmpeg on PATH, one AI key in the environment.
  * Run: npm run imports:process   (cron-friendly; exits when the queue is empty)
- *      npm run imports:watch     (long-running: polls the queue every 10 s —
+ *      npm run imports:watch     (long-running: polls the queue every 10 s -
  *                                 this is how the `worker` compose service runs)
  */
 import { config } from "dotenv";
@@ -37,7 +37,7 @@ const db = drizzle(sql, { schema });
 const { imports } = schema;
 
 // Modele bywają niesforne wobec schematu: pomijają nullable pola,
-// zwracają liczby jako stringi itd. — walidacja jest więc liberalna
+// zwracają liczby jako stringi itd. - walidacja jest więc liberalna
 // w tym, co przyjmuje, i ścisła w tym, co zwraca.
 const optStr = z
   .string()
@@ -86,7 +86,7 @@ const RecipeDraft = z.object({
   carbs: optNum,
   seoTitle: z.string().describe("Tytuł SEO do 60 znaków, kończy się na ' - Dieta na luzie'"),
   seoDescription: z.string().describe("Opis SEO 140-160 znaków, po polsku, zachęcający"),
-  // Modele czasem zwracają tablicę mimo instrukcji — normalizujemy do stringa
+  // Modele czasem zwracają tablicę mimo instrukcji - normalizujemy do stringa
   keywords: z.preprocess(
     (v) => (Array.isArray(v) ? v.join(", ") : v),
     z.string()
@@ -176,7 +176,7 @@ async function extractFrames(videoPath: string, dir: string) {
   return fs.readdirSync(framesDir).sort().map((f) => path.join(framesDir, f));
 }
 
-// Frames double as hero-image candidates — publish them under /uploads.
+// Frames double as hero-image candidates - publish them under /uploads.
 // In production the worker (tools container) and the web server are separate
 // containers, so frames must land on the shared media volume (UPLOADS_DIR),
 // not the ephemeral public/ dir. Caddy serves /uploads/* from that volume.
@@ -197,18 +197,18 @@ function publishFrames(importId: number, frames: string[]): string[] {
 // Video frames make soft hero shots (motion blur, compression). If an
 // image-capable key is configured, produce a cleaned-up variant of the chosen
 // hero frame; the operator picks original vs enhanced in /admin/tiktok.
-// The prompt pins composition and food so the photo stays truthful — it must
+// The prompt pins composition and food so the photo stays truthful - it must
 // still look like a phone shot of the actual dish, not an AI render.
 
 const ENHANCE_PROMPT =
   "Turn this video frame into a clean, appetizing food photo. " +
   "Remove ALL overlaid graphics: captions, titles, subtitles, emojis, stickers, " +
-  "watermarks, usernames and any UI elements — reconstruct the food and " +
+  "watermarks, usernames and any UI elements - reconstruct the food and " +
   "background naturally where they were. " +
   "Remove motion blur and compression artifacts, sharpen details, reduce noise, " +
   "correct white balance and exposure so the dish looks crisp and appetizing. " +
   "Keep the same composition, framing, dishes, ingredients, food quantities and " +
-  "background — do not add, remove or restyle any real object in the scene. " +
+  "background - do not add, remove or restyle any real object in the scene. " +
   "The result must look like a natural, unedited smartphone food photo, " +
   "not an AI render or a stock photo.";
 
@@ -305,17 +305,17 @@ async function transcribe(videoPath: string, dir: string): Promise<string | null
 }
 
 const SYSTEM_PROMPT =
-  "Jesteś asystentem food blogerki Roksany (blog dietanaluzie.pl — zdrowe, fit przepisy po polsku). " +
+  "Jesteś asystentem food blogerki Roksany (blog dietanaluzie.pl - zdrowe, fit przepisy po polsku). " +
   "Z materiałów z TikToka (klatki wideo, ścieżka audio lub transkrypcja, opis posta) odtwarzasz kompletny przepis. " +
-  "OPIS POSTA to najbardziej wiarygodne źródło: autorka zwykle wypisuje tam pełną listę składników z ilościami — " +
+  "OPIS POSTA to najbardziej wiarygodne źródło: autorka zwykle wypisuje tam pełną listę składników z ilościami - " +
   "przenieś je wiernie, co do jednostki. Transkrypcja i klatki służą głównie do odtworzenia kroków i technik. " +
   "Pisz naturalnym, ciepłym stylem bloga. Ilości składników podawaj po polsku ('pół szklanki', '2 łyżki'). " +
-  "ZAWSZE oszacuj wartości odżywcze NA PORCJĘ ze składników (kcal, protein, fat, carbs) — " +
+  "ZAWSZE oszacuj wartości odżywcze NA PORCJĘ ze składników (kcal, protein, fat, carbs) - " +
   "to jawny szacunek dietetyczny, więc nie zostawiaj tych pól pustych, gdy znasz składniki i liczbę porcji. " +
-  "Jeśli czegoś nie widać ani nie słychać — nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence. " +
-  "Treści reklamowych (marka, kod rabatowy, współpraca) NIE mieszaj ze składnikami ani krokami — " +
+  "Jeśli czegoś nie widać ani nie słychać - nie zmyślaj; odnotuj wątpliwość w polu notes i obniż confidence. " +
+  "Treści reklamowych (marka, kod rabatowy, współpraca) NIE mieszaj ze składnikami ani krokami - " +
   "wyciągnij je do pola sponsor, żeby można je było uczciwie oznaczyć na stronie. " +
-  "KATEGORIE: przypisz przepis do 1-2 kategorii z listy dozwolonych (pole categorySlugs) — " +
+  "KATEGORIE: przypisz przepis do 1-2 kategorii z listy dozwolonych (pole categorySlugs) - " +
   "to warunek publikacji, przepis bez kategorii nie trafia do archiwum. " +
   "TAGI: pole tags[] to 2-5 slugów wybranych WYŁĄCZNIE z listy dozwolonych tagów; nie wymyślaj " +
   "własnych. Najwyżej jeden tag z grupy 'sezon' i tylko wtedy, gdy przepis naprawdę pasuje " +
@@ -326,15 +326,15 @@ const SYSTEM_PROMPT =
   "ilustrować najwyżej jeden krok. W polu heroFrameIndex wskaż klatkę najlepszą na zdjęcie główne: " +
   "gotowe, wyeksponowane danie, ostry i apetyczny kadr; przy porównywalnych kadrach wybierz ten " +
   "z jak najmniejszą ilością nałożonych napisów i grafik. " +
-  "Pole 'about' to sekcja 'Kilka słów o tym przepisie' pod przepisem — pisz ją tak, jakby Roksana " +
+  "Pole 'about' to sekcja 'Kilka słów o tym przepisie' pod przepisem - pisz ją tak, jakby Roksana " +
   "opowiadała czytelniczce przy kawie: pierwsza osoba, konkrety o smaku, konsystencji i okazji " +
   "('robię go, gdy...'), naturalnie wplecione frazy, których ludzie szukają w Google. " +
   "Tekst MA brzmieć jak od człowieka: bez słów-wytrychów ('odkryj', 'idealny na każdą okazję', " +
   "'kulinarna podróż', 'rozpieść podniebienie'), bez wyliczanek po trzy przymiotniki, bez " +
   "podsumowania na końcu, bez zwrotów typu 'warto podkreślić', maksymalnie jeden wykrzyknik. " +
   "Krótkie i długie zdania na zmianę, jak w mowie. " +
-  "ZAKAZ ABSOLUTNY: nigdy nie używaj długiego myślnika (—) ani półpauzy (–) w tekstach opisowych " +
-  "(about, lead, seoDescription, kroki) — to najbardziej rozpoznawalny znak tekstu od AI; " +
+  "ZAKAZ ABSOLUTNY: nigdy nie używaj długiego myślnika (-) ani półpauzy (–) w tekstach opisowych " +
+  "(about, lead, seoDescription, kroki) - to najbardziej rozpoznawalny znak tekstu od AI; " +
   "zamiast tego stawiaj przecinek, dwukropek albo kropkę.";
 
 // ---------- Gemini path (free tier; understands the audio track natively) ----------
@@ -429,8 +429,8 @@ async function draftRecipeGemini(
   parts.push({
     text:
       `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
-      `Dozwolone kategorie (slug — nazwa):\n${categoryOptions}\n\n` +
-      `Dozwolone tagi (slug — nazwa, wg grup):\n${tagOptions}\n\n` +
+      `Dozwolone kategorie (slug - nazwa):\n${categoryOptions}\n\n` +
+      `Dozwolone tagi (slug - nazwa, wg grup):\n${tagOptions}\n\n` +
       "Klatki pochodzą z rolki wideo (kolejność chronologiczna); dołączona jest też ścieżka audio. " +
       "Odtwórz z tego kompletny przepis do publikacji na blogu.",
   });
@@ -488,8 +488,8 @@ async function draftRecipeOpenAICompat(
     text:
       `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
       `Transkrypcja audio:\n${transcript || "(brak transkrypcji)"}\n\n` +
-      `Dozwolone kategorie (slug — nazwa):\n${categoryOptions}\n\n` +
-      `Dozwolone tagi (slug — nazwa, wg grup):\n${tagOptions}\n\n` +
+      `Dozwolone kategorie (slug - nazwa):\n${categoryOptions}\n\n` +
+      `Dozwolone tagi (slug - nazwa, wg grup):\n${tagOptions}\n\n` +
       "Odtwórz z tego kompletny przepis do publikacji na blogu. " +
       "Odpowiedz WYŁĄCZNIE poprawnym JSON-em o polach: title, lead, about (sekcja 'Kilka słów " +
       "o tym przepisie', 2-3 akapity rozdzielone pustą linią), categorySlugs[] (1-2 slugi z listy " +
@@ -500,7 +500,7 @@ async function draftRecipeOpenAICompat(
       "totalTimeMin|null, servings|null, kcal|null, protein|null, fat|null, carbs|null, " +
       "seoTitle, seoDescription, keywords, tags[] (slugi z listy dozwolonych), " +
       "confidence ('high'|'medium'|'low'), notes|null, " +
-      "sponsor|null ({brand, code|null, note|null} — współpraca reklamowa, jeśli występuje).",
+      "sponsor|null ({brand, code|null, note|null} - współpraca reklamowa, jeśli występuje).",
   });
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
@@ -557,8 +557,8 @@ async function draftRecipe(
             text:
               `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
               `Transkrypcja audio:\n${transcript || "(brak transkrypcji)"}\n\n` +
-              `Dozwolone kategorie (slug — nazwa):\n${categoryOptions}\n\n` +
-              `Dozwolone tagi (slug — nazwa, wg grup):\n${tagOptions}\n\n` +
+              `Dozwolone kategorie (slug - nazwa):\n${categoryOptions}\n\n` +
+              `Dozwolone tagi (slug - nazwa, wg grup):\n${tagOptions}\n\n` +
               "Odtwórz z tego kompletny przepis do publikacji na blogu.",
           },
         ],
@@ -603,19 +603,19 @@ function pickProvider(): Provider | null {
   return null;
 }
 
-// Category tree lives in the DB — the model must pick from real slugs
+// Category tree lives in the DB - the model must pick from real slugs
 async function loadCategoryOptions() {
   const { categories } = schema;
   const [parent] = await db.select().from(categories).where(eq(categories.slug, "przepisy"));
   if (!parent) return { options: "(brak)", allowed: new Set<string>() };
   const children = await db.select().from(categories).where(eq(categories.parentId, parent.id));
   return {
-    options: children.map((c) => `${c.slug} — ${c.name}`).join("\n"),
+    options: children.map((c) => `${c.slug} - ${c.name}`).join("\n"),
     allowed: new Set(children.map((c) => c.slug)),
   };
 }
 
-// Curated tag vocabulary (tags.group != null) — the model may only pick
+// Curated tag vocabulary (tags.group != null) - the model may only pick
 // from these; anything else is dropped before the draft is saved
 async function loadTagOptions() {
   const { tags } = schema;
@@ -623,7 +623,7 @@ async function loadTagOptions() {
   const byGroup = new Map<string, string[]>();
   for (const t of rows) {
     const list = byGroup.get(t.group!) ?? [];
-    list.push(`${t.slug} — ${t.name}`);
+    list.push(`${t.slug} - ${t.name}`);
     byGroup.set(t.group!, list);
   }
   const options = [...byGroup.entries()]
@@ -679,7 +679,7 @@ async function processOne(
             progress: null,
           })
           .where(eq(imports.id, imp.id));
-        console.log(`[${imp.id}] ⏭ Duplikat wideo ${videoId} — pomijam przetwarzanie`);
+        console.log(`[${imp.id}] ⏭ Duplikat wideo ${videoId} - pomijam przetwarzanie`);
         return;
       }
     }
@@ -715,7 +715,7 @@ async function processOne(
 
     // Fallback: the model is told to always estimate macros, but if it still
     // left kcal empty, estimate from the ingredients so no imported recipe ships
-    // without nutrition. Non-fatal — a failure just leaves kcal null.
+    // without nutrition. Non-fatal - a failure just leaves kcal null.
     if (draft.kcal == null) {
       const macroItems = (draft.ingredientGroups ?? [])
         .flatMap((g: any) => g.items ?? [])
@@ -736,7 +736,7 @@ async function processOne(
       }
     }
 
-    // Best-effort AI cleanup of the hero frame — a failure or a missing image
+    // Best-effort AI cleanup of the hero frame - a failure or a missing image
     // key just means the operator only sees the original frames
     let heroEnhanced: string | null = null;
     const heroIdx = draft.heroFrameIndex == null ? NaN : Math.round(draft.heroFrameIndex);
@@ -794,7 +794,7 @@ const NO_AI_KEY_HELP =
   "  OPENAI_API_KEY        (vision + transkrypcja Whisper jednym kluczem; model przez OPENAI_MODEL, domyślnie gpt-4o)\n" +
   "  GEMINI_API_KEY        (darmowy tier, rozumie audio; klucz z aistudio.google.com)\n" +
   "  ANTHROPIC_API_KEY     (Claude)\n" +
-  "  AI_COMPAT_BASE_URL + AI_COMPAT_API_KEY + AI_COMPAT_MODEL (Kimi/Moonshot, OpenRouter itp. — model musi mieć vision)";
+  "  AI_COMPAT_BASE_URL + AI_COMPAT_API_KEY + AI_COMPAT_MODEL (Kimi/Moonshot, OpenRouter itp. - model musi mieć vision)";
 
 // One pass over the queue. Returns the number of imports processed,
 // or -1 when items are waiting but no AI key is configured.
@@ -828,7 +828,7 @@ async function main() {
   }
 
   // Watch mode (the `worker` compose service). Single worker by design, so any
-  // `processing` row at boot is an orphan of a previous run killed mid-import —
+  // `processing` row at boot is an orphan of a previous run killed mid-import -
   // requeue them instead of leaving them stuck forever.
   const orphans = await db
     .update(imports)

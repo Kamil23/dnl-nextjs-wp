@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "DELETE") {
     const recipe = await getRecipeById(id);
     if (!recipe) return res.status(404).json({ error: "Not found" });
-    // Published recipes are indexed and linked — they must never be deletable
+    // Published recipes are indexed and linked - they must never be deletable
     if (recipe.status === "published") {
       return res
         .status(403)
@@ -115,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
         .where(eq(recipes.id, id));
 
-      // Children: replace wholesale — simplest correct strategy for an editor save
+      // Children: replace wholesale - simplest correct strategy for an editor save
       await tx.delete(ingredientGroups).where(eq(ingredientGroups.recipeId, id));
       await tx.delete(steps).where(eq(steps.recipeId, id));
       await tx.delete(recipeCategories).where(eq(recipeCategories.recipeId, id));

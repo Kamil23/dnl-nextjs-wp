@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import MoreStories from "./more-stories";
 import Pagination from "./pagination";
 
-// SEO keeps the classic /page/N/ pagination — the initial HTML carries the
+// SEO keeps the classic /page/N/ pagination - the initial HTML carries the
 // crawlable Pagination links for the SSR'd page. Users get infinite scroll:
 // when the sentinel nears the viewport the next page is fetched from
 // /api/przepisy and its tiles are appended; the URL follows via replaceState

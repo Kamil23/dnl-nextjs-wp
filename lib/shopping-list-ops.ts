@@ -9,7 +9,7 @@ export type ShoppingItem = {
   id: string;
   title: string;
   checked: boolean;
-  // Epoch ms of the last check-off — drives the Reminders-style auto
+  // Epoch ms of the last check-off - drives the Reminders-style auto
   // cleanup (checked items vanish on the next visit after ~12h)
   checkedAt?: number | null;
   // Origin recipe when the item came from "Dodaj składniki do listy"
@@ -19,7 +19,7 @@ export type ShoppingItem = {
 export type NewShoppingItem = Omit<ShoppingItem, "checked">;
 
 export type ListOp =
-  // `at: "start"` — manual adds land right under the always-visible input
+  // `at: "start"` - manual adds land right under the always-visible input
   // at the top; recipe imports append at the end of the unchecked section
   | { op: "addItems"; items: NewShoppingItem[]; replaceRecipeId?: number | null; at?: "start" | "end" }
   | { op: "updateItem"; id: string; title: string }
@@ -42,7 +42,7 @@ export const MAX_TOTAL_ITEMS = 400;
 export const MAX_ITEM_LENGTH = 300;
 export const MAX_NAME_LENGTH = 100;
 
-// Display order: unchecked first (stable), checked sink to the bottom —
+// Display order: unchecked first (stable), checked sink to the bottom -
 // freshlist's sortBySortOrder with the array itself as the sort order
 export function sortForDisplay(list: ShoppingItem[]): ShoppingItem[] {
   return [...list.filter((i) => !i.checked), ...list.filter((i) => i.checked)];
@@ -59,7 +59,7 @@ export function applyOp(list: ShoppingItem[], op: ListOp): ShoppingItem[] {
 
       // Same ingredient already on the list (unchecked) absorbs the new
       // amount instead of creating a duplicate row. A merge across sources
-      // drops the recipe link — the row no longer belongs to one recipe.
+      // drops the recipe link - the row no longer belongs to one recipe.
       const added: ShoppingItem[] = [];
       const mergeInto = (pool: ShoppingItem[], item: ShoppingItem): boolean => {
         for (let idx = 0; idx < pool.length; idx++) {
@@ -118,7 +118,7 @@ export function applyOp(list: ShoppingItem[], op: ListOp): ShoppingItem[] {
 }
 
 // Both localStorage and shared_lists rows may still hold the previous
-// recipe-grouped shape ({recipeId, items[], checked[]}) — flatten in place.
+// recipe-grouped shape ({recipeId, items[], checked[]}) - flatten in place.
 export function migrateList(raw: unknown): ShoppingItem[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((entry: any, ei: number) => {

@@ -41,7 +41,7 @@ export default function IngredientsCard({ recipe }) {
     } catch {}
   }
 
-  // Screen wake lock — re-acquired on tab return, released on toggle off
+  // Screen wake lock - re-acquired on tab return, released on toggle off
   useEffect(() => {
     if (!wakeLockOn) return;
     let lock: any = null;

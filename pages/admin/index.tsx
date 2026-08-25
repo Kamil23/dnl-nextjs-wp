@@ -105,10 +105,10 @@ export default function AdminRecipes({ recipes: initial }) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {r.legacyRatingValue ? `★ ${r.legacyRatingValue} (${r.legacyRatingCount})` : "—"}
+                  {r.legacyRatingValue ? `★ ${r.legacyRatingValue} (${r.legacyRatingCount})` : "-"}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {r.publishedAt ? new Date(r.publishedAt).toLocaleDateString("pl-PL") : "—"}
+                  {r.publishedAt ? new Date(r.publishedAt).toLocaleDateString("pl-PL") : "-"}
                 </td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{r.source}</td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">

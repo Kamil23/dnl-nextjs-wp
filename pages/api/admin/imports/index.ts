@@ -5,7 +5,7 @@ import { db, dbSchema } from "../../../../lib/db";
 
 const { imports, recipes } = dbSchema;
 
-// Statuses that mean "this video is already in the system" — a rejected,
+// Statuses that mean "this video is already in the system" - a rejected,
 // failed or duplicate row does not block re-adding the link on purpose
 const ACTIVE_STATUSES = new Set(["pending", "processing", "ready", "approved"]);
 

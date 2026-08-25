@@ -206,7 +206,7 @@ async function main() {
 
   console.log("Zapisuję do bazy...");
   await db.transaction(async (tx) => {
-    // Content tables only — safe while there are no organic ratings yet
+    // Content tables only - safe while there are no organic ratings yet
     await tx.execute(
       `TRUNCATE recipe_tags, recipe_categories, ingredients, ingredient_groups,
        steps, ratings, tags, categories, recipes, pages RESTART IDENTITY CASCADE` as any

@@ -19,7 +19,7 @@ import { DIET_FACETS } from '../lib/diets'
 import { MENU_EDGES } from '../lib/menu'
 import { SITE_TITLE } from '../lib/constants'
 
-// A recipe "card" — the minimal shape both the Meili hit and the Postgres row
+// A recipe "card" - the minimal shape both the Meili hit and the Postgres row
 // map to, so results render the same whichever path produced them.
 type Card = {
   title: string
@@ -44,7 +44,7 @@ function cardToEdge(c: Card) {
   }
 }
 
-// A visible, clickable filter pill — surfaces every search capability up front
+// A visible, clickable filter pill - surfaces every search capability up front
 // (so users don't have to guess they can type "do 500 kcal") and shows a live
 // count of how many recipes match, updated as they search.
 function Chip({
@@ -90,7 +90,7 @@ function FacetRow({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
-// Search results are intentionally noindex — endless parameter combinations
+// Search results are intentionally noindex - endless parameter combinations
 // would only dilute the crawl budget.
 export default function Search({ initialCards, initialCounts, initialTotal, dietOptions, params, searchOk }) {
   const router = useRouter()
@@ -109,13 +109,13 @@ export default function Search({ initialCards, initialCounts, initialTotal, diet
   const [total, setTotal] = useState<number>(initialTotal)
   const [loading, setLoading] = useState(false)
 
-  // Skip the first effect run — the server already delivered matching results.
+  // Skip the first effect run - the server already delivered matching results.
   const hydrated = useRef(false)
   const debounce = useRef<ReturnType<typeof setTimeout>>()
 
   function run(nextQ: string, nextFilters: typeof filters) {
     // Meilisearch-only: every query and filter change goes through the Meili
-    // proxy — no Postgres path.
+    // proxy - no Postgres path.
     const usp = new URLSearchParams({ facets: '1' })
     if (nextQ) usp.set('q', nextQ)
     Object.entries(nextFilters).forEach(([k, v]) => v && usp.set(k, v))
@@ -326,7 +326,7 @@ export const getServerSideProps: GetServerSideProps = async ({ query, req }) => 
       initialTotal = result.total
       searchOk = true // an empty result set is still a valid answer
     } catch {
-      // Meili errored — leave searchOk=false so the UI shows an unavailable note.
+      // Meili errored - leave searchOk=false so the UI shows an unavailable note.
     }
   }
 

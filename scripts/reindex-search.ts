@@ -1,6 +1,6 @@
 /**
  * Full Meilisearch reindex from Postgres (published recipes only).
- * Run: npm run search:reindex — idempotent, run after bulk changes.
+ * Run: npm run search:reindex - idempotent, run after bulk changes.
  */
 import { config } from "dotenv";
 config({ path: ".env", quiet: true });

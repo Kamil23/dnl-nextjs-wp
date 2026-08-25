@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // doesn't grow forever (no cron needed at this traffic level)
   await db.delete(sharedLists).where(dsql`${sharedLists.updatedAt} < now() - interval '60 days'`);
 
-  // No default name — the UI titles unnamed lists "Lista zakupów" and the
+  // No default name - the UI titles unnamed lists "Lista zakupów" and the
   // "Moje listy" section falls back to "Lista z <createdAt>"
   const [row] = await db
     .insert(sharedLists)

@@ -14,7 +14,7 @@ import { dietsFromTags, DIET_FACETS } from "../lib/diets";
 import { MENU_EDGES } from "../lib/menu";
 import { SITE_TITLE, SITE_URL } from "../lib/constants";
 
-// „Co na obiad?" — natychmiastowy losownik obiadów. Pula (kategoria Obiad) jest
+// „Co na obiad?" - natychmiastowy losownik obiadów. Pula (kategoria Obiad) jest
 // prekomputowana do strony (SSG/ISR), a losowanie dzieje się po stronie klienta,
 // więc klik daje wynik w ułamku sekundy, bez API i bez rate-limitów.
 
@@ -27,19 +27,19 @@ type DietOpt = { key: string; label: string };
 const FAQ = [
   {
     q: "Co na szybki obiad?",
-    a: 'Kliknij „Wylosuj obiad" i włącz chip „do 20 minut" — pokażemy do 3 gotowych pomysłów na obiad w kwadrans z naszych sprawdzonych przepisów.',
+    a: 'Kliknij „Wylosuj obiad" i włącz chip „do 20 minut" - pokażemy do 3 gotowych pomysłów na obiad w kwadrans z naszych sprawdzonych przepisów.',
   },
   {
     q: "Co na obiad dietetyczny?",
-    a: 'Każdy przepis ma podane kalorie i białko na porcję. Włącz „wysokobiałkowy", żeby losować syte obiady z co najmniej 25 g białka — dobre na redukcji.',
+    a: 'Każdy przepis ma podane kalorie i białko na porcję. Włącz „wysokobiałkowy", żeby losować syte obiady z co najmniej 25 g białka - dobre na redukcji.',
   },
   {
     q: "Pomysł na obiad w 15 minut?",
-    a: 'Ustaw filtr czasu na „do 20 minut" i losuj — podpowiemy szybkie obiady, które zrobisz po pracy, z czasem przygotowania podanym na karcie.',
+    a: 'Ustaw filtr czasu na „do 20 minut" i losuj - podpowiemy szybkie obiady, które zrobisz po pracy, z czasem przygotowania podanym na karcie.',
   },
   {
     q: "Co na obiad wysokobiałkowy?",
-    a: 'Włącz chip „wysokobiałkowy (≥25 g)" — losownik pokaże obiady z wysoką zawartością białka, sycące i idealne po treningu.',
+    a: 'Włącz chip „wysokobiałkowy (≥25 g)" - losownik pokaże obiady z wysoką zawartością białka, sycące i idealne po treningu.',
   },
 ];
 
@@ -143,7 +143,7 @@ export default function CoNaObiad({
           <PostTitle>Co na obiad? 🍽️</PostTitle>
           <p className="text-gray-600 mb-6">
             Odwieczny problem rozwiązany w sekundę. Kliknij, a wylosujemy do 3 gotowych pomysłów na
-            obiad z naszych przepisów — z czasem, kaloriami i białkiem na porcję. Nie pasuje? Losuj dalej.
+            obiad z naszych przepisów - z czasem, kaloriami i białkiem na porcję. Nie pasuje? Losuj dalej.
           </p>
 
           <button
@@ -181,7 +181,7 @@ export default function CoNaObiad({
             </div>
           ) : (
             <p className="text-center text-gray-500">
-              Brak obiadów pod te filtry — poluzuj wybór i losuj ponownie.
+              Brak obiadów pod te filtry - poluzuj wybór i losuj ponownie.
             </p>
           )}
         </div>
@@ -258,7 +258,7 @@ export const getStaticProps: GetStaticProps = async () => {
     dinners.some((x) => x.diets.includes(d.key))
   ).map((d) => ({ key: d.key, label: d.label }));
 
-  // 3 najlepiej oceniane — deterministycznie, dla pierwszego paintu (bez hydration mismatch)
+  // 3 najlepiej oceniane - deterministycznie, dla pierwszego paintu (bez hydration mismatch)
   const initialPicks = [...dinners]
     .sort((a, b) => (Number(b.ratingValue) || 0) - (Number(a.ratingValue) || 0))
     .slice(0, PICKS);

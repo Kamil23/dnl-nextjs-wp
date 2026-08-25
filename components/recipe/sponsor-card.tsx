@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 // Clearly-marked paid collaboration box with a copyable discount code.
-// The "Współpraca reklamowa" label is a legal requirement — keep it visible.
+// The "Współpraca reklamowa" label is a legal requirement - keep it visible.
 export default function SponsorCard({ sponsor }: { sponsor: { brand: string; code?: string | null; note?: string | null } | null }) {
   const [copied, setCopied] = useState(false);
   if (!sponsor?.brand) return null;

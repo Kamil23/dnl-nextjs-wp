@@ -1,5 +1,5 @@
 // Single source of truth for the diet facets. Recipes don't carry an explicit
-// diet column — we infer it from tag text with conservative patterns, the same
+// diet column - we infer it from tag text with conservative patterns, the same
 // idea as the schema.org DietTypeEnumeration mapping in recipe-schema.tsx, but
 // here the output is stable filter keys/labels used by the search facet and the
 // Meilisearch index (`diets` filterable attribute).

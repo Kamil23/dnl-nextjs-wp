@@ -7,7 +7,7 @@ import {
 } from "../../lib/queries";
 import { CATEGORY_POSTS_PER_PAGE } from "../../lib/constants";
 
-// Feeds the infinite scroll on /przepisy/ and category archives — same data
+// Feeds the infinite scroll on /przepisy/ and category archives - same data
 // and page size as the statically rendered /page/N/ pages.
 // ?kategoria=/kategoria/przepisy/sniadania/ scopes to a category tree.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

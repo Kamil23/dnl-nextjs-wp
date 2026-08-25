@@ -10,7 +10,7 @@ type ReqLike = {
   socket?: { remoteAddress?: string | null } | null;
 };
 
-// Anonimowy fingerprint (ip|ua|salt) — wyłącznie do throttlingu powtórzeń,
+// Anonimowy fingerprint (ip|ua|salt) - wyłącznie do throttlingu powtórzeń,
 // nie do identyfikacji użytkowników (zgodnie z FEATURES.md §0: bez ID).
 function fingerprint(req: ReqLike): string {
   const xff = req.headers["x-forwarded-for"];
@@ -23,12 +23,12 @@ function fingerprint(req: ReqLike): string {
   return createHash("sha256").update(`${ip}|${ua}|${salt}`).digest("hex").slice(0, 32);
 }
 
-// Sugestie hero lecą przy każdym klawiszu — ta sama fraza od tej samej
+// Sugestie hero lecą przy każdym klawiszu - ta sama fraza od tej samej
 // przeglądarki w oknie throttle to jeden wpis. Strona /szukaj (pełne
 // zapytanie z Enterem) dostaje krótsze okno.
 const THROTTLE_SECONDS = { hero: 1800, szukaj: 300 } as const;
 
-// Loguje wyszukiwanie; nigdy nie rzuca — analityka nie może psuć UX.
+// Loguje wyszukiwanie; nigdy nie rzuca - analityka nie może psuć UX.
 export async function logSearch(
   phrase: string,
   results: number,
@@ -61,6 +61,6 @@ export async function logSearch(
       fingerprint: fp,
     });
   } catch {
-    // cisza — brak logu nigdy nie może wywrócić wyszukiwania
+    // cisza - brak logu nigdy nie może wywrócić wyszukiwania
   }
 }

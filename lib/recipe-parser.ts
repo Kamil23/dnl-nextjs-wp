@@ -31,7 +31,7 @@ export type ParsedIngredientGroup = { title: string | null; items: string[] };
 
 // Multi-section ingredients: the "Składniki" marker (heading OR plain <p>)
 // is followed by alternating section titles (<p>/<h3>…) and wp-block-list
-// lists — e.g. Spód / Masa kremowa / Dekoracja. Collects them all.
+// lists - e.g. Spód / Masa kremowa / Dekoracja. Collects them all.
 export function parseIngredientGroups(content: string): ParsedIngredientGroup[] {
   const marker = content.match(/<(h[1-6]|p)[^>]*>[^<]*składniki[^<]*<\/\1>/i);
   const startIdx = marker ? marker.index! + marker[0].length : 0;

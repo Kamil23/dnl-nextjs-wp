@@ -107,11 +107,11 @@ export default function AdminQc({
                     </Link>
                   </td>
                   <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">
-                    {r.kcal ?? "—"} kcal
+                    {r.kcal ?? "-"} kcal
                     <span className="text-gray-300"> · </span>
                     {fmt(r.protein)}·{fmt(r.fat)}·{fmt(r.carbs)}
                     <span className="text-gray-300"> · </span>
-                    {r.servings ?? "—"} porc.
+                    {r.servings ?? "-"} porc.
                   </td>
                   <td className="px-4 py-3 align-top">
                     <ul className="space-y-1">
@@ -168,7 +168,7 @@ export default function AdminQc({
 }
 
 function fmt(v: number | null) {
-  return v == null ? "—" : `${Math.round(Number(v))}g`;
+  return v == null ? "-" : `${Math.round(Number(v))}g`;
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
@@ -196,7 +196,7 @@ export const getServerSideProps: GetServerSideProps = async ({ req }) => {
       contentHtml: recipes.contentHtml,
     })
     .from(recipes)
-    // artykuły (/artykuly/) nie są przepisami — nie podlegają QC makr/kroków
+    // artykuły (/artykuly/) nie są przepisami - nie podlegają QC makr/kroków
     .where(and(eq(recipes.status, "published"), sql`${recipes.uri} not like '/artykuly/%'`));
 
   const ingRows = await db

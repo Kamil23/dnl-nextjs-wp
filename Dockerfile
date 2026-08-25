@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# ---- deps: install ALL deps (incl. dev — needed by `next build` and the tsx
+# ---- deps: install ALL deps (incl. dev - needed by `next build` and the tsx
 #      one-off scripts: import-wp / process-imports / reindex-search).
 FROM node:22-alpine AS deps
 WORKDIR /app
@@ -14,14 +14,14 @@ FROM node:22-alpine AS source
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 # ffmpeg + yt-dlp for the TikTok import worker (the `tools` service). The
-# runtime image (runner) does not include these — it only copies the built server.
+# runtime image (runner) does not include these - it only copies the built server.
 RUN apk add --no-cache ffmpeg yt-dlp
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # ---- builder: compile the Next standalone server. `next build` pre-renders
 #      pages via getStaticProps, so DATABASE_URL must be REACHABLE and populated
-#      at build time — see docker-compose `web.build.network: host`.
+#      at build time - see docker-compose `web.build.network: host`.
 FROM source AS builder
 ARG WORDPRESS_API_URL
 ARG APP_ORIGIN

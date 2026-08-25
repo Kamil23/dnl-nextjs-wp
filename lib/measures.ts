@@ -1,7 +1,7 @@
 // Konwerter miar kuchennych: szklanka/łyżka/łyżeczka -> gramy.
 // Wartości to typowe domowe średnie z polskich tabel kulinarnych
-// (szklanka 250 ml, łyżka 15 ml, łyżeczka 5 ml — miary "płaskie").
-// Realne odchylenia ±5-10% (sposób nakładania, wilgotność, marka) —
+// (szklanka 250 ml, łyżka 15 ml, łyżeczka 5 ml - miary "płaskie").
+// Realne odchylenia ±5-10% (sposób nakładania, wilgotność, marka) -
 // landingi mówią o tym wprost, więc trzymamy się uczciwego zaokrąglenia.
 // null = miara bez sensu dla składnika (np. szklanka proszku do pieczenia).
 
@@ -16,9 +16,9 @@ export type IngredientGroup =
 
 export type Ingredient = {
   slug: string;
-  // mianownik — nagłówki i listy ("Mąka pszenna")
+  // mianownik - nagłówki i listy ("Mąka pszenna")
   name: string;
-  // dopełniacz — frazy typu "szklanka mąki pszennej", "100 g mąki"
+  // dopełniacz - frazy typu "szklanka mąki pszennej", "100 g mąki"
   nameGen: string;
   group: IngredientGroup;
   grams: { szklanka: number | null; lyzka: number | null; lyzeczka: number | null };

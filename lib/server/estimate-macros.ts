@@ -3,16 +3,16 @@
 // backfill script (scripts/estimate-macros.ts) and the TikTok import fallback.
 
 export type MacroEstimate = {
-  // NA PORCJĘ, licząc przez efektywną liczbę porcji (podaną albo — gdy brak —
+  // NA PORCJĘ, licząc przez efektywną liczbę porcji (podaną albo - gdy brak -
   // assumedServings). Zachowuje kontrakt dla dotychczasowych wywołań.
   kcal: number;
   protein: number | null;
   fat: number | null;
   carbs: number | null;
   // Niezależna, realistyczna ocena liczby porcji przez AI (może różnić się od
-  // podanej — edytor/QC to wykorzystują, żeby wychwycić np. "1 porcja = 1394 kcal").
+  // podanej - edytor/QC to wykorzystują, żeby wychwycić np. "1 porcja = 1394 kcal").
   assumedServings: number;
-  // Sumy dla CAŁEGO przepisu — pozwalają przeliczyć makra pod dowolną liczbę porcji.
+  // Sumy dla CAŁEGO przepisu - pozwalają przeliczyć makra pod dowolną liczbę porcji.
   totalKcal: number;
   totalProtein: number | null;
   totalFat: number | null;

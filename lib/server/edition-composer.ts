@@ -235,7 +235,7 @@ export function renderEditionHtml(
     hero = { item: content.sezon.items[0], eyebrow: content.sezon.title };
   }
 
-  // Personal intro: short, with the avatar (parasocial glue — they open for Roksana)
+  // Personal intro: short, with the avatar (parasocial glue - they open for Roksana)
   if (content.odRoksany.trim()) {
     parts.push(`<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 22px;">
       <tr>
@@ -309,7 +309,7 @@ export function renderEditionHtml(
     }
   }
 
-  // P.S. — statistically the most-read line; reply prompt doubles as a
+  // P.S. - statistically the most-read line; reply prompt doubles as a
   // deliverability signal (replies teach inboxes this sender matters)
   parts.push(
     `<p style="${FONT}margin:26px 0 20px;color:#57534e;font-size:14px;line-height:1.6;border-top:1px solid #f5f5f4;padding-top:18px;"><strong>PS.</strong> Masz pytanie o któryś przepis albo pomysł, co mam ugotować następne? Po prostu odpisz na tego maila, czytam wszystko.</p>`

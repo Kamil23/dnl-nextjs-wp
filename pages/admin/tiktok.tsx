@@ -51,7 +51,7 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
       {draft.frames?.length > 0 && (
         <div>
           <div className="font-medium text-gray-500 text-xs uppercase mb-2">
-            Zdjęcie główne — kliknij klatkę, aby wybrać
+            Zdjęcie główne - kliknij klatkę, aby wybrać
             {draft.heroEnhanced && <span className="normal-case font-normal"> (✨ = klatka poprawiona przez AI)</span>}
             {draft.heroFrame && <span className="normal-case font-normal"> (★ = propozycja AI)</span>}
           </div>
@@ -158,7 +158,7 @@ export default function AdminTikTok({ imports: initial }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Set when the submitted link turns out to be a duplicate — the message
+  // Set when the submitted link turns out to be a duplicate - the message
   // comes with a link to the existing recipe/import
   const [dupOf, setDupOf] = useState<{ recipeId: number | null } | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -266,7 +266,7 @@ export default function AdminTikTok({ imports: initial }) {
     <AdminShell title="Import TikTok">
       <h1 className="text-2xl font-bold mb-2">Import z TikToka</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Wklej link do rolki — worker pobierze wideo, odsłucha i obejrzy materiał,
+        Wklej link do rolki - worker pobierze wideo, odsłucha i obejrzy materiał,
         i przygotuje szkic przepisu do Twojej akceptacji.
       </p>
 
@@ -414,7 +414,7 @@ export default function AdminTikTok({ imports: initial }) {
       <p className="text-xs text-gray-400 mt-8">
         Worker: na serwerze kolejkę przetwarza automatycznie serwis <code>worker</code> (docker
         compose); lokalnie przycisk „Przetwórz kolejkę" albo <code>npm run imports:process</code>.
-        Silnik AI: <code>OPENAI_API_KEY</code> (gpt-4o + Whisper) — alternatywnie Gemini, Claude
+        Silnik AI: <code>OPENAI_API_KEY</code> (gpt-4o + Whisper) - alternatywnie Gemini, Claude
         lub dowolne API zgodne z OpenAI (szczegóły w .env.example).
       </p>
     </AdminShell>

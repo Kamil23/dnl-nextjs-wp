@@ -44,7 +44,7 @@ export function useWakeLock(active = true) {
         }
         sentinel = lock;
       } catch {
-        // Rejected (e.g. Low Power Mode on iOS) — fall back to the video trick.
+        // Rejected (e.g. Low Power Mode on iOS) - fall back to the video trick.
         playFallback();
       }
     };

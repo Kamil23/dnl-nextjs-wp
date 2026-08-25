@@ -4,14 +4,14 @@ import { readFileSync } from "node:fs";
 // GA4 Data API client without the Google SDK: a service-account JWT is
 // exchanged for an OAuth token and runReport is called over plain REST.
 // Configuration (both required, otherwise getTopReadPaths returns null):
-//   GA4_PROPERTY_ID              — numeric property id (NOT the G-… id)
-//   GA4_SERVICE_ACCOUNT_KEY_PATH — path to the service-account JSON key
+//   GA4_PROPERTY_ID              - numeric property id (NOT the G-… id)
+//   GA4_SERVICE_ACCOUNT_KEY_PATH - path to the service-account JSON key
 //     (kept outside the repo; the file contains a private key)
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 
-// Popularity moves slowly — refresh at most twice a day and serve the
+// Popularity moves slowly - refresh at most twice a day and serve the
 // cached ranking in between (getStaticProps revalidates every 60s)
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 let cache: { paths: { path: string; views: number }[]; at: number } | null = null;
@@ -51,7 +51,7 @@ async function getAccessToken(clientEmail: string, privateKey: string) {
 
 /**
  * Most-viewed page paths over the last `days`, most read first.
- * Returns null when GA is not configured or the API call fails —
+ * Returns null when GA is not configured or the API call fails -
  * callers are expected to fall back to a non-GA ranking.
  */
 export async function getTopReadPaths(days = 30, limit = 50) {
@@ -60,7 +60,7 @@ export async function getTopReadPaths(days = 30, limit = 50) {
   if (!propertyId || !keyPath) {
     if (!warned) {
       warned = true;
-      console.warn("GA4 not configured (GA4_PROPERTY_ID / GA4_SERVICE_ACCOUNT_KEY_PATH) — falling back");
+      console.warn("GA4 not configured (GA4_PROPERTY_ID / GA4_SERVICE_ACCOUNT_KEY_PATH) - falling back");
     }
     return null;
   }
@@ -96,7 +96,7 @@ export async function getTopReadPaths(days = 30, limit = 50) {
     return paths;
   } catch (e) {
     console.error("GA4 top pages fetch failed:", e);
-    // an expired cache still beats no data — popularity barely moves in hours
+    // an expired cache still beats no data - popularity barely moves in hours
     return cache?.paths ?? null;
   }
 }

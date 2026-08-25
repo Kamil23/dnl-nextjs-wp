@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import RecipeTile, { type RecipeTileData } from "../recipe-tile";
 
 // Focus-panel suggestions, steered by the market research: the highest-demand
-// niches (high-protein — driven by the GLP-1 wave — and calorie-aware satiety)
+// niches (high-protein - driven by the GLP-1 wave - and calorie-aware satiety)
 // get top billing and point at STATIC collection pages, so they always work and
 // never depend on the search engine being up.
 const GOALS = [
@@ -16,7 +16,7 @@ const GOALS = [
 // Dish ideas run a live search (typo-tolerant); kept to terms that return hits.
 const IDEAS = ["owsianka", "sernik", "kurczak", "naleśniki"];
 
-// Browse entry points — static category pages (also work without the engine).
+// Browse entry points - static category pages (also work without the engine).
 const BROWSE = [
   { label: "Śniadania", path: "/kategoria/przepisy/sniadania/" },
   { label: "Obiad", path: "/kategoria/przepisy/obiad/" },
@@ -25,7 +25,7 @@ const BROWSE = [
 ];
 
 // Instant search: typing renders a grid of big recipe tiles right under
-// the box (the rest of the homepage steps aside via onActiveChange) —
+// the box (the rest of the homepage steps aside via onActiveChange) -
 // the user picks by photo instead of reading a dropdown.
 // `compact` renders a slimmer variant for non-homepage placements (recipe pages).
 export default function SearchHero({

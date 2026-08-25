@@ -1,6 +1,6 @@
 import { FacebookIcon, MailIcon, PinterestIcon, WhatsAppIcon } from "./icons";
 
-// Round social share buttons — plain intent links (what react-share did
+// Round social share buttons - plain intent links (what react-share did
 // under the hood, minus the package). Brand colors per each platform's
 // current guidelines; icons inherit white via currentColor.
 export default function SocialShareButtons({

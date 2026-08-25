@@ -2,7 +2,7 @@ import Image from "next/image";
 import { useState } from "react";
 
 // Facade embed: looks like a ready player (real video frame as the poster),
-// but TikTok's heavy iframe + cookies load only on click — good Core Web
+// but TikTok's heavy iframe + cookies load only on click - good Core Web
 // Vitals and the click doubles as consent (GDPR).
 export default function TikTokEmbed({
   url,

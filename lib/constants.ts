@@ -7,20 +7,20 @@ export const HOME_OG_IMAGE_URL =
   export const SITE_DESCRIPTION = 'Jak jeść i nie zwariować?';
   export const SITE_URL = 'https://dietanaluzie.pl';
   export const AUTHOR_NAME = 'Roksana Cieplicka';
-  // Encja autorki (Person) — cel dla author.url w Recipe JSON-LD
+  // Encja autorki (Person) - cel dla author.url w Recipe JSON-LD
   export const AUTHOR_PAGE_PATH = '/autor/roksana/';
   export const SOCIAL_TIKTOK_URL = 'https://www.tiktok.com/@roksanacieplicka';
   export const SOCIAL_INSTAGRAM_URL = 'https://www.instagram.com/roksanacieplicka/';
-  // GA4 web stream measurement id (public by design — it ships in the page HTML)
+  // GA4 web stream measurement id (public by design - it ships in the page HTML)
   export const GA_MEASUREMENT_ID = 'G-CBEKEQWMLF';
   // Roksana's avatar, downloaded from her TikTok profile (the CDN URL is
   // signed and expires, so we self-host a copy in /public)
   export const AUTHOR_AVATAR_URL = '/roksana-avatar.jpeg';
   // 12 per page: divisible by every grid breakpoint (2/3/4 columns), so
-  // archive rows are always full. (The WP theme used 13 and 9 — archive
+  // archive rows are always full. (The WP theme used 13 and 9 - archive
   // page contents shift on every publish anyway, recipe URLs stay 1:1.)
   export const HOME_POSTS_PER_PAGE = 12;
   export const CATEGORY_POSTS_PER_PAGE = 12;
-  // WooCommerce app pages need a cart session — not part of the headless site (yet).
+  // WooCommerce app pages need a cart session - not part of the headless site (yet).
   // /strona-glowna/ is the WP front page and would duplicate /.
   export const EXCLUDED_PAGE_URIS = ['/koszyk/', '/moje-konto/', '/zamowienie/', '/sklep/', '/strona-glowna/'];

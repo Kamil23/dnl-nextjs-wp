@@ -413,7 +413,7 @@ export default function AdminNewsletter() {
           </div>
         </div>
 
-        {/* Podgląd na żywo — rerenderuje się przy każdej zmianie w edytorze */}
+        {/* Podgląd na żywo - rerenderuje się przy każdej zmianie w edytorze */}
         <div className="xl:sticky xl:top-6">
           <p className="text-xs text-gray-400 font-medium mb-2">
             Podgląd na żywo (temat: <span className="text-gray-600">{draft.subject}</span>)

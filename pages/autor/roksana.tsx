@@ -17,13 +17,13 @@ import {
   SOCIAL_INSTAGRAM_URL,
 } from '../../lib/constants'
 
-// Encja autorki (Person) — kotwica E-E-A-T dla Recipe JSON-LD i sygnał
+// Encja autorki (Person) - kotwica E-E-A-T dla Recipe JSON-LD i sygnał
 // autorskości dla Google/AI. Statyczna, treść biura trzymamy w kodzie
 // dopóki nie powstanie panel "o mnie" w adminie.
 
 const BIO = [
-  'Cześć, jestem Roksana. Gotuję na luzie — bez wagi co do grama tam, gdzie może być na oko, i z gramem tam, gdzie decyduje o wszystkim. Na dietanaluzie.pl pokazuję, że zdrowe jedzenie nie wymaga rewolucji ani specjalnych sklepów: wystarczy kilka dobrych nawyków i przepisy, które wychodzą za pierwszym razem.',
-  'Każdy przepis na tej stronie przechodzi przez moją kuchnię zanim trafi na bloga — gotuję go, fotografuję i opisuję tak, jak sama bym chciała przeczytać. Makra liczę do każdego przepisu, a oceny pod nimi pochodzą od osób, które naprawdę ugotowały.',
+  'Cześć, jestem Roksana. Gotuję na luzie - bez wagi co do grama tam, gdzie może być na oko, i z gramem tam, gdzie decyduje o wszystkim. Na dietanaluzie.pl pokazuję, że zdrowe jedzenie nie wymaga rewolucji ani specjalnych sklepów: wystarczy kilka dobrych nawyków i przepisy, które wychodzą za pierwszym razem.',
+  'Każdy przepis na tej stronie przechodzi przez moją kuchnię zanim trafi na bloga - gotuję go, fotografuję i opisuję tak, jak sama bym chciała przeczytać. Makra liczę do każdego przepisu, a oceny pod nimi pochodzą od osób, które naprawdę ugotowały.',
 ]
 
 const PERSON_SCHEMA = {
@@ -35,7 +35,7 @@ const PERSON_SCHEMA = {
   jobTitle: 'Autorka bloga kulinarnego',
   worksFor: { '@type': 'Organization', name: SITE_TITLE, url: `${SITE_URL}/` },
   description:
-    'Autorka bloga dietanaluzie.pl — przepisy zdrowej kuchni bez komplikacji, testowane we własnej kuchni.',
+    'Autorka bloga dietanaluzie.pl - przepisy zdrowej kuchni bez komplikacji, testowane we własnej kuchni.',
   sameAs: [SOCIAL_INSTAGRAM_URL, SOCIAL_TIKTOK_URL],
 }
 
@@ -48,7 +48,7 @@ export default function AuthorPage({ posts }: { posts: any[] }) {
         <title>{`${AUTHOR_NAME} – o autorce - ${SITE_TITLE}`}</title>
         <meta
           name="description"
-          content={`${AUTHOR_NAME} — autorka bloga ${SITE_TITLE}. Przepisy testowane we własnej kuchni, makra policzone do każdej porcji.`}
+          content={`${AUTHOR_NAME} - autorka bloga ${SITE_TITLE}. Przepisy testowane we własnej kuchni, makra policzone do każdej porcji.`}
         />
         <meta
           name="robots"

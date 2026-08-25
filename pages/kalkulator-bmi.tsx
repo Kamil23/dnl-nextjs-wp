@@ -23,7 +23,7 @@ const FAQ = [
   },
   {
     q: 'Czy BMI jest wiarygodne?',
-    a: 'BMI to szybki wskaźnik przesiewowy, ale nie odróżnia mięśni od tłuszczu ani nie uwzględnia rozkładu tkanki. U osób bardzo umięśnionych lub w ciąży bywa mylące — traktuj go orientacyjnie.',
+    a: 'BMI to szybki wskaźnik przesiewowy, ale nie odróżnia mięśni od tłuszczu ani nie uwzględnia rozkładu tkanki. U osób bardzo umięśnionych lub w ciąży bywa mylące - traktuj go orientacyjnie.',
   },
 ]
 

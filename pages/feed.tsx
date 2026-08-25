@@ -2,7 +2,7 @@ import { GetServerSideProps } from 'next'
 import { listFeedRecipes } from '../lib/queries'
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from '../lib/constants'
 
-// Serves /feed/ — same address as the old WordPress RSS feed
+// Serves /feed/ - same address as the old WordPress RSS feed
 export default function Feed() {
   return null
 }

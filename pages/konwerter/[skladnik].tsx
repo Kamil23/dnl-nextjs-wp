@@ -48,20 +48,20 @@ export default function IngredientConverter({ ing, similar }: { ing: Ingredient;
           },
           {
             q: `Ile waży łyżka ${ing.nameGen}?`,
-            a: `Płaska łyżka ${ing.nameGen} (15 ml) to około ${formatGrams(ing.grams.lyzka!)} g, a łyżeczka (5 ml) — ${formatGrams(ing.grams.lyzeczka!)} g.`,
+            a: `Płaska łyżka ${ing.nameGen} (15 ml) to około ${formatGrams(ing.grams.lyzka!)} g, a łyżeczka (5 ml) - ${formatGrams(ing.grams.lyzeczka!)} g.`,
           },
         ]
       : [
           {
             q: `Ile waży łyżka ${ing.nameGen}?`,
-            a: `Płaska łyżka ${ing.nameGen} (15 ml) to około ${formatGrams(ing.grams.lyzka!)} g, a łyżeczka (5 ml) — ${formatGrams(ing.grams.lyzeczka!)} g.`,
+            a: `Płaska łyżka ${ing.nameGen} (15 ml) to około ${formatGrams(ing.grams.lyzka!)} g, a łyżeczka (5 ml) - ${formatGrams(ing.grams.lyzeczka!)} g.`,
           },
         ]
   const faqAll = [
     ...faq,
     {
       q: 'Czy te przeliczniki są dokładne?',
-      a: 'To wartości orientacyjne dla domowych, płaskich miar — realnie różnice sięgają ±5–10% w zależności od sposobu nakładania i wilgotności produktu. W wypiekach, gdzie liczy się precyzja, najlepiej trzymać się gramów.',
+      a: 'To wartości orientacyjne dla domowych, płaskich miar - realnie różnice sięgają ±5–10% w zależności od sposobu nakładania i wilgotności produktu. W wypiekach, gdzie liczy się precyzja, najlepiej trzymać się gramów.',
     },
   ]
 
@@ -127,8 +127,8 @@ export default function IngredientConverter({ ing, similar }: { ing: Ingredient;
           </PostTitle>
           <p className="text-gray-600 mb-8">
             {ing.grams.szklanka != null
-              ? `Szklanka ${ing.nameGen} to ${ing.grams.szklanka} g. Poniżej pełna tabela przeliczników: szklanki, łyżki i łyżeczki na gramy — oraz gramy na miary, gdy przepis pisze „${ing.grams.szklanka} g”, a Ty chcesz odmierzyć bez wagi.`
-              : `${ing.name} odmierzasz w małych ilościach: płaska łyżka to ${ing.grams.lyzka} g, a łyżeczka ${ing.grams.lyzeczka} g. W tabeli poniżej też kierunek odwrotny — gramy na miary.`}
+              ? `Szklanka ${ing.nameGen} to ${ing.grams.szklanka} g. Poniżej pełna tabela przeliczników: szklanki, łyżki i łyżeczki na gramy - oraz gramy na miary, gdy przepis pisze „${ing.grams.szklanka} g”, a Ty chcesz odmierzyć bez wagi.`
+              : `${ing.name} odmierzasz w małych ilościach: płaska łyżka to ${ing.grams.lyzka} g, a łyżeczka ${ing.grams.lyzeczka} g. W tabeli poniżej też kierunek odwrotny - gramy na miary.`}
           </p>
 
           <div className="rounded-xl border border-gray-200 shadow-small overflow-hidden mb-10">
@@ -150,7 +150,7 @@ export default function IngredientConverter({ ing, similar }: { ing: Ingredient;
             </table>
           </div>
 
-          <h2 className="font-bold text-lg mb-4">{ing.nameGen.charAt(0).toUpperCase() + ing.nameGen.slice(1)} — gramy na miary</h2>
+          <h2 className="font-bold text-lg mb-4">{ing.nameGen.charAt(0).toUpperCase() + ing.nameGen.slice(1)} - gramy na miary</h2>
           <div className="rounded-xl border border-gray-200 shadow-small overflow-hidden mb-12">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-500">

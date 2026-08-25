@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   await db.update(ratings).set({ status }).where(eq(ratings.id, id));
 
-  // Approved/rejected votes change the public aggregate — refresh the page
+  // Approved/rejected votes change the public aggregate - refresh the page
   const [recipe] = await db.select().from(recipes).where(eq(recipes.id, rating.recipeId));
   if (recipe) {
     try {

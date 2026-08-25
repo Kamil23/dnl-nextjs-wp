@@ -66,7 +66,7 @@ function CardInner({ v, showViews }: { v: TikTokFeedItem; showViews: boolean }) 
 }
 
 // In-page lightbox with TikTok's Player v1 (autoplay) and a CTA to the
-// recipe — the visitor watches without leaving the site
+// recipe - the visitor watches without leaving the site
 function VideoModal({ video, onClose }: { video: TikTokFeedItem; onClose: () => void }) {
   const videoId = video.videoUrl.match(/video\/(\d+)/)?.[1];
 

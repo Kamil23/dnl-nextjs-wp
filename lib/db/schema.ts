@@ -15,7 +15,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 // `uri` columns hold the exact WordPress permalinks (e.g. /przepisy/fit-rafaello/)
-// — they are the SEO contract and must never change for imported content.
+// - they are the SEO contract and must never change for imported content.
 
 export const recipes = pgTable(
   "recipes",
@@ -190,7 +190,7 @@ export const ratings = pgTable(
 // Reader comments under a recipe/article. Same trust model as ratings:
 // everything lands as `pending` and only admin-approved comments render
 // publicly (and count towards commentCount in the JSON-LD).
-// `parentId` holds one level of nesting — replies (typically Roksana
+// `parentId` holds one level of nesting - replies (typically Roksana
 // answering from the admin, marked with isAuthor) render indented.
 export const comments = pgTable(
   "comments",
@@ -236,7 +236,7 @@ export const imports = pgTable(
   {
     id: serial("id").primaryKey(),
     tiktokUrl: text("tiktok_url").notNull(),
-    // Canonical TikTok video id (the digits in .../video/<id>) — the dedup key.
+    // Canonical TikTok video id (the digits in .../video/<id>) - the dedup key.
     // Filled at submit time when resolvable (short vm./vt. links get followed),
     // and always after yt-dlp downloads the clip.
     videoId: text("video_id"),
@@ -319,7 +319,7 @@ export const subscribers = pgTable(
       .notNull()
       .default("pending"),
     // Where the signup happened: recipe-slodkie | recipe-slone | kalkulator |
-    // cook-mode | stopka — drives which magnet the welcome mail links
+    // cook-mode | stopka - drives which magnet the welcome mail links
     source: text("source").notNull(),
     magnet: text("magnet"),
     token: text("token").notNull(),

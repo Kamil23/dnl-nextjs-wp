@@ -10,7 +10,7 @@ import { minutesToIso8601 } from "../lib/recipe-parser";
 import { absUrl } from "../lib/seo";
 import type { FullRecipe } from "../lib/queries";
 
-// Recipe + BreadcrumbList JSON-LD built from structured DB fields —
+// Recipe + BreadcrumbList JSON-LD built from structured DB fields -
 // richer than what the old WP theme emitted (which parsed the same data
 // out of the rendered HTML).
 // Props arrive JSON-serialized from getStaticProps, so dates may be strings
@@ -36,7 +36,7 @@ function dietFromTags(tagTexts: string[]): string[] {
 
 export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
   const ingredientTexts = recipe.ingredientGroups.flatMap((g) => g.items);  // Articles never emit Recipe schema, even if stray list data exists.
-  // `image` is a REQUIRED Recipe property for the Google rich result — emitting
+  // `image` is a REQUIRED Recipe property for the Google rich result - emitting
   // a Recipe without one gets it rejected and reported as an error in Search
   // Console, so we suppress the Recipe block (keeping BreadcrumbList) rather than
   // ship invalid markup when a recipe has no hero image.
@@ -67,7 +67,7 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
           url: `${SITE_URL}${AUTHOR_PAGE_PATH}`,
           sameAs: [`${SITE_URL}${AUTHOR_PAGE_PATH}`, SOCIAL_INSTAGRAM_URL, SOCIAL_TIKTOK_URL],
         },
-        // keywords is a recommended Recipe rich-result property — merge the
+        // keywords is a recommended Recipe rich-result property - merge the
         // editorial keywords with tag names, deduplicated
         keywords:
           Array.from(
@@ -79,7 +79,7 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
             )
           ).join(", ") || undefined,
         recipeCategory: categoryNames.length ? categoryNames.join(", ") : undefined,
-        // Diety z tagów — tylko jednoznaczne wzorce, bo Google waliduje
+        // Diety z tagów - tylko jednoznaczne wzorce, bo Google waliduje
         // wartości względem enumeracji schema.org (DietTypeEnumeration)
         suitableForDiet: dietFromTags(recipe.tags.map((t) => `${t.slug} ${t.name}`)) || undefined,
         recipeYield: recipe.servingsText || (recipe.servings ? `${recipe.servings} porcje` : undefined),
@@ -105,7 +105,7 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
               carbohydrateContent: recipe.carbs ? `${recipe.carbs} g` : undefined,
             }
           : undefined,
-        // Approved comments are real engagement signals — expose them the same
+        // Approved comments are real engagement signals - expose them the same
         // way the old WP theme did (scrapowalne w JSON-LD, jak oceny)
         commentCount: recipe.comments.length || undefined,
         comment: recipe.comments.length
@@ -166,7 +166,7 @@ export default function RecipeSchema({ recipe }: { recipe: FullRecipe }) {
 
   // One <script> per schema object. A single tag with an array is valid for
   // Google, but naive JSON-LD consumers (browser extensions, recipe scrapers)
-  // do JSON.parse(tag)["@context"] and crash on the array — and scrapability
+  // do JSON.parse(tag)["@context"] and crash on the array - and scrapability
   // is a feature here (ratings/comments are meant to be machine-readable).
   return (
     <>

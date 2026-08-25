@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!comment) return res.status(404).json({ error: "Not found" });
 
   if (req.method === "DELETE") {
-    // Replies hang off their parent — remove them along with it
+    // Replies hang off their parent - remove them along with it
     await db.delete(comments).where(or(eq(comments.id, id), eq(comments.parentId, id)));
     await revalidateRecipe(res, comment.recipeId);
     return res.json({ ok: true });

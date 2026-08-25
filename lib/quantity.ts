@@ -1,6 +1,6 @@
 // Parses and scales quantities in Polish ingredient lines so the
 // servings switcher can recompute amounts ("pół szklanki" x2 -> "1 szklanka"
-// is out of scope grammatically — we render numbers, e.g. "1 szklanki").
+// is out of scope grammatically - we render numbers, e.g. "1 szklanki").
 // Lines without a recognizable leading quantity are returned unchanged.
 
 const WORD_VALUES: [RegExp, number][] = [
@@ -66,7 +66,7 @@ function findCountable(word: string): string[] | null {
   return COUNTABLE_FORMS.find((forms) => forms.includes(w)) ?? null;
 }
 
-// 1 łyżka | 2-4 łyżki (także 1½, 2¼...) | 5+ łyżek — z wyjątkiem 12-14
+// 1 łyżka | 2-4 łyżki (także 1½, 2¼...) | 5+ łyżek - z wyjątkiem 12-14
 function unitForm(forms: string[], value: number): string {
   if (value === 1) return forms[0];
   if (!Number.isInteger(value)) return forms[1];
@@ -97,7 +97,7 @@ export function formatQuantity(value: number): string {
 // --- shopping-list merging -------------------------------------------------
 // Parses a free-text list line into amount + unit + name so identical
 // ingredients from different recipes can be summed ("2 jajka" + "3 jajka"
-// -> "5 jajek"). No ingredient database — matching is by normalized name.
+// -> "5 jajek"). No ingredient database - matching is by normalized name.
 
 const WEIGHT_FACTORS: Record<string, number> = { g: 1, dag: 10, kg: 1000 };
 const VOLUME_FACTORS: Record<string, number> = { ml: 1, l: 1000 };
@@ -207,7 +207,7 @@ function formatBase(total: number, kind: "weight" | "volume"): string {
   return `${Number.isInteger(rounded) ? rounded : String(rounded).replace(".", ",")} ${small}`;
 }
 
-// Polish plural category — a summed count may only reuse the original noun
+// Polish plural category - a summed count may only reuse the original noun
 // form when it stays in the same category (1 / 2-4 / 5+)
 function pluralCategory(n: number): number {
   if (n === 1) return 1;
@@ -226,7 +226,7 @@ export function mergeShoppingLines(a: string, b: string): string | null {
 
   switch (pa.kind) {
     case "none":
-      return a; // identical unquantified items — keep one
+      return a; // identical unquantified items - keep one
     case "weight":
     case "volume": {
       const amount = formatBase(pa.base + pb.base, pa.kind);
@@ -266,7 +266,7 @@ export function scaleIngredient(line: string, factor: number): string {
     return `${formatQuantity(scaled)}${parsed.rest}`;
   }
 
-  // Implicit "1": lines starting with a countable word — "jajko" = 1 jajko,
+  // Implicit "1": lines starting with a countable word - "jajko" = 1 jajko,
   // "łyżka ksylitolu" = 1 łyżka
   const first = line.trim().match(/^(\p{L}+)/u);
   const forms = first ? findCountable(first[1]) : null;
@@ -276,7 +276,7 @@ export function scaleIngredient(line: string, factor: number): string {
   }
 
   // Mid-line weight/volume: "mascarpone 500 g (schłodzone)" -> scale the
-  // number ONLY when a real unit follows (never "36 %" — fat percentages
+  // number ONLY when a real unit follows (never "36 %" - fat percentages
   // and similar must stay untouched)
   const mid = line.match(/(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l|dag)\b/u);
   if (mid) {

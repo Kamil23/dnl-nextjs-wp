@@ -40,7 +40,7 @@ export default function AdminSearches({ top, zero, period }: { top: Row[]; zero:
 
       <Section
         title="Najczęstsze frazy"
-        subtitle="Popyt użytkowniczek — co realnie szukają na stronie."
+        subtitle="Popyt użytkowniczek - co realnie szukają na stronie."
         rows={top}
       />
       <Section
@@ -91,7 +91,7 @@ function Section({
                     {r.zero > 0 ? (
                       <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">{r.zero}</span>
                     ) : (
-                      <span className="text-gray-300">—</span>
+                      <span className="text-gray-300">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
@@ -125,7 +125,7 @@ export const getServerSideProps: GetServerSideProps = async ({ req, query }) => 
   const since = period === "all" ? null : new Date(Date.now() - parseInt(period, 10) * 24 * 3600 * 1000);
   const { searchLog } = dbSchema;
 
-  // Wolumen po throttlingu jest mały — jedna agregacja, resztę liczymy w JS.
+  // Wolumen po throttlingu jest mały - jedna agregacja, resztę liczymy w JS.
   // Odporne na brak/awarię tabeli: zamiast crashować całą stronę, pokazujemy pusto.
   let rows: Row[] = [];
   try {

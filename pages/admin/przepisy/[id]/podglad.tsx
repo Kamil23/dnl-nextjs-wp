@@ -19,7 +19,7 @@ export default function DraftPreview({ id, status, ...props }: any) {
     <>
       <div className="bg-gray-900 text-white text-sm px-4 py-2 flex items-center justify-between sticky top-0 z-50">
         <span>
-          👁 Podgląd {status !== "published" ? "szkicu" : "wpisu"} — tak będzie wyglądać strona
+          👁 Podgląd {status !== "published" ? "szkicu" : "wpisu"} - tak będzie wyglądać strona
         </span>
         <Link href={`/admin/przepisy/${id}`} className="underline hover:no-underline">
           ← Wróć do edytora

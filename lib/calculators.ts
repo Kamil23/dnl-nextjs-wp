@@ -1,4 +1,4 @@
-// Registry of the calculator pages — one place that the hub (/kalkulatory),
+// Registry of the calculator pages - one place that the hub (/kalkulatory),
 // the per-page "inne kalkulatory" cross-links and the nav all read from, so
 // internal linking (an SEO signal) stays consistent when a calculator is added.
 
@@ -20,7 +20,7 @@ export const CALCULATORS: CalculatorMeta[] = [
     slug: "kalkulator-deficytu-kalorycznego",
     title: "Kalkulator deficytu kalorycznego",
     emoji: "📉",
-    blurb: "Ile jeść, żeby chudnąć w bezpiecznym tempie — z prognozą kilogramów na tydzień.",
+    blurb: "Ile jeść, żeby chudnąć w bezpiecznym tempie - z prognozą kilogramów na tydzień.",
   },
   {
     slug: "kalkulator-makro",
@@ -38,7 +38,7 @@ export const CALCULATORS: CalculatorMeta[] = [
     slug: "kalkulator-indeksu-glikemicznego",
     title: "Kalkulator ładunku glikemicznego",
     emoji: "🩸",
-    blurb: "Policz ładunek glikemiczny (GL) porcji — przydatne przy insulinooporności.",
+    blurb: "Policz ładunek glikemiczny (GL) porcji - przydatne przy insulinooporności.",
   },
 ];
 

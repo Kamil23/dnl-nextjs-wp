@@ -13,7 +13,7 @@ export const ACTIVITY_LEVELS = [
   { label: "Bardzo wysoka (codzienne treningi / praca fizyczna)", factor: 1.9 },
 ] as const;
 
-// Mifflin-St Jeor — the same formula the calorie page already used.
+// Mifflin-St Jeor - the same formula the calorie page already used.
 export function mifflinBmr(sex: Sex, weightKg: number, heightCm: number, age: number) {
   return Math.round(10 * weightKg + 6.25 * heightCm - 5 * age + (sex === "m" ? 5 : -161));
 }
@@ -22,7 +22,7 @@ export function tdee(bmr: number, activityFactor: number) {
   return Math.round(bmr * activityFactor);
 }
 
-// Plausible adult anthropometrics — shared guard so every page rejects the
+// Plausible adult anthropometrics - shared guard so every page rejects the
 // same nonsense (0 kg, 3 m tall) before showing a result.
 export function validBody(age: number, weightKg: number, heightCm: number) {
   return (
@@ -58,7 +58,7 @@ export function bmiBand(value: number): BmiBand {
   return BMI_BANDS.find((b) => value >= b.min && value < b.max) ?? BMI_BANDS[BMI_BANDS.length - 1];
 }
 
-// Weight (kg) that lands you in the middle of the healthy BMI band — a useful,
+// Weight (kg) that lands you in the middle of the healthy BMI band - a useful,
 // non-medical "target" hint for the BMI page.
 export function healthyWeightRange(heightCm: number): [number, number] {
   const m = heightCm / 100;
@@ -84,7 +84,7 @@ export const DEFICIT_TIERS: DeficitTier[] = [
   { key: "agresywny", label: "Agresywny (~25%)", pct: 0.25 },
 ];
 
-// Never recommend eating below this — a floor that roughly tracks BMR and the
+// Never recommend eating below this - a floor that roughly tracks BMR and the
 // commonly-cited minimums (1200 kobiety / 1500 mężczyźni).
 export function calorieFloor(sex: Sex) {
   return sex === "m" ? 1500 : 1200;
@@ -152,7 +152,7 @@ export function giBand(gi: number): { key: "niski" | "sredni" | "wysoki"; label:
 }
 
 // Curated GI/carb reference for common Polish products, per 100 g unless noted.
-// Values are typical published figures (orientacyjne — GI varies with ripeness,
+// Values are typical published figures (orientacyjne - GI varies with ripeness,
 // processing and cooking). Used to pre-fill the glycemic-load calculator.
 export type GiProduct = {
   slug: string;

@@ -21,7 +21,7 @@ import {
   type MeasureKey,
 } from '../../lib/measures'
 
-// Konwerter miar kuchennych — narzędzie + hub linkujący wszystkie
+// Konwerter miar kuchennych - narzędzie + hub linkujący wszystkie
 // programmatic landingi /konwerter/[skladnik] (internal linking dla SEO).
 
 const GROUP_ORDER: IngredientGroup[] = ['maki', 'cukry', 'nabial-tluszcze', 'suche', 'dodatki']
@@ -69,7 +69,7 @@ export default function Converter() {
         <title>{`Konwerter miar kuchennych: szklanka, łyżka, łyżeczka na gramy - ${SITE_TITLE}`}</title>
         <meta
           name="description"
-          content="Ile gramów waży szklanka mąki, łyżka cukru czy łyżeczka kakao? Przelicz szklanki, łyżki i łyżeczki na gramy — i odwrotnie."
+          content="Ile gramów waży szklanka mąki, łyżka cukru czy łyżeczka kakao? Przelicz szklanki, łyżki i łyżeczki na gramy - i odwrotnie."
         />
         <meta
           name="robots"
@@ -86,7 +86,7 @@ export default function Converter() {
           <PostTitle>Konwerter miar</PostTitle>
           <p className="text-gray-600 mb-8">
             Szklanka to nie jednostka. Szklanka mąki to 160 g, a szklanka cukru już
-            220 g — dlatego przepisy „na oko” potrafią zepsuć wypiek. Wybierz
+            220 g - dlatego przepisy „na oko” potrafią zepsuć wypiek. Wybierz
             składnik i przelicz miarę na gramy albo odwrotnie.
           </p>
 

@@ -7,7 +7,7 @@ import { syncRecipeToSearch } from "../../../../lib/search-sync";
 
 const { imports, recipes, ingredientGroups, ingredients, steps, tags, recipeTags, categories, recipeCategories } = dbSchema;
 
-// "Kilka słów o tym przepisie" arrives as plain paragraphs — wrap in <p>
+// "Kilka słów o tym przepisie" arrives as plain paragraphs - wrap in <p>
 function aboutToHtml(about: unknown): string | null {
   if (typeof about !== "string" || !about.trim()) return null;
   const esc = (s: string) =>
@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Draft nie jest gotowy" });
     }
     const d = imp.aiDraft as any;
-    // slug/uri are unique — a re-imported recipe (same title as an existing
+    // slug/uri are unique - a re-imported recipe (same title as an existing
     // one) must land under a suffixed slug instead of blowing up the insert
     const baseSlug = slugify(d.title || `tiktok-${id}`) || `tiktok-${id}`;
     const taken = new Set(
@@ -202,7 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: `Nie udało się utworzyć przepisu: ${msg}` });
     }
 
-    // The recipe is committed at this point — a search hiccup must not fail
+    // The recipe is committed at this point - a search hiccup must not fail
     // the accept; the index can be rebuilt anytime (npm run search:reindex)
     await syncRecipeToSearch(db, recipeId).catch((e) =>
       console.error(`[imports] search sync przepisu ${recipeId} nieudany:`, e)

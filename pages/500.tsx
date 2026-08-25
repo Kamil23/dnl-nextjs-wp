@@ -3,7 +3,7 @@ import Container from '../components/container'
 import Layout from '../components/layout'
 import { MENU_EDGES } from '../lib/menu'
 
-// Branded 500 — keep the brand and a way back even when the server errors.
+// Branded 500 - keep the brand and a way back even when the server errors.
 export default function ServerError() {
   return (
     <Layout menu={MENU_EDGES} preview={false}>

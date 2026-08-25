@@ -5,7 +5,7 @@ import { db, dbSchema } from "../../lib/db";
 
 const { comments, recipes } = dbSchema;
 
-// Same anonymous fingerprint as ratings — not for dedup here (many comments
+// Same anonymous fingerprint as ratings - not for dedup here (many comments
 // per reader are fine), but for the flood guard and abuse tracking.
 function fingerprint(req: NextApiRequest, recipeId: number) {
   const ip =

@@ -8,7 +8,7 @@ import { getTagBySlug, listRecipesByTagSlug, getAllTagsWithCounts, toListingEdge
 import { MENU_EDGES } from '../../lib/menu'
 import { SITE_TITLE, SITE_URL } from '../../lib/constants'
 
-// Tag archives existed (and were indexed) on the WordPress site — same
+// Tag archives existed (and were indexed) on the WordPress site - same
 // URLs, same "tag - Dieta na luzie" title pattern; kept out of the sitemap
 // exactly like the old site did.
 export default function TagPage({ tag, posts }) {

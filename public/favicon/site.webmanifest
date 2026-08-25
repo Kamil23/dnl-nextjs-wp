@@ -1,7 +1,7 @@
 {
-  "name": "Listy zakupów — Dieta na luzie",
+  "name": "Listy zakupów - Dieta na luzie",
   "short_name": "Listy zakupów",
-  "description": "Wspólna lista zakupów na żywo — dodawaj składniki z przepisów i odhaczaj w sklepie.",
+  "description": "Wspólna lista zakupów na żywo - dodawaj składniki z przepisów i odhaczaj w sklepie.",
   "start_url": "/lista-zakupow/",
   "scope": "/",
   "display": "standalone",
