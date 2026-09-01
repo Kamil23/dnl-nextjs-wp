@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { scaleIngredient } from "../../lib/quantity";
 import { addRecipeItems } from "../../lib/shopping-list";
+import { track } from "../../lib/ga-events";
 import CookMode from "./cook-mode";
 
 // Interactive ingredients: check-off (persisted per recipe in localStorage),
@@ -24,6 +25,12 @@ export default function IngredientsCard({ recipe }) {
     );
     setAddedToList(true);
     setTimeout(() => setAddedToList(false), 3000);
+    track("add_to_list", { recipe_id: recipe.id });
+  }
+
+  function changeServings(next: number) {
+    setServings(next);
+    track("scale_servings", { recipe_id: recipe.id, servings: next });
   }
 
   useEffect(() => {
@@ -74,7 +81,7 @@ export default function IngredientsCard({ recipe }) {
         {baseServings && (
           <div className="flex items-center gap-1 rounded-full border border-gray-200 px-1 py-0.5" aria-label="Liczba porcji">
             <button
-              onClick={() => setServings(Math.max(1, servings - 1))}
+              onClick={() => changeServings(Math.max(1, servings - 1))}
               className="w-7 h-7 rounded-full hover:bg-gray-100 text-gray-600 font-bold"
               aria-label="Mniej porcji"
             >
@@ -84,7 +91,7 @@ export default function IngredientsCard({ recipe }) {
               {servings} {servings === 1 ? "porcja" : servings < 5 ? "porcje" : "porcji"}
             </span>
             <button
-              onClick={() => setServings(servings + 1)}
+              onClick={() => changeServings(servings + 1)}
               className="w-7 h-7 rounded-full hover:bg-gray-100 text-gray-600 font-bold"
               aria-label="Więcej porcji"
             >

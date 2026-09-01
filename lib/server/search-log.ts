@@ -26,7 +26,7 @@ function fingerprint(req: ReqLike): string {
 // Sugestie hero lecą przy każdym klawiszu - ta sama fraza od tej samej
 // przeglądarki w oknie throttle to jeden wpis. Strona /szukaj (pełne
 // zapytanie z Enterem) dostaje krótsze okno.
-const THROTTLE_SECONDS = { hero: 1800, szukaj: 300 } as const;
+const THROTTLE_SECONDS = { hero: 1800, szukaj: 300, lodowka: 300 } as const;
 
 // Loguje wyszukiwanie; nigdy nie rzuca - analityka nie może psuć UX.
 export async function logSearch(

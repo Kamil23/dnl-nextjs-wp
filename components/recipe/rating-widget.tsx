@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { track } from "../../lib/ga-events";
 
 // Star voting: one vote per reader (server dedups by fingerprint, we also
 // remember the vote locally to show it after a revisit).
@@ -33,6 +34,7 @@ export default function RatingWidget({ recipeId, rating }) {
       const data = await res.json();
       if (data.count > 0) setAgg({ value: data.value, count: data.count });
       setThanks(true);
+      track("rating_given", { recipe_id: recipeId, value, source: "widget" });
     }
     setBusy(false);
   }

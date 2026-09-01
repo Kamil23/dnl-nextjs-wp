@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { track } from "../../lib/ga-events";
 import { createPortal } from "react-dom";
 import NewsletterSignup from "../newsletter-signup";
 import { scaleIngredient } from "../../lib/quantity";
@@ -77,6 +78,7 @@ export default function CookMode({ recipe, factor, onClose }) {
   const steps = recipe.steps;
   const total = steps.length;
   const touchX = useRef<number | null>(null);
+  const cookedTracked = useRef(false);
   // Finish-screen rating: the warmest possible moment to ask (they just ate it)
   const [rated, setRated] = useState(false);
   const [rating, setRating] = useState(false);
@@ -91,6 +93,7 @@ export default function CookMode({ recipe, factor, onClose }) {
         body: JSON.stringify({ recipeId: recipe.id, value }),
       });
       setRated(true);
+      track("rating_given", { recipe_id: recipe.id, value, source: "cook-mode" });
     } catch {
       /* silent - the classic widget below the recipe still works */
     } finally {
@@ -117,10 +120,20 @@ export default function CookMode({ recipe, factor, onClose }) {
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
+    track("cook_mode_start", { recipe_id: recipe.id });
     return () => {
       document.body.style.overflow = "";
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // North Star (strategia): dotarcie do ekranu finiszu liczymy jako "ugotowane"
+  useEffect(() => {
+    if (idx === total && !cookedTracked.current) {
+      cookedTracked.current = true;
+      track("cooked", { recipe_id: recipe.id });
+    }
+  }, [idx, total, recipe.id]);
 
   const step = idx >= 0 && idx < total ? steps[idx] : null;
   const timerSeconds = useMemo(() => (step ? detectTimerSeconds(step.body) : null), [step]);

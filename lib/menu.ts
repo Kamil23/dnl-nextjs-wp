@@ -26,10 +26,12 @@ export const MENU_EDGES = [
     },
   },
   item("cG9zdDpvYmlhZA==", "Co na obiad?", "/co-na-obiad/"),
+  item("cG9zdDpsb2Rvd2th", "Z lodówki", "/z-lodowki/"),
   item("cG9zdDo3NTQ=", "Artykuły", "/kategoria/artykuly/"),
   item("cG9zdDoxMjk0", "Kalkulatory", "/kalkulatory/"),
   item("cG9zdDprb253ZXJ0ZXI=", "Konwerter miar", "/konwerter/"),
   item("cG9zdDo3NTk=", "Do pobrania", "/do-pobrania/"),
+  item("cG9zdDptb2plLXByemVwaXN5", "Moje przepisy", "/moje-przepisy/"),
 ];
 
 // Same wrapper shape as the old getMenu() GraphQL response

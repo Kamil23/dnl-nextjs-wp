@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import SaveRecipeButton from "../save-recipe-button";
 
 function Stars({ value }: { value: number }) {
   return (
@@ -123,6 +124,7 @@ export default function RecipeHero({ recipe }) {
               <span aria-hidden>▶</span> Obejrzyj wideo
             </a>
           )}
+          <SaveRecipeButton recipeId={recipe.id} />
         </div>
       </div>
     </section>

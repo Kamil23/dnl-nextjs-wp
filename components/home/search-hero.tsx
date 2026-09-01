@@ -9,6 +9,7 @@ import RecipeTile, { type RecipeTileData } from "../recipe-tile";
 // never depend on the search engine being up.
 const GOALS = [
   { label: "🍽️ Co na obiad?", href: "/co-na-obiad/" },
+  { label: "🧊 Z lodówki", href: "/z-lodowki/" },
   { label: "💪 Wysokobiałkowe", href: "/kolekcje/wysokie-bialko/" },
   { label: "🥗 Sycące do 500 kcal", href: "/kolekcje/glp1/" },
 ];

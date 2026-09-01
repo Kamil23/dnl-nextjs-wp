@@ -285,7 +285,7 @@ export const searchLog = pgTable(
     id: serial("id").primaryKey(),
     phrase: text("phrase").notNull(),
     results: integer("results").notNull().default(0),
-    source: text("source", { enum: ["hero", "szukaj"] }).notNull(),
+    source: text("source", { enum: ["hero", "szukaj", "lodowka"] }).notNull(),
     fingerprint: text("fingerprint"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
@@ -346,3 +346,70 @@ export const newsletterEditions = pgTable("newsletter_editions", {
   recipientCount: integer("recipient_count"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+// Lekkie konta użytkowników (magic link, bez haseł) - odblokowują "zapisz
+// przepis", a docelowo plan tygodnia i preferencje (strategia: owned audience).
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("users_email_idx").on(t.email)]
+);
+
+export const loginTokens = pgTable(
+  "login_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [uniqueIndex("login_tokens_token_idx").on(t.token)]
+);
+
+export const savedRecipes = pgTable(
+  "saved_recipes",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [uniqueIndex("saved_recipes_user_recipe_idx").on(t.userId, t.recipeId)]
+);
+
+// Zamienniki składników (strategia: Substitution z weryfikacją; FEATURES.md
+// "Czym zastąpić?"). AI generuje szkice (source=ai, status=draft), Roksana
+// akceptuje w adminie - na stronę trafiają wyłącznie approved.
+export const substitutions = pgTable(
+  "substitutions",
+  {
+    id: serial("id").primaryKey(),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    ingredientText: text("ingredient_text").notNull(),
+    substitute: text("substitute").notNull(),
+    // wpływ na smak/teksturę jedną frazą + orientacyjna zmiana kcal na porcję
+    effect: text("effect"),
+    kcalDelta: integer("kcal_delta"),
+    source: text("source", { enum: ["ai", "author"] }).notNull().default("ai"),
+    status: text("status", { enum: ["draft", "approved", "rejected"] })
+      .notNull()
+      .default("draft"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [index("substitutions_recipe_idx").on(t.recipeId, t.status)]
+);

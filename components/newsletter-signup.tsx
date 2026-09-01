@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
+import { track } from "../lib/ga-events";
 
 type Source =
   | "recipe-slodkie"
@@ -134,6 +135,7 @@ export default function NewsletterSignup({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Coś poszło nie tak");
       setState("done");
+      track("newsletter_signup", { source });
     } catch (err: any) {
       setState("error");
       setError(err.message || "Coś poszło nie tak. Spróbuj ponownie.");

@@ -14,6 +14,7 @@ import { AUTHOR_PAGE_PATH } from "./constants";
 const STANDALONE_PATHS = [
   "/",
   "/co-na-obiad/",
+  "/z-lodowki/",
   "/kalkulatory/",
   "/konwerter/",
   AUTHOR_PAGE_PATH, // /autor/roksana/

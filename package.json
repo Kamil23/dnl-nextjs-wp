@@ -12,7 +12,8 @@
     "imports:process": "tsx scripts/process-imports.ts",
     "imports:watch": "tsx scripts/process-imports.ts --watch",
     "search:reindex": "tsx scripts/reindex-search.ts",
-    "qc:recipes": "tsx scripts/qc-recipes.ts"
+    "qc:recipes": "tsx scripts/qc-recipes.ts",
+    "substitutions:generate": "tsx scripts/generate-substitutions.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

@@ -39,6 +39,8 @@ import Breadcrumbs from '../components/breadcrumbs'
 import RecipeSchema from '../components/recipe-schema'
 import NewsletterSignup from '../components/newsletter-signup'
 import WpSeo from '../components/wp-seo'
+import SubstitutionsCard from '../components/recipe/substitutions-card'
+import { listApprovedSubstitutions } from '../lib/substitutions'
 
 // Sweet-category slugs pick the "fit słodycze" magnet; everything else gets
 // the quick-meals one (matches the intent of the organic top pages)
@@ -57,6 +59,7 @@ export default function Content({
   listingTitle,
   pageNum,
   totalPages,
+  substitutions,
 }) {
   // Articles always use the article template, whatever data they carry
   const isArticle = kind === 'recipe' && recipe.uri.startsWith('/artykuly/')
@@ -100,6 +103,7 @@ export default function Content({
                 <div>
                   <StepsList steps={recipe.steps} />
                   <MacroTable recipe={recipe} />
+                  <SubstitutionsCard items={substitutions ?? []} />
                   {recipe.videoUrl && (
                     <div id="wideo" className="scroll-mt-6">
                       <TikTokEmbed url={recipe.videoUrl} title={recipe.title} poster={recipe.heroImage} />
@@ -258,6 +262,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       .filter((r) => r.uri !== recipe.uri)
       .slice(0, 4)
       .map(toListingEdge)
+    const substitutions = await listApprovedSubstitutions(recipe.id)
 
     return {
       props: {
@@ -267,6 +272,7 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
         morePosts,
         introHtml: recipe.contentHtml ? stripRecipeBlocks(recipe.contentHtml) : null,
         seo: JSON.parse(JSON.stringify(buildSeoForRecipe(recipe))),
+        substitutions: JSON.parse(JSON.stringify(substitutions)),
       },
       revalidate: 60,
     }
