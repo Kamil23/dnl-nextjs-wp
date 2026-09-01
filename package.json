@@ -13,7 +13,8 @@
     "imports:watch": "tsx scripts/process-imports.ts --watch",
     "search:reindex": "tsx scripts/reindex-search.ts",
     "qc:recipes": "tsx scripts/qc-recipes.ts",
-    "substitutions:generate": "tsx scripts/generate-substitutions.ts"
+    "substitutions:generate": "tsx scripts/generate-substitutions.ts",
+    "tiktok:backlog": "tsx scripts/tiktok-backlog.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

@@ -413,3 +413,22 @@ export const substitutions = pgTable(
   },
   (t) => [index("substitutions_recipe_idx").on(t.recipeId, t.status)]
 );
+
+// Katalog wszystkich filmów z profilu TikTok autorki (yt-dlp, skrypt
+// tiktok:backlog). Tani model klasyfikuje po samym opisie: przepis / inne /
+// niejasne. Widok backlogu = katalog minus to, co już w imports/recipes.
+export const tiktokCatalog = pgTable(
+  "tiktok_catalog",
+  {
+    id: serial("id").primaryKey(),
+    videoId: text("video_id").notNull(),
+    url: text("url").notNull(),
+    caption: text("caption"),
+    durationSec: integer("duration_sec"),
+    viewCount: integer("view_count"),
+    kind: text("kind", { enum: ["przepis", "inne", "niejasne"] }),
+    classifiedAt: timestamp("classified_at", { withTimezone: true }),
+    refreshedAt: timestamp("refreshed_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [uniqueIndex("tiktok_catalog_video_idx").on(t.videoId)]
+);
