@@ -3,6 +3,9 @@ services:
   db:
     image: postgres:16-alpine
     container_name: dnl-db
+    # Wraca sam po restarcie silnika Dockera (bez tego dev server sypie
+    # ECONNREFUSED po każdym uśpieniu/aktualizacji Dockera)
+    restart: unless-stopped
     environment:
       POSTGRES_USER: dnl
       POSTGRES_PASSWORD: dnl
@@ -16,6 +19,7 @@ services:
   search:
     image: getmeili/meilisearch:latest
     container_name: dnl-search
+    restart: unless-stopped
     environment:
       MEILI_MASTER_KEY: dnl-dev-master-key
       MEILI_NO_ANALYTICS: "true"
