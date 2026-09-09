@@ -2,6 +2,8 @@ import { useState } from "react";
 
 // Clearly-marked paid collaboration box with a copyable discount code.
 // The "Współpraca reklamowa" label is a legal requirement - keep it visible.
+// With a shop url the card shows ONE action row: code chip + solid CTA button
+// (links carry rel="sponsored" per Google's paid-link guidelines).
 export default function SponsorCard({
   sponsor,
 }: {
@@ -24,43 +26,34 @@ export default function SponsorCard({
         Współpraca reklamowa
       </div>
       <p className="text-sm text-gray-700">
-        Przepis powstał we współpracy z{" "}
-        {sponsor.url ? (
-          // rel="sponsored": wymóg Google dla linków z płatnych współprac
-          <a
-            href={sponsor.url}
-            target="_blank"
-            rel="sponsored noopener"
-            className="font-bold underline underline-offset-2 hover:text-gray-900"
-          >
-            {sponsor.brand}
-          </a>
-        ) : (
-          <strong>{sponsor.brand}</strong>
-        )}
+        Przepis powstał we współpracy z <strong>{sponsor.brand}</strong>
         {sponsor.note ? <>: {sponsor.note}</> : null}
       </p>
-      {sponsor.url && (
-        <a
-          href={sponsor.url}
-          target="_blank"
-          rel="sponsored noopener"
-          className="mt-2 inline-block text-xs text-gray-500 underline underline-offset-2 hover:text-gray-800"
-        >
-          Przejdź do sklepu {sponsor.brand} ↗
-        </a>
-      )}
-      {sponsor.code && (
-        <button
-          onClick={copyCode}
-          className="mt-3 inline-flex items-center gap-2 rounded-xl border-2 border-dashed border-amber-400 bg-amber-50 px-4 py-2 font-mono font-bold text-amber-900 hover:bg-amber-100 transition"
-          title="Kliknij, aby skopiować kod"
-        >
-          {sponsor.code}
-          <span className="text-xs font-sans font-normal text-amber-700">
-            {copied ? "✓ skopiowano" : "kopiuj"}
-          </span>
-        </button>
+      {(sponsor.code || sponsor.url) && (
+        <div className="mt-3 flex flex-wrap items-stretch gap-2">
+          {sponsor.code && (
+            <button
+              onClick={copyCode}
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-dashed border-amber-400 bg-amber-50 px-4 py-2 font-mono font-bold text-amber-900 hover:bg-amber-100 transition"
+              title="Kliknij, aby skopiować kod"
+            >
+              {sponsor.code}
+              <span className="text-xs font-sans font-normal text-amber-700">
+                {copied ? "✓ skopiowano" : "kopiuj"}
+              </span>
+            </button>
+          )}
+          {sponsor.url && (
+            <a
+              href={sponsor.url}
+              target="_blank"
+              rel="sponsored noopener"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 transition"
+            >
+              Do sklepu {sponsor.brand} ↗
+            </a>
+          )}
+        </div>
       )}
     </aside>
   );
