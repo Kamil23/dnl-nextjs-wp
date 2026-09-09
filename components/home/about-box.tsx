@@ -22,10 +22,11 @@ export default function AboutBox() {
           Cześć, jestem Roksana! 👋
         </h2>
         <p className="text-gray-300 leading-relaxed mb-4 max-w-2xl">
-          Gotuję fit wersje tego, co lubię najbardziej: serniki, ciasta
-          jednoporcjowe i obiady, które da się ogarnąć po pracy. Nowe przepisy
-          najpierw pokazuję na TikToku, a tutaj zbieram je wszystkie w jednym
-          miejscu, razem z kaloriami i makro.
+          Gotuję prosto i na luzie: serniki i ciasta bez pieczenia, domowe
+          wersje ulubionych słodyczy, owsianki na dobre rano i obiady z jednego
+          garnka, które ogarniesz po pracy. Nowe przepisy najpierw lądują na
+          TikToku, a tu zbieram je wszystkie w jednym miejscu, z kaloriami i
+          makro dla ciekawych, bez liczenia na siłę.
         </p>
         <div className="flex gap-3 justify-center md:justify-start">
           <a
