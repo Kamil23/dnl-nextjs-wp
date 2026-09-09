@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { sql } from "drizzle-orm";
 import { adminCookieHeader, safeEqual, sessionToken } from "../../../lib/admin-auth";
+import { db, dbSchema } from "../../../lib/db";
+import { preauthCookieHeader } from "../../../lib/server/webauthn";
 
 const THIRTY_DAYS = 30 * 24 * 60 * 60;
 
@@ -44,6 +47,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   attempts.delete(ip);
+
+  // Jeśli zarejestrowano klucz sprzętowy, hasło daje tylko preauth: pełna
+  // sesja dopiero po potwierdzeniu kluczem (WebAuthn, /api/admin/webauthn/*).
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(dbSchema.webauthnCredentials);
+  if (n > 0) {
+    res.setHeader("Set-Cookie", preauthCookieHeader());
+    return res.status(200).json({ ok: true, webauthn: true });
+  }
+
   res.setHeader("Set-Cookie", adminCookieHeader(sessionToken(), THIRTY_DAYS));
   return res.status(200).json({ ok: true });
 }

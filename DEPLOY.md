@@ -231,6 +231,11 @@ Jeśli 80/443 są wolne - zostaje nasze Caddy bez zmian. (Ustalimy na podstawie 
 
 ## Uwagi
 
+- **Klucz sprzętowy (WebAuthn):** po dodaniu klucza w `/admin/bezpieczenstwo` logowanie wymaga
+  hasła ORAZ klucza. Awaryjne odzyskanie dostępu (zgubiony klucz):
+  `docker compose exec db psql -U dnl dietanaluzie -c "delete from webauthn_credentials;"`
+  - wraca logowanie samym hasłem. WebAuthn wymaga poprawnego `APP_ORIGIN` w `.env`
+  (rpID = domena; w dev działa na http://localhost:3000).
 - `.env` jest w `.gitignore` - sekrety nigdy nie trafiają do repo.
 - `DATABASE_URL` jako build-arg trafia do warstw obrazu (`docker history`) - to lokalne dane dostępowe do bazy na Twoim VPS, nie współdziel obrazu publicznie.
 - Panel admina: zrotuj `ADMIN_PASSWORD` na mocne hasło przed startem (login ma limit prób: 5 → blokada 15 min).

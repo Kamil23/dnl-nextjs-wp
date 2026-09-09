@@ -39,7 +39,10 @@ const NAV: NavGroup[] = [
   },
   {
     label: "System",
-    items: [{ label: "Backupy", href: "/admin/backupy", icon: "🗄️" }],
+    items: [
+      { label: "Backupy", href: "/admin/backupy", icon: "🗄️" },
+      { label: "Bezpieczeństwo", href: "/admin/bezpieczenstwo", icon: "🔐" },
+    ],
   },
 ];
 

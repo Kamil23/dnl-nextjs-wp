@@ -432,3 +432,21 @@ export const tiktokCatalog = pgTable(
   },
   (t) => [uniqueIndex("tiktok_catalog_video_idx").on(t.videoId)]
 );
+
+// Klucze sprzętowe / passkeys admina (WebAuthn). Jeśli istnieje choć jeden
+// wpis, logowanie hasłem wymaga jeszcze potwierdzenia kluczem (drugi składnik).
+// Awaryjnie: DELETE FROM webauthn_credentials przywraca logowanie samym hasłem.
+export const webauthnCredentials = pgTable(
+  "webauthn_credentials",
+  {
+    id: serial("id").primaryKey(),
+    credentialId: text("credential_id").notNull(),
+    publicKey: text("public_key").notNull(),
+    counter: integer("counter").notNull().default(0),
+    transports: text("transports"),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("webauthn_credential_id_idx").on(t.credentialId)]
+);
