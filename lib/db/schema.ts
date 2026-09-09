@@ -450,3 +450,31 @@ export const webauthnCredentials = pgTable(
   },
   (t) => [uniqueIndex("webauthn_credential_id_idx").on(t.credentialId)]
 );
+
+// Proste zlecenia dla workera (przycisk w adminie nie może odpalić yt-dlp w
+// kontenerze web, więc zostawia zlecenie, a worker je wykonuje w swojej pętli).
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind", { enum: ["tiktok_backlog", "substitutions"] }).notNull(),
+    status: text("status", { enum: ["pending", "running", "done", "error"] })
+      .notNull()
+      .default("pending"),
+    // parametry zlecenia, np. { limit: 10 } dla substitutions
+    payload: jsonb("payload"),
+    log: text("log"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [index("jobs_kind_status_idx").on(t.kind, t.status)]
+);
+
+// Ustawienia aplikacji (klucz → JSON), edytowane w adminie.
+// Np. tiktok_backlog_interval_days: 0 = wyłączone, 2 = odświeżaj co 2 dni.
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});

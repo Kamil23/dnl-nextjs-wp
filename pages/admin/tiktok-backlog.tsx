@@ -2,6 +2,7 @@ import { GetServerSideProps } from "next";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import AdminShell from "../../components/admin/admin-shell";
+import JobRunner from "../../components/admin/job-runner";
 import { isAdminRequest } from "../../lib/admin-auth";
 import { listBacklog, backlogStats, type BacklogRow } from "../../lib/tiktok-backlog";
 
@@ -84,8 +85,7 @@ export default function TikTokBacklog({
             <span className="font-medium text-gray-700">{stats.backlogPrzepisy} sklasyfikowanych jako przepisy</span>).
             {stats.lastRefresh && (
               <> Odświeżono: {new Date(stats.lastRefresh).toLocaleString("pl-PL")}.</>
-            )}{" "}
-            Aktualizacja katalogu: <code className="bg-gray-100 px-1 rounded">npm run tiktok:backlog</code>
+            )}
           </p>
         </div>
         {visible.length > 0 && (
@@ -100,6 +100,13 @@ export default function TikTokBacklog({
           </button>
         )}
       </div>
+
+      <JobRunner
+        kind="tiktok_backlog"
+        runLabel="🔄 Odśwież katalog teraz"
+        description="Pobiera listę filmów z profilu (yt-dlp, bez wideo) i klasyfikuje nowe opisy najtańszym modelem AI (koszt groszowy). Wykonuje serwis worker."
+        withInterval
+      />
 
       <div className="flex gap-2 mb-5">
         {FILTERS.map((f) => (
@@ -119,8 +126,8 @@ export default function TikTokBacklog({
 
       {rows.length === 0 ? (
         <p className="text-gray-500">
-          Katalog jest pusty albo wszystko już zaimportowane. Uruchom{" "}
-          <code className="bg-gray-100 px-1 rounded">npm run tiktok:backlog</code>, żeby pobrać listę filmów z profilu.
+          Katalog jest pusty albo wszystko już zaimportowane. Kliknij "Odśwież katalog teraz" powyżej,
+          żeby pobrać listę filmów z profilu.
         </p>
       ) : visible.length === 0 ? (
         <p className="text-gray-500">Brak filmów w tym filtrze.</p>

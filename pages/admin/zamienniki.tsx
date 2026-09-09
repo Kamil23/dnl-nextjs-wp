@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import AdminShell from "../../components/admin/admin-shell";
+import JobRunner from "../../components/admin/job-runner";
 import { isAdminRequest } from "../../lib/admin-auth";
 import {
   countByStatus,
@@ -102,12 +103,16 @@ export default function AdminZamienniki({
         </p>
       </div>
 
+      <JobRunner
+        kind="substitutions"
+        runLabel="✨ Wygeneruj szkice (AI)"
+        description="AI proponuje zamienniki dla przepisów, które jeszcze ich nie mają (głos Roksany, Δkcal). Szkice wymagają akceptu poniżej. Wykonuje serwis worker."
+        limitOption
+      />
+
       {groups.length === 0 ? (
         <p className="text-gray-500">
-          Brak szkiców. Wygeneruj:{" "}
-          <code className="rounded bg-gray-100 px-1.5 py-0.5 text-[13px] text-gray-700">
-            npm run substitutions:generate
-          </code>
+          Brak szkiców. Kliknij &bdquo;Wygeneruj szkice (AI)&rdquo; powyżej.
         </p>
       ) : (
         <div className="space-y-8">

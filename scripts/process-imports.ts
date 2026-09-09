@@ -23,18 +23,20 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { estimateMacros } from "../lib/server/estimate-macros";
-import { and, eq, isNotNull, like, ne, or } from "drizzle-orm";
+import { and, desc, eq, isNotNull, like, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import * as schema from "../lib/db/schema";
+import { runTiktokBacklog } from "../lib/server/tiktok-backlog-run";
+import { runSubstitutionsGenerate } from "../lib/server/substitutions-run";
 
 const run = promisify(execFile);
 const sql = postgres(process.env.DATABASE_URL!, { max: 2 });
 const db = drizzle(sql, { schema });
-const { imports } = schema;
+const { imports, jobs, appSettings } = schema;
 
 // Modele bywają niesforne wobec schematu: pomijają nullable pola,
 // zwracają liczby jako stringi itd. - walidacja jest więc liberalna
@@ -818,9 +820,82 @@ async function processQueue(): Promise<number> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// --- Zlecenia z admina (jobs) + odświeżanie backlogu wg interwału -----------
+// Przycisk w panelu nie może odpalić yt-dlp w kontenerze web, więc zostawia
+// wiersz w `jobs`; my go wykonujemy tutaj. Dodatkowo, gdy w app_settings
+// ustawiono tiktok_backlog_interval_days > 0, sami dokładamy zlecenie
+// po upływie interwału od ostatniego udanego odświeżenia.
+
+async function enqueueIntervalBacklog() {
+  const [setting] = await db
+    .select()
+    .from(appSettings)
+    .where(eq(appSettings.key, "tiktok_backlog_interval_days"));
+  const days = Number(setting?.value ?? 0);
+  if (!days || days <= 0) return;
+
+  const active = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(and(eq(jobs.kind, "tiktok_backlog"), or(eq(jobs.status, "pending"), eq(jobs.status, "running"))));
+  if (active.length > 0) return;
+
+  const [last] = await db
+    .select({ finishedAt: jobs.finishedAt })
+    .from(jobs)
+    .where(and(eq(jobs.kind, "tiktok_backlog"), eq(jobs.status, "done")))
+    .orderBy(desc(jobs.finishedAt))
+    .limit(1);
+  const due = !last?.finishedAt || Date.now() - new Date(last.finishedAt).getTime() > days * 24 * 3600 * 1000;
+  if (due) {
+    await db.insert(jobs).values({ kind: "tiktok_backlog", status: "pending" });
+    console.log(`Interwał ${days} dni minął: dodaję zlecenie odświeżenia backlogu TikTok.`);
+  }
+}
+
+async function processJobs(): Promise<number> {
+  const [job] = await db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.status, "pending"))
+    .orderBy(jobs.createdAt)
+    .limit(1);
+  if (!job) return 0;
+
+  await db.update(jobs).set({ status: "running", startedAt: new Date() }).where(eq(jobs.id, job.id));
+  const lines: string[] = [];
+  const log = (s: string) => {
+    lines.push(s);
+    console.log(`[job ${job.kind}#${job.id}] ${s}`);
+  };
+
+  try {
+    if (job.kind === "tiktok_backlog") {
+      await runTiktokBacklog(db, log);
+    } else if (job.kind === "substitutions") {
+      const payload = (job.payload ?? {}) as { limit?: number };
+      await runSubstitutionsGenerate(db, log, { limit: payload.limit ?? 10 });
+    } else {
+      throw new Error(`Nieznany rodzaj zlecenia: ${job.kind}`);
+    }
+    await db
+      .update(jobs)
+      .set({ status: "done", finishedAt: new Date(), log: lines.slice(-25).join("\n") })
+      .where(eq(jobs.id, job.id));
+  } catch (e: any) {
+    lines.push(`BŁĄD: ${e?.message?.slice(0, 300)}`);
+    await db
+      .update(jobs)
+      .set({ status: "error", finishedAt: new Date(), log: lines.slice(-25).join("\n") })
+      .where(eq(jobs.id, job.id));
+  }
+  return 1;
+}
+
 async function main() {
   if (!process.argv.includes("--watch")) {
     const n = await processQueue();
+    await processJobs();
     if (n === 0) console.log("Kolejka pusta.");
     await sql.end();
     if (n === -1) process.exit(1);
@@ -839,11 +914,32 @@ async function main() {
     console.log(`Przywrócono do kolejki ${orphans.length} importów przerwanych w trakcie przetwarzania.`);
   }
 
+  // Analogicznie: zlecenia `running` po ubitym workerze wracają do pending
+  const orphanJobs = await db
+    .update(jobs)
+    .set({ status: "pending", startedAt: null })
+    .where(eq(jobs.status, "running"))
+    .returning({ id: jobs.id });
+  if (orphanJobs.length > 0) {
+    console.log(`Przywrócono do kolejki ${orphanJobs.length} zleceń przerwanych w trakcie.`);
+  }
+
   console.log("Worker w trybie ciągłym: sprawdzam kolejkę co 10 s...");
+  let lastIntervalCheck = 0;
   while (true) {
     let n = 0;
     try {
       n = await processQueue();
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      // Interwał sprawdzamy co ~10 min (tania para zapytań, ale bez spamu)
+      if (Date.now() - lastIntervalCheck > 10 * 60 * 1000) {
+        lastIntervalCheck = Date.now();
+        await enqueueIntervalBacklog();
+      }
+      await processJobs();
     } catch (e) {
       console.error(e);
     }
