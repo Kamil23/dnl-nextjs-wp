@@ -118,8 +118,10 @@ docker compose build tools          # WAŻNE: reindex idzie z obrazu tools → m
 docker compose run --rm tools npm run search:reindex
 ```
 
-> **Zmiana kodu + schematu + wyszukiwarki naraz** (jak przy dużym release): najprościej `docker compose build`
-> (wszystko), potem `db:push` → `search:reindex` → `up -d web worker`. Kolejność: schemat przed reindeksem przed startem.
+> **Zmiana kodu + schematu naraz** (duży release): SCHEMAT MUSI WEJŚĆ PRZED BUILDEM WEB, bo
+> `next build` prerenderuje strony, które czytają bazę (np. strona przepisu czyta `substitutions`) -
+> build na starej bazie padnie na nieistniejącej tabeli. Kolejność:
+> `build tools` → `db:push` → `build web worker` → (`search:reindex` jeśli dotyczy) → `up -d web worker`.
 
 > **ISR:** edycje treści w panelu admina odświeżają się same (`revalidate: 60`) - redeploy tylko przy zmianach **kodu** lub **schematu**. Media dodane w panelu/imporcie lądują na wolumenie `/srv/dnl/media` i są od razu serwowane przez Caddy (bez rebuildu).
 
