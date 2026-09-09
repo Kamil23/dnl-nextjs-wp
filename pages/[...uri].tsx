@@ -88,7 +88,7 @@ export default function Content({
                 className="grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-8 items-start scroll-mt-6 mb-4"
               >
                 <div className="lg:sticky lg:top-6">
-                  <IngredientsCard recipe={recipe} />
+                  <IngredientsCard recipe={recipe} substitutions={substitutions ?? []} />
                   <SponsorCard sponsor={recipe.sponsor} />
                   <div className="mt-6">
                     <NewsletterSignup

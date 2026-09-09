@@ -46,6 +46,7 @@ export default function RecipeEditor({ initial, allCategories }) {
     sponsorBrand: initial.sponsor?.brand ?? "",
     sponsorCode: initial.sponsor?.code ?? "",
     sponsorNote: initial.sponsor?.note ?? "",
+    sponsorUrl: initial.sponsor?.url ?? "",
     ingredientGroups: initial.ingredientGroups?.length
       ? initial.ingredientGroups
       : [{ title: "", items: [""] }],
@@ -459,6 +460,10 @@ export default function RecipeEditor({ initial, allCategories }) {
             <label className={`${labelCls} mt-3`}>
               Notatka (czego dotyczy)
               <input value={form.sponsorNote} onChange={(e) => set("sponsorNote", e.target.value)} className={inputCls} placeholder="np. -15% na przyprawy" />
+            </label>
+            <label className={`${labelCls} mt-3`}>
+              Link do sklepu marki
+              <input value={form.sponsorUrl} onChange={(e) => set("sponsorUrl", e.target.value)} className={inputCls} placeholder="np. https://kol-pol.pl/" />
             </label>
             <p className="text-xs text-gray-400 mt-2">
               Wyświetla się pod składnikami jako oznaczony box "Współpraca reklamowa"

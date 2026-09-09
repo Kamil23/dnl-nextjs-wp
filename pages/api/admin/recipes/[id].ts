@@ -108,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           seoTitle: str(b.seoTitle),
           seoDescription: str(b.seoDescription),
           sponsor: str(b.sponsorBrand)
-            ? { brand: str(b.sponsorBrand), code: str(b.sponsorCode), note: str(b.sponsorNote) }
+            ? { brand: str(b.sponsorBrand), code: str(b.sponsorCode), note: str(b.sponsorNote), url: str(b.sponsorUrl) }
             : null,
           publishedAt: b.publishedAt ? new Date(b.publishedAt) : existing.publishedAt,
           updatedAt: new Date(),

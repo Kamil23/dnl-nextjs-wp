@@ -2,7 +2,11 @@ import { useState } from "react";
 
 // Clearly-marked paid collaboration box with a copyable discount code.
 // The "Współpraca reklamowa" label is a legal requirement - keep it visible.
-export default function SponsorCard({ sponsor }: { sponsor: { brand: string; code?: string | null; note?: string | null } | null }) {
+export default function SponsorCard({
+  sponsor,
+}: {
+  sponsor: { brand: string; code?: string | null; note?: string | null; url?: string | null } | null;
+}) {
   const [copied, setCopied] = useState(false);
   if (!sponsor?.brand) return null;
 
@@ -20,9 +24,32 @@ export default function SponsorCard({ sponsor }: { sponsor: { brand: string; cod
         Współpraca reklamowa
       </div>
       <p className="text-sm text-gray-700">
-        Przepis powstał we współpracy z <strong>{sponsor.brand}</strong>
+        Przepis powstał we współpracy z{" "}
+        {sponsor.url ? (
+          // rel="sponsored": wymóg Google dla linków z płatnych współprac
+          <a
+            href={sponsor.url}
+            target="_blank"
+            rel="sponsored noopener"
+            className="font-bold underline underline-offset-2 hover:text-gray-900"
+          >
+            {sponsor.brand}
+          </a>
+        ) : (
+          <strong>{sponsor.brand}</strong>
+        )}
         {sponsor.note ? <>: {sponsor.note}</> : null}
       </p>
+      {sponsor.url && (
+        <a
+          href={sponsor.url}
+          target="_blank"
+          rel="sponsored noopener"
+          className="mt-2 inline-block text-xs text-gray-500 underline underline-offset-2 hover:text-gray-800"
+        >
+          Przejdź do sklepu {sponsor.brand} ↗
+        </a>
+      )}
       {sponsor.code && (
         <button
           onClick={copyCode}

@@ -159,7 +159,9 @@ export default function NewsletterSignup({
         {c.emoji} {c.title}
       </p>
       <p className="text-sm text-gray-600 mt-1 mb-3">{c.text}</p>
-      <form onSubmit={submit} className="flex flex-col sm:flex-row gap-2">
+      {/* flex-wrap zamiast sztywnego rzędu: w wąskich kontenerach (kolumna
+          przepisu ~400px) przycisk łamie się pod input zamiast wystawać poza kafelek */}
+      <form onSubmit={submit} className="flex flex-wrap gap-2">
         <input
           type="text"
           name="website"
@@ -177,7 +179,7 @@ export default function NewsletterSignup({
           onChange={(e) => setEmail(e.target.value)}
           onFocus={mountCaptcha}
           placeholder="twoj@email.pl"
-          className="flex-1 rounded-full border border-amber-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+          className="flex-1 min-w-[11rem] rounded-full border border-amber-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
         />
         <button
           type="submit"

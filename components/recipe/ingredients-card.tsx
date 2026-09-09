@@ -5,12 +5,35 @@ import { addRecipeItems } from "../../lib/shopping-list";
 import { track } from "../../lib/ga-events";
 import CookMode from "./cook-mode";
 
+type Substitution = {
+  ingredientText: string;
+  substitute: string;
+  effect?: string | null;
+  kcalDelta?: number | null;
+};
+
 // Interactive ingredients: check-off (persisted per recipe in localStorage),
-// servings scaler and a screen wake lock for cooking.
-export default function IngredientsCard({ recipe }) {
+// servings scaler and a screen wake lock for cooking. Ingredients with an
+// approved substitution get a 🔁 toggle revealing the swap inline.
+export default function IngredientsCard({
+  recipe,
+  substitutions = [],
+}: {
+  recipe: any;
+  substitutions?: Substitution[];
+}) {
   const baseServings: number | null = recipe.servings ?? null;
   const [servings, setServings] = useState(baseServings ?? 1);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [openSub, setOpenSub] = useState<Record<string, boolean>>({});
+  // ingredientText w zamiennikach to dosłowny rawText pozycji (pilnuje tego generator)
+  const subByText = new Map(substitutions.map((s) => [s.ingredientText, s]));
+
+  function toggleSub(key: string, ingredient: string) {
+    const next = !openSub[key];
+    setOpenSub((o) => ({ ...o, [key]: next }));
+    if (next) track("substitution_click", { recipe_id: recipe.id, ingredient });
+  }
   const [wakeLockOn, setWakeLockOn] = useState(false);
   const [cookMode, setCookMode] = useState(false);
   const [addedToList, setAddedToList] = useState(false);
@@ -112,6 +135,7 @@ export default function IngredientsCard({ recipe }) {
             {group.items.map((item, ii) => {
               const key = `${gi}-${ii}`;
               const isChecked = !!checked[key];
+              const sub = subByText.get(item);
               return (
                 <li key={key}>
                   <label className="flex items-start gap-3 cursor-pointer rounded-xl px-2 py-1.5 hover:bg-amber-50 transition group">
@@ -128,7 +152,42 @@ export default function IngredientsCard({ recipe }) {
                     >
                       {scaleIngredient(item, factor)}
                     </span>
+                    {sub && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleSub(key, item);
+                        }}
+                        title="Zobacz, czym zastąpić"
+                        aria-expanded={!!openSub[key]}
+                        className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs border transition ${
+                          openSub[key]
+                            ? "bg-amber-500 border-amber-500 text-white"
+                            : "bg-white border-amber-200 text-amber-700 hover:border-amber-400 opacity-70 group-hover:opacity-100"
+                        }`}
+                      >
+                        🔁 zamień
+                      </button>
+                    )}
                   </label>
+                  {sub && openSub[key] && (
+                    <div className="ml-9 mr-2 mb-1 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-sm">
+                      <span className="font-medium text-gray-800">{sub.substitute}</span>
+                      {sub.effect && <span className="text-gray-600"> · {sub.effect}</span>}
+                      {sub.kcalDelta != null && sub.kcalDelta !== 0 && (
+                        <span
+                          className={`ml-1.5 font-semibold ${
+                            sub.kcalDelta < 0 ? "text-emerald-600" : "text-amber-700"
+                          }`}
+                        >
+                          {sub.kcalDelta > 0 ? "+" : ""}
+                          {sub.kcalDelta} kcal
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
