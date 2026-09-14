@@ -1,0 +1,257 @@
+<title>Jak wyceniać współprace · raport dla Roksany</title>
+<style>
+  :root{
+    --ink:#111827; --muted:#6b7280; --soft:#9ca3af;
+    --amber:#f59e0b; --amber-deep:#b45309; --amber-soft:#fffbeb; --amber-line:#fde68a;
+    --green:#047857; --green-soft:#ecfdf5;
+    --line:#f3f4f6; --line2:#e5e7eb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:#fff;line-height:1.65;
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:840px;margin:0 auto;padding:0 20px 60px}
+  .logo{font-family:"Snell Roundhand","Brush Script MT","Segoe Script",cursive;font-weight:700}
+  .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--soft)}
+  h1{font-size:34px;letter-spacing:-.02em;line-height:1.15;margin:6px 0 10px;text-wrap:balance}
+  h2{font-size:22px;letter-spacing:-.01em;margin:0 0 8px;text-wrap:balance}
+  h3{font-size:16px;margin:0 0 4px}
+  p{margin:0 0 12px}
+  .lead{color:var(--muted);max-width:64ch}
+  section{margin:44px 0}
+  .num{font-variant-numeric:tabular-nums}
+  header.top{
+    margin-top:26px;border-radius:24px;padding:38px 30px;
+    background:linear-gradient(135deg,#fffbeb 0%,#fff7ed 55%,#fff1f2 100%);
+  }
+  header.top .logo{font-size:26px}
+  .badge{display:inline-block;background:var(--ink);color:#fff;border-radius:999px;
+    font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--soft);
+    text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2)}
+  td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  td.r,th.r{text-align:right}
+  .tbl{border:1px solid var(--line);border-radius:18px;overflow:hidden;overflow-x:auto;
+    box-shadow:0 1px 2px rgba(17,24,39,.04)}
+  .hl{background:var(--amber-soft)}
+  .hl td{font-weight:700}
+  .pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700}
+  .pill.v{background:var(--green-soft);color:var(--green)}
+  .pill.u{background:var(--line);color:var(--muted)}
+  .callout{border-left:3px solid var(--amber);background:var(--amber-soft);
+    border-radius:0 14px 14px 0;padding:14px 18px;margin:16px 0;font-size:14.5px}
+  .callout b{color:var(--amber-deep)}
+  .formula{background:#f9fafb;border:1px solid var(--line2);border-radius:14px;
+    padding:14px 18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px;overflow-x:auto}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:700px){.cards{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 1px 2px rgba(17,24,39,.04)}
+  .card .v{font-size:24px;font-weight:800;letter-spacing:-.02em}
+  .card .l{font-size:12.5px;color:var(--muted)}
+  .dark{background:var(--ink);color:#fff;border-radius:22px;padding:28px 26px}
+  .dark h2{color:#fff}
+  .dark p, .dark li{color:#d1d5db}
+  .dark li::marker{color:var(--amber)}
+  ul{padding-left:20px;margin:0 0 12px}
+  li{margin-bottom:6px}
+  .say{background:#f9fafb;border:1px solid var(--line2);border-radius:14px;padding:12px 16px;
+    font-size:14px;margin-bottom:10px}
+  .say b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--soft);margin-bottom:4px}
+  .src{font-size:12.5px;color:var(--muted)}
+  .src a{color:var(--amber-deep)}
+  footer{color:var(--soft);font-size:12px;margin-top:40px}
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="badge">Dokument wewnętrzny · nie wysyłać markom</div>
+    <div class="logo">dieta na luzie</div>
+    <div class="eyebrow" style="margin-top:10px">Raport · 14 września 2026</div>
+    <h1>Jak wyceniać współprace i ile brać</h1>
+    <p class="lead">
+      Rynkowe widełki zebrane z aktualnych źródeł (2025-2026), przeliczone na Twoje realne zasięgi.
+      Na końcu: gotowy cennik, dopłaty i ściąga zdań do negocjacji.
+    </p>
+  </header>
+
+  <!-- ZASADY RYNKU -->
+  <section>
+    <div class="eyebrow">Jak rynek wycenia w 2026</div>
+    <h2>Trzy zasady, które musisz znać</h2>
+    <ul>
+      <li><b>Płaci się za wyświetlenia, nie za obserwujących.</b> Standard rynkowy: stawka wynika ze
+        średnich wyświetleń ostatnich filmów (30-90 dni), z wycięciem wirali powyżej 10x średniej.
+        <span class="pill v">zweryfikowane</span></li>
+      <li><b>Marki nie płacą premii za szansę na wirala.</b> Cytat z przewodnika Modash: „nie płać za
+        0,01% szansy, że będzie milion zamiast 30 tysięcy". Wiral to Twój argument sprzedażowy
+        („u mnie zdarza się często"), ale nie podstawa stawki. <span class="pill v">zweryfikowane</span></li>
+      <li><b>Treść sponsorowana zasięgowo lekko traci.</b> Przy szacowaniu wyświetleń materiału z marką
+        odejmuje się 10-20% od organicznej średniej. <span class="pill v">zweryfikowane</span></li>
+    </ul>
+  </section>
+
+  <!-- TWOJE LICZBY -->
+  <section>
+    <div class="eyebrow">Twoje liczby (TikTok, wrzesień 2026)</div>
+    <h2>Na czym stoi Twoja wycena</h2>
+    <div class="cards">
+      <div class="card"><div class="v num">8,7 tys.</div><div class="l">mediana wyświetleń ostatnich 30 rolek</div></div>
+      <div class="card"><div class="v num">17,4 tys.</div><div class="l">mediana ostatnich 100 rolek</div></div>
+      <div class="card"><div class="v num">44-103 tys.</div><div class="l">średnia (zawyżona przez wirale)</div></div>
+      <div class="cards" style="grid-column:1/-1;grid-template-columns:repeat(3,1fr)">
+        <div class="card"><div class="v num">28%</div><div class="l">filmów przebiło 100 tys. wyświetleń</div></div>
+        <div class="card"><div class="v num">12</div><div class="l">filmów powyżej 1 mln</div></div>
+        <div class="card"><div class="v num">6,9 mln</div><div class="l">rekordowa rolka</div></div>
+      </div>
+    </div>
+    <div class="callout">
+      Do wyceny bazowej przyjmujemy uczciwie <b>9-15 tys. oczekiwanych wyświetleń</b> rolki
+      sponsorowanej (mediana minus 10-20% za treść z marką). Ogon wiralowy sprzedajesz jako bonus:
+      niemal co trzecia Twoja rolka robi ponad 100 tysięcy.
+    </div>
+  </section>
+
+  <!-- RACHUNEK ROLKA -->
+  <section>
+    <div class="eyebrow">Rachunek 1</div>
+    <h2>Ile jest warta sama rolka</h2>
+    <p class="lead">Dwie niezależne metody dają zbieżny wynik:</p>
+
+    <h3 style="margin-top:16px">A. Metoda CPM (stawka za 1000 wyświetleń)</h3>
+    <p class="src" style="margin-bottom:8px">Benchmark niszy food/cooking: 8-16 USD CPM, rozsądny sufit 20 USD
+      (ok. 32-64 zł, sufit 80 zł, kurs ~4 zł/USD). <span class="pill v">zweryfikowane</span></p>
+    <div class="formula">wartość rolki = oczekiwane wyświetlenia / 1000 × CPM<br>
+9-15 tys. wyświetleń × 32-64 zł  =  <b>290-960 zł</b>   (sufit przy 80 zł: ~1200 zł)</div>
+
+    <h3 style="margin-top:18px">B. Metoda flat: polskie widełki 2025/2026</h3>
+    <ul>
+      <li>Polscy mikroinfluencerzy (10-50 tys. obserwujących): <b>500-5000 zł</b> za materiał <span class="pill v">zweryfikowane</span></li>
+      <li>TikTok w Polsce: kampanie od ~300 zł, topowi twórcy do <b>6000 zł</b> za film <span class="pill v">zweryfikowane</span></li>
+    </ul>
+
+    <div class="callout"><b>Wniosek:</b> sama rolka u Ciebie jest dziś uczciwie warta
+      <b>700-1200 zł</b>. Poniżej 500 zł nie schodzisz (dolna granica polskich widełek mikro),
+      a argumentem za górą widełek jest ogon wiralowy i jakość produkcji.</div>
+  </section>
+
+  <!-- RACHUNEK PRZEPIS -->
+  <section>
+    <div class="eyebrow">Rachunek 2</div>
+    <h2>Ile jest wart przepis na stronie (to, czego inni nie mają)</h2>
+    <p class="lead">
+      Rynek wycenia artykuł sponsorowany z linkiem: małe blogi 50-300 zł, ale
+      <b>średnie portale z realną publicznością w niszy: 500-2500 zł</b>. Cenę podbijają: link
+      dofollow, bezterminowa publikacja i realny ruch. <span class="pill v">zweryfikowane, sierpień 2026</span>
+    </p>
+    <p class="lead">
+      Twój przepis sponsorowany spełnia wszystkie trzy warunki premium: zostaje na stałe, ma stały
+      link do sklepu marki i, czego nie ma prawie nikt, bywa <b>cytowany w odpowiedziach AI Google</b>
+      (ponad 1200 pojawień dziennie, karta obok Przepisy.pl). To realnie środek tych widełek:
+      <b>500-900 zł wartości w pakiecie</b>.
+    </p>
+  </section>
+
+  <!-- CENNIK -->
+  <section>
+    <div class="eyebrow">Rekomendacja</div>
+    <h2>Twój cennik (kotwica, cel, minimum)</h2>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Oferta</th><th>Co zawiera</th><th class="r">Kotwica</th><th class="r">Cel</th><th class="r">Minimum</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Rolka solo</b></td>
+            <td>1 rolka TikTok z produktem</td>
+            <td class="r num">1200 zł</td><td class="r num">800-1000 zł</td><td class="r num">700 zł</td>
+          </tr>
+          <tr class="hl">
+            <td>Pakiet „Przepis z marką"</td>
+            <td>rolka + przepis na stronie na stałe + kod i link do sklepu + newsletter</td>
+            <td class="r num">2500 zł</td><td class="r num">1800-2200 zł</td><td class="r num">1500 zł</td>
+          </tr>
+          <tr>
+            <td><b>Seria 3 pakietów</b></td>
+            <td>3x pakiet w kwartale (rabat pakietowy)</td>
+            <td class="r num">6300 zł</td><td class="r num">5000-5600 zł</td><td class="r num">4500 zł</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="src" style="margin-top:10px">Pakiet wyceniony jako rolka (700-1200) + przepis evergreen
+      (500-900) + premia za kod/organizację. Rabat w serii: maks. 15-20%, kontrolowany przez Ciebie
+      (rynek zna rabaty do 40% przy długich umowach, nie oddawaj ich na starcie).</p>
+
+    <h3 style="margin-top:22px">Dopłaty (doliczaj do ceny, nie rozdawaj)</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Za co</th><th class="r">Ile</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Prawa do użycia materiału w reklamach marki (usage rights)</td><td class="r">+20-50%</td><td><span class="pill u">widełki branżowe</span></td></tr>
+          <tr><td>Spark Ads / promowanie Twojego konta przez markę</td><td class="r">+20-50%</td><td><span class="pill u">widełki branżowe</span></td></tr>
+          <tr><td>Wyłączność kategorii (np. żadnych innych przypraw przez X mies.)</td><td class="r">+15-30% / mies.</td><td><span class="pill u">widełki branżowe</span></td></tr>
+          <tr><td>Pakiet ambasadorski (stała twarz marki)</td><td class="r">+50-150%</td><td><span class="pill v">zweryfikowane</span></td></tr>
+          <tr><td>Ekspres (publikacja w mniej niż tydzień)</td><td class="r">+25%</td><td><span class="pill u">widełki branżowe</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- NEGOCJACJE -->
+  <section>
+    <div class="dark">
+      <div class="eyebrow" style="color:#9ca3af">Zasady negocjacji</div>
+      <h2>Sześć reguł, których się trzymasz</h2>
+      <ul>
+        <li><b>Kotwiczysz wysoko.</b> Pierwsza liczba pada od Ciebie i jest to kotwica z tabeli. Schodzisz najwyżej do celu, nigdy poniżej minimum.</li>
+        <li><b>Nie tłumaczysz się z mediany.</b> Gdy marka mówi „ale ostatnie rolki miały po 9 tysięcy", odpowiadasz: tak liczy się bazę, a co trzecia moja rolka robi 100 tysięcy plus, ten upside dostajecie gratis.</li>
+        <li><b>Barter tylko na start i tylko 3x.</b> Norma rynkowa: produkt wart ok. trzykrotności świadczeń. Poniżej tego grzecznie odmawiasz. Barter to maksymalnie pierwsza, testowa współpraca.</li>
+        <li><b>Rabat tylko za coś.</b> Niższa stawka wyłącznie przy serii z góry opłaconej albo dłuższej umowie, nigdy „bo mały budżet".</li>
+        <li><b>Dopłaty są osobno.</b> Prawa do materiału, Spark Ads i wyłączność to pozycje na fakturze, nie gratisy do miłej rozmowy.</li>
+        <li><b>Przepis na stronie to Twój as.</b> Żaden twórca „od rolek" go nie ma. Gdy marka porównuje Cię z kimś tańszym, pytasz: a co u niego zostaje po tygodniu?</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ŚCIĄGA -->
+  <section>
+    <div class="eyebrow">Ściąga</div>
+    <h2>Gotowe odpowiedzi</h2>
+    <div class="say"><b>Gdy pytają o cenę</b>
+      „Pakiet, który polecam, to rolka plus przepis na stałe na mojej stronie, z kodem rabatowym
+      i linkiem do Waszego sklepu. Koszt: 2500 zł. Sama rolka: 1200 zł."</div>
+    <div class="say"><b>Gdy mówią, że za drogo</b>
+      „Rozumiem. Rolka żyje kilka dni, a przepis na stronie pracuje miesiącami: Google pokazuje moje
+      przepisy w odpowiedziach AI ponad 1200 razy dziennie. Jeśli budżet jest sztywny, mogę zdjąć
+      z pakietu newsletter i zejść do 2000 zł."</div>
+    <div class="say"><b>Gdy proponują barter</b>
+      „Barter biorę wyłącznie przy pierwszej, testowej współpracy i gdy wartość produktów wyraźnie
+      przekracza wycenę świadczeń. Przy tym zakresie potrzebuję rozliczenia gotówkowego."</div>
+    <div class="say"><b>Gdy chcą użyć materiału w swoich reklamach</b>
+      „Jasne, prawa do wykorzystania w kanałach marki to dopłata 30% do stawki, na okres 6 miesięcy."</div>
+  </section>
+
+  <!-- ŹRÓDŁA -->
+  <section>
+    <div class="eyebrow">Źródła i status weryfikacji</div>
+    <p class="src">
+      Kluczowe liczby zweryfikowane bezpośrednio u źródeł 14.09.2026:
+      <a href="https://www.modash.io/blog/tiktok-pricing-guide">Modash, TikTok Pricing Guide</a> (akt. 03.2026:
+      widełki 200-1000 USD dla 10-100 tys., wycena po wyświetleniach, sufit 20 USD CPM, bez premii za wiral) ·
+      <a href="https://influencerfee.com/blog/tiktok-cpm-calculator/">InfluencerFee, CPM Calculator</a>
+      (CPM food 8-16 USD, micro 8-18, korekta -10-20% dla treści sponsorowanych) ·
+      <a href="https://b.refspace.com/ile-kosztuje-wspolpraca-z-influencerem-w-2025-od-barteru-do-pieciocyfrowych-faktur/">RefSpace PL</a>
+      (akt. 01.2026: micro 500-5000 zł, TikTok 300-6000 zł, ambasador +50-150%, rabat długoterminowy do 40%, barter 3x) ·
+      <a href="https://publicysci.pl/artykul-sponsorowany-cena">Publicyści.pl</a> (akt. 08.2026: artykuł sponsorowany,
+      średnie portale niszowe 500-2500 zł).
+      Pozycje oznaczone „widełki branżowe" pochodzą z przewodników agencyjnych (influee.co) i nie zostały
+      niezależnie potwierdzone: traktuj jako punkt wyjścia, nie dogmat.
+      Twoje statystyki: katalog 498 rolek @roksanacieplicka, stan 09.09.2026; dane AI: Google Search Console.
+    </p>
+  </section>
+
+  <footer>
+    Przygotowane dla Roksany · dietanaluzie.pl · kurs USD ~4 zł przyjęty zachowawczo ·
+    wycenę aktualizuj, gdy mediana wyświetleń wzrośnie (wzór w Rachunku 1).
+  </footer>
+</div>
