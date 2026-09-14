@@ -1,0 +1,321 @@
+<title>Współpraca z Dieta na luzie</title>
+<style>
+  :root{
+    --ink:#111827; --muted:#6b7280; --soft:#9ca3af;
+    --amber:#f59e0b; --amber-deep:#b45309; --amber-soft:#fffbeb; --amber-line:#fde68a;
+    --line:#f3f4f6; --line2:#e5e7eb; --bg:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  .logo{
+    font-family:"Snell Roundhand","Brush Script MT","Segoe Script",cursive;
+    font-weight:700;
+  }
+  .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--soft)}
+  h1,h2{letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
+  h2{font-size:28px;margin:0 0 6px}
+  .lead{color:var(--muted);max-width:62ch}
+  section{margin:56px 0}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* HERO: gradient jak search-hero na stronie */
+  .hero{
+    margin-top:28px; border-radius:28px; text-align:center;
+    background:linear-gradient(135deg,#fffbeb 0%,#fff7ed 55%,#fff1f2 100%);
+    padding:64px 28px 56px;
+  }
+  .hero .logo{font-size:44px;margin:0 0 4px}
+  .hero .tag{color:var(--muted);font-size:14px;margin:0 0 26px}
+  .hero h1{font-size:40px;font-weight:800;margin:0 auto 14px;max-width:18ch}
+  .hero p.sub{color:var(--muted);max-width:52ch;margin:0 auto 28px}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .chip{
+    background:rgba(255,255,255,.85); border:1px solid var(--amber-line);
+    border-radius:999px; padding:8px 16px; font-size:14px; font-weight:600;
+  }
+  .chip b{color:var(--amber-deep)}
+
+  /* Statystyki */
+  .grid{display:grid;gap:14px}
+  .grid.c4{grid-template-columns:repeat(4,1fr)}
+  .grid.c3{grid-template-columns:repeat(3,1fr)}
+  .grid.c2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:760px){.grid.c4,.grid.c3{grid-template-columns:repeat(2,1fr)}.grid.c2{grid-template-columns:1fr}}
+  .stat{
+    border:1px solid var(--line); border-radius:20px; padding:20px 18px;
+    box-shadow:0 1px 2px rgba(17,24,39,.04);
+  }
+  .stat .v{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .stat .v small{font-size:16px;font-weight:700;color:var(--muted)}
+  .stat .l{font-size:13px;color:var(--muted);margin-top:2px}
+  .stat .src{font-size:11px;color:var(--soft);margin-top:8px}
+
+  /* Wykres AI */
+  .panel{
+    border:1px solid var(--line); border-radius:24px; padding:26px;
+    box-shadow:0 1px 2px rgba(17,24,39,.04);
+  }
+  .bars{display:flex;align-items:flex-end;gap:18px;height:190px;margin:22px 6px 6px}
+  .bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:8px;min-width:0}
+  .bar .col{width:100%;max-width:86px;border-radius:12px 12px 6px 6px;background:#fde68a}
+  .bar.hot .col{background:var(--amber)}
+  .bar .val{font-weight:800;font-size:15px}
+  .bar .cap{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.3}
+  .peak{font-size:12.5px;color:var(--amber-deep);font-weight:600;margin-top:14px}
+
+  /* "Zrzut" z Google */
+  .serp{
+    border:1px solid var(--line2); border-radius:18px; padding:16px 18px; background:#fff;
+  }
+  .serp .q{font-size:13px;color:var(--muted);margin-bottom:10px}
+  .serp .card{
+    display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px;
+  }
+  .serp .card + .card{border-top:1px solid var(--line)}
+  .serp .fav{width:26px;height:26px;border-radius:999px;background:var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  .serp .card.dnl{background:var(--amber-soft);border:1px solid var(--amber-line)}
+  .serp .card.dnl .fav{background:var(--ink);color:#fff}
+  .serp .t{font-weight:600;font-size:14.5px;line-height:1.35}
+  .serp .d{font-size:12.5px;color:var(--muted)}
+
+  /* Mock karty współpracy 1:1 ze strony */
+  .sponsor{
+    border:1px solid var(--line2); background:#f9fafb; border-radius:18px; padding:16px 18px;
+  }
+  .sponsor .label{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--soft);margin-bottom:4px}
+  .sponsor p{margin:0;font-size:14.5px;color:#374151}
+  .sponsor .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+  .code{
+    display:inline-flex;align-items:center;gap:10px;border:2px dashed var(--amber);
+    background:var(--amber-soft); border-radius:14px; padding:9px 16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:800; color:#78350f;
+    cursor:pointer;
+  }
+  .code span{font-family:ui-sans-serif,system-ui,sans-serif;font-weight:500;font-size:12px;color:var(--amber-deep)}
+  .shopbtn{
+    display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#fff;
+    border-radius:14px;padding:10px 16px;font-size:14px;font-weight:600;text-decoration:none;
+  }
+
+  /* Pakiet */
+  .pack{border:1px solid var(--line);border-radius:20px;padding:20px 18px;box-shadow:0 1px 2px rgba(17,24,39,.04)}
+  .pack .ico{font-size:22px}
+  .pack h3{margin:8px 0 4px;font-size:16.5px;letter-spacing:-.01em}
+  .pack p{margin:0;font-size:13.5px;color:var(--muted)}
+  .pack .life{display:inline-block;margin-top:10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:3px 10px}
+  .life.long{background:#ecfdf5;color:#047857}
+  .life.burst{background:var(--amber-soft);color:var(--amber-deep)}
+
+  /* Proces */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:760px){.steps{grid-template-columns:repeat(2,1fr)}}
+  .step{border:1px solid var(--line);border-radius:20px;padding:18px}
+  .step .no{
+    width:28px;height:28px;border-radius:999px;background:var(--amber);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;margin-bottom:10px;
+  }
+  .step h3{margin:0 0 4px;font-size:15px}
+  .step p{margin:0;font-size:13px;color:var(--muted)}
+
+  /* Ciemny pas zasad, jak AboutBox */
+  .dark{
+    background:var(--ink); color:#fff; border-radius:28px; padding:40px 34px;
+  }
+  .dark h2{color:#fff}
+  .dark .lead{color:#d1d5db}
+  .rules{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 26px;margin-top:18px;padding:0;list-style:none}
+  @media(max-width:700px){.rules{grid-template-columns:1fr}}
+  .rules li{display:flex;gap:10px;font-size:14.5px;color:#e5e7eb}
+  .rules li::before{content:"✓";color:var(--amber);font-weight:800}
+
+  /* Kontakt */
+  .contact{text-align:center;padding:30px 0 8px}
+  .contact .logo{font-size:30px}
+  .mail{
+    display:inline-block;margin:14px 0 6px;background:var(--amber);color:#78350f;
+    font-weight:800;border-radius:999px;padding:12px 26px;text-decoration:none;font-size:16px;
+  }
+  .handles{color:var(--muted);font-size:14px}
+  footer{color:var(--soft);font-size:12px;text-align:center;padding:26px 0 40px}
+  .footnote{font-size:12px;color:var(--soft);margin-top:10px}
+</style>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="eyebrow">Oferta współpracy · wrzesień 2026</div>
+    <div class="logo">dieta na luzie</div>
+    <p class="tag">jak jeść i nie zwariować?</p>
+    <h1>Twoja marka w przepisach, które poleca Google</h1>
+    <p class="sub">
+      Rolka na TikToku daje zasięg na dwa dni. Przepis na dietanaluzie.pl pracuje dla marki
+      miesiącami: w Google, w odpowiedziach AI i w newsletterze. U nas dostajesz jedno i drugie
+      z jednego nagrania.
+    </p>
+    <div class="chips">
+      <span class="chip num"><b>6,9 mln</b> wyświetleń najlepszej rolki</span>
+      <span class="chip num"><b>1200+</b> pojawień dziennie w odpowiedziach AI Google</span>
+      <span class="chip num"><b>110+</b> przepisów online, ~300 kolejnych w drodze</span>
+    </div>
+  </header>
+
+  <!-- KIM JESTEŚMY -->
+  <section>
+    <div class="eyebrow">Kim jesteśmy</div>
+    <h2>Roksana gotuje. Naprawdę.</h2>
+    <p class="lead">
+      Dieta na luzie to blog kulinarny Roksany Cieplickiej: proste serniki i ciasta bez pieczenia,
+      domowe wersje ulubionych słodyczy, śniadania i obiady z jednego garnka. Każdy przepis
+      przechodzi przez jej kuchnię, zanim trafi do sieci, z kaloriami i makro policzonymi
+      do każdej porcji. Oceny pod przepisami pochodzą wyłącznie od osób, które naprawdę ugotowały.
+    </p>
+    <div class="grid c4" style="margin-top:20px">
+      <div class="stat"><div class="v num">~500</div><div class="l">opublikowanych filmów na TikToku</div><div class="src">@roksanacieplicka</div></div>
+      <div class="stat"><div class="v num">6,9<small> mln</small></div><div class="l">wyświetleń najpopularniejszej rolki</div><div class="src">kolejne hity: 4,7 mln · 3,0 mln · 2,8 mln</div></div>
+      <div class="stat"><div class="v num">110+</div><div class="l">przepisów na stronie, każdy przetestowany</div><div class="src">ok. 300 kolejnych z archiwum w przygotowaniu</div></div>
+      <div class="stat"><div class="v num">99</div><div class="l">stron narzędzi kuchennych (przeliczniki miar)</div><div class="src">+ kalkulatory diet i planery w budowie</div></div>
+    </div>
+  </section>
+
+  <!-- DLACZEGO TO DZIAŁA -->
+  <section>
+    <div class="eyebrow">Dlaczego to działa inaczej niż sama rolka</div>
+    <h2>Google AI cytuje nasze przepisy. Codziennie częściej.</h2>
+    <p class="lead">
+      Google coraz częściej odpowiada na pytania kulinarne własnym podsumowaniem AI i wskazuje
+      w nim tylko kilka źródeł. Dieta na luzie jest wśród nich, obok największych serwisów w Polsce.
+      Widoczność w tych odpowiedziach urosła u nas czterokrotnie w trzy tygodnie.
+    </p>
+
+    <div class="grid c2" style="margin-top:20px;align-items:stretch">
+      <div class="panel">
+        <div class="eyebrow">Pojawienia w odpowiedziach AI Google, średnio dziennie</div>
+        <div class="bars" role="img" aria-label="Wykres: lipiec 328, sierpień 306, koniec sierpnia 390, wrzesień 1018, ostatni tydzień 1205 pojawień dziennie">
+          <div class="bar"><div class="val num">328</div><div class="col" style="height:27%"></div><div class="cap">lipiec</div></div>
+          <div class="bar"><div class="val num">306</div><div class="col" style="height:25%"></div><div class="cap">1-24 sie</div></div>
+          <div class="bar"><div class="val num">390</div><div class="col" style="height:32%"></div><div class="cap">25-31 sie</div></div>
+          <div class="bar hot"><div class="val num">1018</div><div class="col" style="height:84%"></div><div class="cap">1-12 wrz</div></div>
+          <div class="bar hot"><div class="val num">1205</div><div class="col" style="height:100%"></div><div class="cap">ostatnie 5 dni</div></div>
+        </div>
+        <div class="peak num">▲ rekord dnia: 1443 (12.09), trend nadal rośnie</div>
+        <div class="footnote">Źródło: Google Search Console, raport skuteczności w generatywnej AI.</div>
+      </div>
+
+      <div class="panel">
+        <div class="eyebrow">Tak to wygląda w Google</div>
+        <div class="serp" style="margin-top:14px">
+          <div class="q">🔍 „powidła z jabłek" · Przegląd od AI · źródła:</div>
+          <div class="card">
+            <div class="fav">P</div>
+            <div><div class="t">Konfitura z jabłek: powidła, przepis na zimę</div><div class="d">Przepisy.pl</div></div>
+          </div>
+          <div class="card dnl">
+            <div class="fav logo">d</div>
+            <div><div class="t">Dżem powidła z jabłek</div><div class="d"><b>Dieta na luzie</b> · składniki i porcje prosto z naszej strony</div></div>
+          </div>
+        </div>
+        <p style="font-size:13.5px;color:var(--muted);margin:14px 2px 0">
+          Karta Diety na luzie w panelu źródeł odpowiedzi AI, tuż obok serwisu należącego do
+          Unilevera. Przepis sponsorowany dostaje dokładnie tę samą infrastrukturę.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CO DOSTAJE MARKA -->
+  <section>
+    <div class="eyebrow">Co dostaje marka</div>
+    <h2>Jedno nagranie, cztery miejsca pracy</h2>
+    <div class="grid c4" style="margin-top:20px">
+      <div class="pack"><div class="ico">🎬</div><h3>Rolka na TikToku</h3><p>Przepis z Twoim produktem w roli składnika, głosem Roksany, dla jej społeczności.</p><span class="life burst">zasięg: dni</span></div>
+      <div class="pack"><div class="ico">📄</div><h3>Przepis na stronie</h3><p>Stały adres z oznaczeniem współpracy, zbierający ruch z Google i odpowiedzi AI.</p><span class="life long">pracuje: miesiące</span></div>
+      <div class="pack"><div class="ico">🏷️</div><h3>Kod rabatowy + link</h3><p>Kod kopiowany jednym kliknięciem i przycisk prosto do Twojego sklepu.</p><span class="life long">pracuje: miesiące</span></div>
+      <div class="pack"><div class="ico">💌</div><h3>Newsletter</h3><p>Przepis trafia do wydania newslettera dla najwierniejszych czytelniczek.</p><span class="life burst">zasięg: tygodnie</span></div>
+    </div>
+
+    <div class="grid c2" style="margin-top:18px;align-items:center">
+      <div>
+        <h2 style="font-size:20px">Tak wygląda Twoja marka w przepisie</h2>
+        <p class="lead" style="font-size:14.5px">
+          Czytelne, zgodne z prawem oznaczenie, kod rabatowy, który czytelniczka kopiuje jednym
+          kliknięciem, i przycisk prowadzący do Twojego sklepu. Bez banerów, bez wyskakujących okien:
+          produkt jest częścią przepisu, nie reklamą obok niego.
+        </p>
+      </div>
+      <div class="sponsor">
+        <div class="label">Współpraca reklamowa</div>
+        <p>Przepis powstał we współpracy z <strong>Twoja Marka</strong>: kod rabatowy dla czytelniczek</p>
+        <div class="row">
+          <button class="code" id="democode" type="button">TWOJKOD15 <span id="codelabel">kopiuj</span></button>
+          <a class="shopbtn" href="#kontakt">Do sklepu Twoja Marka ↗</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCES -->
+  <section>
+    <div class="eyebrow">Jak wygląda współpraca</div>
+    <h2>Cztery kroki, zero chaosu</h2>
+    <div class="steps" style="margin-top:20px">
+      <div class="step"><div class="no">1</div><h3>Brief</h3><p>Opowiadasz o produkcie i celach. Ustalamy format, kod i terminy.</p></div>
+      <div class="step"><div class="no">2</div><h3>Test w kuchni</h3><p>Roksana opracowuje i gotuje przepis z Twoim produktem. Naprawdę.</p></div>
+      <div class="step"><div class="no">3</div><h3>Publikacja</h3><p>Rolka, przepis na stronie z kodem i linkiem, wydanie newslettera.</p></div>
+      <div class="step"><div class="no">4</div><h3>Podsumowanie</h3><p>Po kampanii dostajesz zestawienie zasięgów rolki i strony.</p></div>
+    </div>
+  </section>
+
+  <!-- ZASADY -->
+  <section>
+    <div class="dark">
+      <div class="eyebrow" style="color:#9ca3af">Zasady, dzięki którym to działa</div>
+      <h2>Wiarygodność jest częścią produktu</h2>
+      <p class="lead">
+        Czytelniczki ufają przepisom, bo wiedzą, że każdy przeszedł przez prawdziwą kuchnię.
+        Ta sama zasada chroni Twoją markę.
+      </p>
+      <ul class="rules">
+        <li>Współpracujemy tylko z produktami, które przejdą test w kuchni Roksany</li>
+        <li>Każda współpraca jest jasno oznaczona: „Współpraca reklamowa"</li>
+        <li>Treść pisze Roksana swoim głosem, marka akceptuje przed publikacją</li>
+        <li>Nie składamy obietnic zdrowotnych ani medycznych</li>
+        <li>Przepis zostaje na stronie na stałe, razem z kodem i linkiem</li>
+        <li>Oceny pod przepisem są prawdziwe, od osób które ugotowały</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- KONTAKT -->
+  <section class="contact" id="kontakt">
+    <div class="logo">dieta na luzie</div>
+    <p class="lead" style="margin:8px auto 0;max-width:46ch">
+      Porozmawiajmy o tym, co Twoja marka może ugotować z Roksaną.
+    </p>
+    <a class="mail" href="mailto:hello@dietanaluzie.pl">hello@dietanaluzie.pl</a>
+    <div class="handles">TikTok i Instagram: @roksanacieplicka · dietanaluzie.pl</div>
+  </section>
+
+  <footer>
+    Dane: Google Search Console (raport generatywnej AI, 13.06-12.09.2026), statystyki TikTok,
+    dietanaluzie.pl. Stan na 14.09.2026.
+  </footer>
+</div>
+
+<script>
+  // Demo kopiowania kodu, jak na prawdziwej stronie przepisu
+  const btn = document.getElementById('democode');
+  const lbl = document.getElementById('codelabel');
+  btn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText('TWOJKOD15'); } catch {}
+    lbl.textContent = '✓ skopiowano';
+    setTimeout(() => { lbl.textContent = 'kopiuj'; }, 2000);
+  });
+</script>
