@@ -31,7 +31,9 @@ export const MENU_EDGES = [
   item("cG9zdDoxMjk0", "Kalkulatory", "/kalkulatory/"),
   item("cG9zdDprb253ZXJ0ZXI=", "Konwerter miar", "/konwerter/"),
   item("cG9zdDo3NTk=", "Do pobrania", "/do-pobrania/"),
-  item("cG9zdDptb2plLXByemVwaXN5", "Moje przepisy", "/moje-przepisy/"),
+  // Renderowane w nawigacji jako serce + licznik zapisanych (intro.tsx,
+  // SavedNavLink) - spójne z sercem "Zapisz przepis" na stronach przepisów.
+  item("cG9zdDptb2plLXByemVwaXN5", "Zapisane", "/moje-przepisy/"),
 ];
 
 // Same wrapper shape as the old getMenu() GraphQL response

@@ -2,7 +2,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { GetServerSideProps } from "next";
 import { useState } from "react";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 import Container from "../components/container";
 import Layout from "../components/layout";
 import MoreStories from "../components/more-stories";
@@ -19,6 +19,8 @@ import { getUserIdFromRequest } from "../lib/user-auth";
 type Props = {
   loggedIn: boolean;
   posts: any[];
+  // Przykładowe przepisy pokazywane niezalogowanym jako „tak wygląda półka"
+  teaser: any[];
   email: string | null;
   blad: boolean;
 };
@@ -93,7 +95,7 @@ function LoginForm({ blad }: { blad: boolean }) {
   );
 }
 
-export default function MyRecipes({ loggedIn, posts, email, blad }: Props) {
+export default function MyRecipes({ loggedIn, posts, teaser, email, blad }: Props) {
   async function logout() {
     try {
       await fetch("/api/konto/wyloguj", { method: "POST" });
@@ -104,22 +106,36 @@ export default function MyRecipes({ loggedIn, posts, email, blad }: Props) {
   return (
     <Layout menu={MENU_EDGES} preview={false}>
       <Head>
-        <title>{`Moje przepisy - ${SITE_TITLE}`}</title>
+        <title>{`Zapisane przepisy - ${SITE_TITLE}`}</title>
         <meta name="robots" content="noindex, follow" />
       </Head>
       <Container>
         {!loggedIn ? (
-          <article className="max-w-xl mx-auto mb-24">
-            <PostTitle>Moje przepisy</PostTitle>
-            <p className="text-gray-600 mb-8">
-              Zapisuj ulubione przepisy sercem i miej je zawsze pod ręką: na zakupach, w
-              kuchni i przy planowaniu tygodnia.
-            </p>
-            <LoginForm blad={blad} />
+          <article className="mb-24">
+            <div className="max-w-xl mx-auto">
+              <PostTitle>Zapisane przepisy</PostTitle>
+              <p className="text-gray-600 mb-8">
+                Zbieraj ulubione jednym kliknięciem serca{" "}
+                <span className="text-amber-500">♥</span> i miej je zawsze pod ręką: na
+                zakupach, w kuchni i przy planowaniu tygodnia. Bez hasła, bez zakładania konta.
+              </p>
+              <LoginForm blad={blad} />
+            </div>
+            {teaser.length > 0 && (
+              <div className="mt-14">
+                <p className="text-center text-sm font-medium uppercase tracking-wide text-gray-500 mb-1">
+                  Coś na dobry początek Twojej półki
+                </p>
+                <p className="text-center text-sm text-gray-500 mb-6">
+                  Otwórz dowolny i kliknij <span className="text-amber-500">♥ Zapisz przepis</span> — wyląduje tutaj.
+                </p>
+                <MoreStories posts={teaser} />
+              </div>
+            )}
           </article>
         ) : (
           <>
-            <PostTitle>Moje przepisy</PostTitle>
+            <PostTitle>Zapisane przepisy</PostTitle>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-10">
               <p className="text-sm text-gray-500">
                 Zalogowano jako <span className="font-medium text-gray-700">{email}</span>
@@ -157,16 +173,29 @@ export default function MyRecipes({ loggedIn, posts, email, blad }: Props) {
 
 export const getServerSideProps: GetServerSideProps<Props> = async ({ req, query }) => {
   const blad = query.blad === "link";
+  const { users, recipes, savedRecipes } = dbSchema;
   const userId = getUserIdFromRequest(req);
-  if (!userId) {
-    return { props: { loggedIn: false, posts: [], email: null, blad } };
+
+  // Kilka realnych przepisów jako zajawka półki dla niezalogowanych (klik
+  // prowadzi do przepisu, gdzie mogą zapisać) - podwójnie jako odkrywanie.
+  async function loadTeaser() {
+    const rows = await db
+      .select()
+      .from(recipes)
+      .where(and(eq(recipes.status, "published"), like(recipes.uri, "/przepisy/%")))
+      .orderBy(desc(recipes.publishedAt))
+      .limit(4);
+    return rows.map((r) => toListingEdge(r));
   }
 
-  const { users, recipes, savedRecipes } = dbSchema;
+  if (!userId) {
+    return { props: { loggedIn: false, posts: [], teaser: await loadTeaser(), email: null, blad } };
+  }
+
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) {
     // Ważny podpis, ale konto już nie istnieje - pokaż widok logowania
-    return { props: { loggedIn: false, posts: [], email: null, blad } };
+    return { props: { loggedIn: false, posts: [], teaser: await loadTeaser(), email: null, blad } };
   }
 
   const rows = await db
@@ -180,6 +209,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async ({ req, query
     props: {
       loggedIn: true,
       posts: rows.map((r) => toListingEdge(r.recipe)),
+      teaser: [],
       email: user.email,
       blad,
     },

@@ -24,3 +24,6 @@ export const HOME_OG_IMAGE_URL =
   // WooCommerce app pages need a cart session - not part of the headless site (yet).
   // /strona-glowna/ is the WP front page and would duplicate /.
   export const EXCLUDED_PAGE_URIS = ['/koszyk/', '/moje-konto/', '/zamowienie/', '/sklep/', '/strona-glowna/'];
+  // Wysyłany po zapisaniu/odpisaniu przepisu (SaveRecipeButton), żeby licznik
+  // "Zapisane" w nawigacji odświeżył się bez przeładowania strony.
+  export const SAVED_EVENT = 'dnl:saved-changed';

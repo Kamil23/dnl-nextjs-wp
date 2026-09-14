@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SAVED_EVENT } from "../lib/constants";
 
 // Serce "Zapisz przepis". Zalogowani togglują zapis przez POST /api/zapisane
 // (optymistycznie, bez czekania na serwer). Niezalogowanym klik rozwija mały
@@ -63,6 +64,8 @@ export default function SaveRecipeButton({
       const data = await res.json();
       setLoggedIn(true);
       setSaved(!!data.saved);
+      // Odśwież licznik "Zapisane" w nawigacji bez przeładowania
+      window.dispatchEvent(new Event(SAVED_EVENT));
       if (data.saved) {
         (window as any).gtag?.("event", "recipe_saved", { recipe_id: recipeId });
       }

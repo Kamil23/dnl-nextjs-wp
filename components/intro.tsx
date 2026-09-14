@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { SITE_TITLE, SITE_DESCRIPTION } from "../lib/constants";
+import { SITE_TITLE, SITE_DESCRIPTION, SAVED_EVENT } from "../lib/constants";
 import { itemCount, SHOPPING_EVENT } from "../lib/shopping-list";
 import { CartIcon } from "./icons";
 import { CATEGORIES } from "../lib/enum";
@@ -41,6 +41,10 @@ const WPMenu = ({ menu }) => {
     const { parentId, path, id, label } = item.node;
     if (parentId || HIDDEN_MENU_IDS.includes(id)) return null;
     const isActive = path !== "/" && asPath.startsWith(path);
+    // "Zapisane" gets a heart + live count instead of a plain link
+    if (path === "/moje-przepisy/") {
+      return <SavedNavLink key={id} isActive={isActive} label={label} />;
+    }
     return (
       <Link
         href={path}
@@ -55,6 +59,53 @@ const WPMenu = ({ menu }) => {
       </Link>
     );
   });
+};
+
+// "Zapisane" w nawigacji: serce spójne z przyciskiem "Zapisz przepis" plus
+// licznik zapisanych. Stan czytany PO montażu (SSR i pierwszy render klienta
+// pokazują ♡ bez liczby - zero hydration mismatch), odświeżany po zapisie.
+const SavedNavLink = ({ isActive, label }: { isActive: boolean; label: string }) => {
+  const [state, setState] = useState<{ loggedIn: boolean; count: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () =>
+      fetch("/api/zapisane")
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled) {
+            setState({ loggedIn: !!d.loggedIn, count: Array.isArray(d.ids) ? d.ids.length : 0 });
+          }
+        })
+        .catch(() => {});
+    refresh();
+    window.addEventListener(SAVED_EVENT, refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(SAVED_EVENT, refresh);
+    };
+  }, []);
+  const loggedIn = state?.loggedIn ?? false;
+  const count = state?.count ?? 0;
+  return (
+    <Link
+      href="/moje-przepisy/"
+      className={`relative px-3 py-3 text-sm tracking-wide transition-colors border-b-2 inline-flex items-center gap-1.5 ${
+        isActive
+          ? "text-gray-900 border-amber-500 font-medium"
+          : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-200"
+      }`}
+    >
+      <span aria-hidden className={loggedIn ? "text-amber-500" : "text-gray-400"}>
+        {loggedIn ? "♥" : "♡"}
+      </span>
+      {label}
+      {loggedIn && count > 0 && (
+        <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] inline-flex items-center justify-center px-1">
+          {count}
+        </span>
+      )}
+    </Link>
+  );
 };
 
 // Count is read from localStorage AFTER mount (SSR renders no badge) -
