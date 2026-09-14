@@ -59,6 +59,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ ok: true });
   }
 
+  // On-demand hero cleanup: the operator picked a frame and hit "Generuj AI
+  // hero". Web can't do the image work itself (media is mounted ro here and the
+  // frame dirs are root-owned by the worker), so we just record the request on
+  // the draft; the worker picks it up (has the media rw + the image key) and
+  // writes heroEnhanced back. The admin polls until it appears.
+  if (action === "enhance") {
+    if (imp.status !== "ready" || !imp.aiDraft) {
+      return res.status(400).json({ error: "Draft nie jest gotowy" });
+    }
+    const draft = imp.aiDraft as any;
+    const frame = typeof req.body?.frame === "string" ? req.body.frame : "";
+    const frames: string[] = Array.isArray(draft.frames) ? draft.frames : [];
+    // Whitelist to a known published frame - also blocks path traversal
+    if (!frames.includes(frame)) {
+      return res.status(400).json({ error: "Nieznana klatka" });
+    }
+    await db
+      .update(imports)
+      .set({ aiDraft: { ...draft, enhanceRequest: { frame }, enhanceError: null } })
+      .where(eq(imports.id, id));
+    return res.status(202).json({ ok: true, queued: true });
+  }
+
   if (action === "accept") {
     if (imp.status !== "ready" || !imp.aiDraft) {
       return res.status(400).json({ error: "Draft nie jest gotowy" });

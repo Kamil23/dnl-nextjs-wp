@@ -44,7 +44,7 @@ function SourceMaterials({ caption, transcript }: { caption?: string | null; tra
   );
 }
 
-function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame: string | null; onPickFrame: (url: string) => void }) {
+function DraftPreview({ draft, heroFrame, onPickFrame, onEnhance, enhancing, onZoom }: { draft: any; heroFrame: string | null; onPickFrame: (url: string) => void; onEnhance: (frame: string) => void; enhancing: boolean; onZoom: (url: string) => void }) {
   if (!draft) return null;
   return (
     <div className="mt-3 bg-gray-50 rounded-lg p-4 text-sm space-y-2">
@@ -57,7 +57,7 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {[...(draft.heroEnhanced ? [draft.heroEnhanced] : []), ...draft.frames].map((f: string) => (
-              <div key={f} className="relative shrink-0">
+              <div key={f} className="relative shrink-0 group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={f}
@@ -77,9 +77,36 @@ function DraftPreview({ draft, heroFrame, onPickFrame }: { draft: any; heroFrame
                 {draft.heroFrame === f && (
                   <span className="absolute top-1 right-1 text-amber-500 drop-shadow">★</span>
                 )}
+                <button
+                  type="button"
+                  onClick={() => onZoom(f)}
+                  title="Podejrzyj w pełnym rozmiarze"
+                  className="absolute bottom-1 right-1 bg-black/60 text-white rounded px-1.5 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 transition"
+                >
+                  🔍
+                </button>
               </div>
             ))}
           </div>
+          {(() => {
+            // Enhance a RAW frame (the picked one, or the AI-suggested star,
+            // never an already-enhanced image)
+            const pick = heroFrame ?? draft.heroFrame ?? draft.frames[0];
+            const target = draft.frames.includes(pick) ? pick : (draft.heroFrame ?? draft.frames[0]);
+            return (
+              <button
+                type="button"
+                onClick={() => onEnhance(target)}
+                disabled={enhancing || !target}
+                className="mt-1 inline-flex items-center gap-1.5 bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-gray-700 disabled:opacity-50"
+              >
+                {enhancing ? "⏳ Generuję zdjęcie..." : "✨ Generuj AI hero z zaznaczonej klatki"}
+              </button>
+            );
+          })()}
+          <p className="text-[11px] text-gray-400">
+            Koszt ~$0.07 (Gemini). Bez tego przepis dostanie surową klatkę jako zdjęcie główne.
+          </p>
         </div>
       )}
       <div className="flex items-center gap-2">
@@ -164,6 +191,9 @@ export default function AdminTikTok({ imports: initial }) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [heroFrames, setHeroFrames] = useState<Record<number, string>>({});
   const [actErrors, setActErrors] = useState<Record<number, string>>({});
+  const [enhancingId, setEnhancingId] = useState<number | null>(null);
+  // Full-size frame preview (lightbox); null = closed
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const [workerRunning, setWorkerRunning] = useState(false);
   const [workerError, setWorkerError] = useState("");
 
@@ -180,6 +210,25 @@ export default function AdminTikTok({ imports: initial }) {
     }, 2500);
     return () => clearInterval(t);
   }, [hasActive]);
+
+  // Poll while an on-demand hero generation is in flight (the worker clears
+  // aiDraft.enhanceRequest when done, setting heroEnhanced or enhanceError)
+  useEffect(() => {
+    if (enhancingId == null) return;
+    const t = setInterval(async () => {
+      const res = await fetch("/api/admin/imports/");
+      if (!res.ok) return;
+      const fresh = await res.json();
+      setRows(fresh);
+      const d = fresh.find((r: any) => r.id === enhancingId)?.aiDraft;
+      if (d && !d.enhanceRequest) {
+        if (d.enhanceError) setActErrors((e) => ({ ...e, [enhancingId]: d.enhanceError }));
+        else if (d.heroEnhanced) setHeroFrames((h) => ({ ...h, [enhancingId]: d.heroEnhanced }));
+        setEnhancingId(null);
+      }
+    }, 2500);
+    return () => clearInterval(t);
+  }, [enhancingId]);
 
   const pendingCount = rows.filter((r) => r.status === "pending").length;
 
@@ -218,6 +267,26 @@ export default function AdminTikTok({ imports: initial }) {
         setDupOf({ recipeId: body.duplicate.recipeId ?? null });
       }
     }
+  }
+
+  // On-demand hero generation. Web only queues the request on the draft; the
+  // worker does the image work. We nudge the worker and poll (effect below)
+  // until heroEnhanced (or enhanceError) shows up, then auto-select it.
+  async function enhance(id: number, frame: string) {
+    setActErrors((e) => ({ ...e, [id]: "" }));
+    const res = await fetch(`/api/admin/imports/${id}/`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "enhance", frame }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActErrors((e) => ({ ...e, [id]: data.error || `Błąd serwera (${res.status})` }));
+      return;
+    }
+    setEnhancingId(id);
+    // Dev: spawns a one-shot worker. Prod: 202, the worker service polls anyway.
+    fetch("/api/admin/imports/process/", { method: "POST" }).catch(() => {});
   }
 
   async function del(id: number) {
@@ -403,6 +472,9 @@ export default function AdminTikTok({ imports: initial }) {
                   draft={imp.aiDraft}
                   heroFrame={heroFrames[imp.id] ?? null}
                   onPickFrame={(url) => setHeroFrames((h) => ({ ...h, [imp.id]: url }))}
+                  onEnhance={(frame) => enhance(imp.id, frame)}
+                  enhancing={enhancingId === imp.id}
+                  onZoom={setLightbox}
                 />
                 <SourceMaterials caption={imp.caption} transcript={imp.transcript} />
               </>
@@ -417,6 +489,16 @@ export default function AdminTikTok({ imports: initial }) {
         Silnik AI: <code>OPENAI_API_KEY</code> (gpt-4o + Whisper) - alternatywnie Gemini, Claude
         lub dowolne API zgodne z OpenAI (szczegóły w .env.example).
       </p>
+
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightbox} alt="" className="max-h-full max-w-full rounded-lg" />
+        </div>
+      )}
     </AdminShell>
   );
 }

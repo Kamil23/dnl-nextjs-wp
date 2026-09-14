@@ -32,6 +32,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import * as schema from "../lib/db/schema";
 import { runTiktokBacklog } from "../lib/server/tiktok-backlog-run";
 import { runSubstitutionsGenerate } from "../lib/server/substitutions-run";
+import { enhanceHeroToFile } from "../lib/server/enhance-hero";
 
 const run = promisify(execFile);
 const sql = postgres(process.env.DATABASE_URL!, { max: 2 });
@@ -195,93 +196,17 @@ function publishFrames(importId: number, frames: string[]): string[] {
   return frames.map((f) => publishFile(importId, f));
 }
 
-// ---------- AI hero-image cleanup ----------
-// Video frames make soft hero shots (motion blur, compression). If an
-// image-capable key is configured, produce a cleaned-up variant of the chosen
-// hero frame; the operator picks original vs enhanced in /admin/tiktok.
-// The prompt pins composition and food so the photo stays truthful - it must
-// still look like a phone shot of the actual dish, not an AI render.
-
-const ENHANCE_PROMPT =
-  "Turn this video frame into a clean, appetizing food photo. " +
-  "Remove ALL overlaid graphics: captions, titles, subtitles, emojis, stickers, " +
-  "watermarks, usernames and any UI elements - reconstruct the food and " +
-  "background naturally where they were. " +
-  "Remove motion blur and compression artifacts, sharpen details, reduce noise, " +
-  "correct white balance and exposure so the dish looks crisp and appetizing. " +
-  "Keep the same composition, framing, dishes, ingredients, food quantities and " +
-  "background - do not add, remove or restyle any real object in the scene. " +
-  "The result must look like a natural, unedited smartphone food photo, " +
-  "not an AI render or a stock photo.";
-
-async function enhanceHeroFrame(framePath: string, dir: string): Promise<string | null> {
-  const out = path.join(dir, "hero-ai.jpg");
-
-  if (process.env.GEMINI_API_KEY) {
-    // gemini-2.5-flash-image (Nano Banana) jest wylaczany 2 X 2026 - domyslnie
-    // 3.1 (compose i tak podaje GEMINI_IMAGE_MODEL, to fallback dla dev/CLI).
-    const model = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY!,
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  inline_data: {
-                    mime_type: "image/jpeg",
-                    data: fs.readFileSync(framePath).toString("base64"),
-                  },
-                },
-                { text: ENHANCE_PROMPT },
-              ],
-            },
-          ],
-          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
-        }),
-      }
-    );
-    if (!res.ok) throw new Error(`Gemini image: ${res.status} ${await res.text()}`);
-    const json = await res.json();
-    const parts = json.candidates?.[0]?.content?.parts ?? [];
-    const data = parts
-      .map((p: any) => p.inlineData?.data ?? p.inline_data?.data)
-      .find(Boolean);
-    if (!data) throw new Error("Gemini image nie zwrócił obrazu");
-    fs.writeFileSync(out, Buffer.from(data, "base64"));
-    return out;
-  }
-
-  if (process.env.OPENAI_API_KEY) {
-    const form = new FormData();
-    form.append("model", "gpt-image-1");
-    form.append("image", new Blob([fs.readFileSync(framePath)], { type: "image/jpeg" }), "frame.jpg");
-    form.append("prompt", ENHANCE_PROMPT);
-    // high fidelity keeps the input photo's look instead of re-imagining it
-    form.append("input_fidelity", "high");
-    form.append("size", "auto");
-    const res = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: form,
-    });
-    if (!res.ok) throw new Error(`gpt-image-1: ${res.status} ${await res.text()}`);
-    const json = await res.json();
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) throw new Error("gpt-image-1 nie zwrócił obrazu");
-    fs.writeFileSync(out, Buffer.from(b64, "base64"));
-    return out;
-  }
-
-  return null;
+// /uploads/imports/<id>/x.jpg -> absolute path on the media volume
+function urlToPath(url: string): string {
+  const baseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
+  return path.join(baseDir, url.replace(/^\/uploads\//, ""));
 }
+
+// Hero-image cleanup moved to lib/server/enhance-hero.ts and is now on-demand:
+// the operator triggers it per import with the "Generuj AI hero" button in
+// /admin/tiktok (which sets aiDraft.enhanceRequest); processEnhanceRequests()
+// below picks it up. The batch worker no longer auto-generates - it would burn
+// image credits on every import, including the ones you reject.
 
 async function extractAudio(videoPath: string, dir: string): Promise<string> {
   const audioPath = path.join(dir, "audio.mp3");
@@ -639,7 +564,7 @@ async function loadTagOptions() {
   };
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 
 // Progress lands in the DB (live view in /admin/tiktok) and in the terminal
 async function setProgress(impId: number, step: number, label: string) {
@@ -740,22 +665,11 @@ async function processOne(
       }
     }
 
-    // Best-effort AI cleanup of the hero frame - a failure or a missing image
-    // key just means the operator only sees the original frames
-    let heroEnhanced: string | null = null;
-    const heroIdx = draft.heroFrameIndex == null ? NaN : Math.round(draft.heroFrameIndex);
-    const heroLocal = (heroIdx >= 1 && heroIdx <= frames.length ? frames[heroIdx - 1] : frames[0]) ?? null;
-    if (heroLocal && (process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY)) {
-      await setProgress(imp.id, 5, "AI poprawia zdjęcie główne...");
-      try {
-        const enhancedPath = await enhanceHeroFrame(heroLocal, dir);
-        if (enhancedPath) heroEnhanced = publishFile(imp.id, enhancedPath);
-      } catch (e: any) {
-        console.warn(`[${imp.id}] Poprawa zdjęcia nieudana: ${String(e.message).slice(0, 200)}`);
-      }
-    }
+    // Hero image is NOT auto-generated anymore. The operator reviews the raw
+    // frames and, if wanted, triggers the AI cleanup on demand in /admin/tiktok.
+    const heroEnhanced: string | null = null;
 
-    await setProgress(imp.id, 6, "Zapisywanie draftu...");
+    await setProgress(imp.id, 5, "Zapisywanie draftu...");
     const frameUrls = publishFrames(imp.id, frames);
     // Resolve frameIndex/heroFrameIndex to published URLs right away, so the
     // admin preview and the accept endpoint deal only in URLs
@@ -818,6 +732,46 @@ async function processQueue(): Promise<number> {
     await processOne(provider, imp, cats, tagVocab);
   }
   return pending.length;
+}
+
+// On-demand hero generation queued from /admin/tiktok. Each `ready` import may
+// carry aiDraft.enhanceRequest = { frame }; we clean that frame up, write the
+// result next to it (unique name so Caddy's immutable cache can't serve stale)
+// and store heroEnhanced. Errors land in aiDraft.enhanceError for the admin.
+async function processEnhanceRequests(): Promise<number> {
+  const rows = await db.select().from(imports).where(eq(imports.status, "ready"));
+  let done = 0;
+  for (const imp of rows) {
+    const draft = imp.aiDraft as any;
+    const frame: string | undefined = draft?.enhanceRequest?.frame;
+    if (!frame) continue;
+    const frames: string[] = Array.isArray(draft.frames) ? draft.frames : [];
+    if (!frames.includes(frame)) {
+      await db
+        .update(imports)
+        .set({ aiDraft: { ...draft, enhanceRequest: null, enhanceError: "Nieznana klatka" } })
+        .where(eq(imports.id, imp.id));
+      continue;
+    }
+    const outUrl = `${frame.slice(0, frame.lastIndexOf("/"))}/hero-ai-${Date.now()}.jpg`;
+    try {
+      const ok = await enhanceHeroToFile(urlToPath(frame), urlToPath(outUrl));
+      if (!ok) throw new Error("Brak klucza modelu obrazu (GEMINI_API_KEY/OPENAI_API_KEY)");
+      await db
+        .update(imports)
+        .set({ aiDraft: { ...draft, heroEnhanced: outUrl, enhanceRequest: null, enhanceError: null } })
+        .where(eq(imports.id, imp.id));
+      console.log(`[${imp.id}] ✨ Hero wygenerowany na żądanie: ${outUrl}`);
+    } catch (e: any) {
+      console.error(`[${imp.id}] Generacja hero nieudana: ${e.message}`);
+      await db
+        .update(imports)
+        .set({ aiDraft: { ...draft, enhanceRequest: null, enhanceError: String(e.message).slice(0, 300) } })
+        .where(eq(imports.id, imp.id));
+    }
+    done++;
+  }
+  return done;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -897,6 +851,7 @@ async function processJobs(): Promise<number> {
 async function main() {
   if (!process.argv.includes("--watch")) {
     const n = await processQueue();
+    await processEnhanceRequests();
     await processJobs();
     if (n === 0) console.log("Kolejka pusta.");
     await sql.end();
@@ -932,6 +887,11 @@ async function main() {
     let n = 0;
     try {
       n = await processQueue();
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await processEnhanceRequests();
     } catch (e) {
       console.error(e);
     }
