@@ -8,6 +8,17 @@
 > **Pełny raport (wszystkie twierdzenia z cytatami + 187 surowych twierdzeń z ekstraktorów):**
 > `docs/analiza-rynku-2026-raport-pelny.md`. Ten plik to synteza / ostateczne wnioski.
 
+## ✅ Wynik wdrożeń (aktualizacja 2026-09-14, GSC zakładka generatywna AI)
+
+Wyświetlenia w wynikach generatywnych Google (AI Overviews / AI Mode), średnie dzienne:
+lipiec **328**, 1-24 sierpnia (przed release) **306**, 25-31 sierpnia (po wdrożeniu narzędzi) **390**,
+1-12 września **1018**, ostatnie 5 dni **1205** (peak 12.09: **1443**, wciąż bez plateau).
+**Wzrost ~4x.** Inflekcja 28.08, trzy dni po wdrożeniu pakietu z tej analizy (kalkulatory
+z FAQPage JSON-LD, kolekcje, konwerter 51 landingów, co-na-obiad, pełny Recipe schema);
+drugie przyspieszenie po release 8-9.09. Teza "czysty schema + strony odpowiadające wprost
+= cytowalność w AI" potwierdzona na własnych danych. Następny pomiar: kliknięcia z tej
+zakładki oraz referrale AI (utm_source=chatgpt.com) w logach Caddy.
+
 ## TL;DR - 5 rzeczy
 
 1. **SEO na przepisach jest pod strukturalnym atakiem.** AI Overviews / Google AI Mode obcinają
