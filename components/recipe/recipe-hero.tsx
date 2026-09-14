@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { mediaSrc } from "../../lib/seo";
 import SaveRecipeButton from "../save-recipe-button";
 
 function Stars({ value }: { value: number }) {
@@ -56,11 +57,11 @@ export default function RecipeHero({ recipe }) {
     <section className="grid md:grid-cols-2 gap-8 md:gap-12 items-center mb-12">
       {recipe.heroImage && (
         <div className="relative aspect-[4/3] md:aspect-square rounded-3xl overflow-hidden shadow-medium">
-          {/* Relative /uploads/* paths stay relative so next/image reads them
-              from the origin being browsed (localhost in dev, the app in prod);
-              absolutizing them pointed dev at files that live only locally */}
+          {/* Self-hosted /uploads/* media: absolute in prod (Caddy serves it,
+              the optimizer can't self-fetch a relative path), relative in dev.
+              See mediaSrc(). */}
           <Image
-            src={recipe.heroImage}
+            src={mediaSrc(recipe.heroImage)}
             alt={`Zdjęcie: ${recipe.title}`}
             fill
             priority

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SOCIAL_TIKTOK_URL } from "../../lib/constants";
+import { mediaSrc } from "../../lib/seo";
 import { TikTokIcon } from "../icons";
 
 export type TikTokFeedItem = {
@@ -36,7 +37,7 @@ function CardInner({ v, showViews }: { v: TikTokFeedItem; showViews: boolean }) 
     <>
       {v.heroImage && (
         <Image
-          src={v.heroImage}
+          src={mediaSrc(v.heroImage)}
           alt={v.title}
           fill
           sizes="176px"

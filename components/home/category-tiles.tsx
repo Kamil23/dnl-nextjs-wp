@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { mediaSrc } from "../../lib/seo";
 
 function przepisow(n: number) {
   if (n === 1) return "przepis";
@@ -22,7 +23,7 @@ export default function CategoryTiles({ tiles }) {
           >
             {t.image ? (
               <Image
-                src={t.image}
+                src={mediaSrc(t.image)}
                 alt={t.name}
                 fill
                 sizes="(max-width: 640px) 50vw, 25vw"

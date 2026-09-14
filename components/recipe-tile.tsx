@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { mediaSrc } from "../lib/seo";
 
 // Big clickable recipe tile for instant-search results: photo-first,
 // with the three facts that drive the choice (time, kcal, rating).
@@ -27,7 +28,7 @@ export default function RecipeTile({ recipe }: { recipe: RecipeTileData }) {
       <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-bottomSmall bg-amber-50">
         {recipe.heroImage && (
           <Image
-            src={recipe.heroImage}
+            src={mediaSrc(recipe.heroImage)}
             alt={recipe.title}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

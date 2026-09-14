@@ -29,6 +29,20 @@ export function absUrl(u: string): string {
   return /^https?:\/\//.test(u) ? u : `${SITE_URL}${u.startsWith("/") ? "" : "/"}${u}`;
 }
 
+// src for next/image on self-hosted media (/uploads/*, /wp-content/uploads/*).
+// In prod these paths are served by Caddy sitting IN FRONT of the Next app, so
+// next/image's optimizer - which self-fetches a relative src from the Next
+// origin (web:3000), never through Caddy - 404s and returns "not a valid image"
+// (blank hero). Legacy images dodge this by being stored absolute. So in prod
+// we absolutize relative media to the public host (same path the optimizer uses
+// for legacy images; the apex is in images.domains and reachable via the Docker
+// hairpin, see DEPLOY.md). In dev we must keep it relative: fresh imports live
+// only in the local public/uploads, so an absolute apex URL would 404.
+export function mediaSrc(u: string): string {
+  if (/^https?:\/\//.test(u)) return u;
+  return process.env.NODE_ENV === "production" ? absUrl(u) : u;
+}
+
 const DEFAULT_ROBOTS = {
   index: "index",
   follow: "follow",
