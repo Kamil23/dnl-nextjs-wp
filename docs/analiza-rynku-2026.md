@@ -19,6 +19,15 @@ drugie przyspieszenie po release 8-9.09. Teza "czysty schema + strony odpowiadaj
 = cytowalność w AI" potwierdzona na własnych danych. Następny pomiar: kliknięcia z tej
 zakładki oraz referrale AI (utm_source=chatgpt.com) w logach Caddy.
 
+**Dowód wizualny (14.09.2026):** dla zapytania "powidła z jabłek" AI Overview pokazuje kartę
+Dieta na luzie jako drugie źródło w panelu cytowań, zaraz pod Przepisy.pl (Unilever); snippet
+karty pochodzi wprost z naszych danych strukturalnych (recipeIngredient, recipeYield, obrazek).
+Cytowane strony (GSC, wymiar Strony): przepisy-klasyki (jajka zapiekane w bułkach ~5 tys.,
+pizza na twarogowym spodzie ~3,4 tys., dżemy sezonowo) oraz konwerter (21 z 50 top URL-i,
+~6,4 tys. wyświetleń w niecałe 3 tygodnie od startu) - w reakcji konwerter rozszerzony
+z 51 do 99 landingów (2026-09-14). Playbook: znajdź typ strony cytowany przez AI i dolej
+więcej tego typu.
+
 ## TL;DR - 5 rzeczy
 
 1. **SEO na przepisach jest pod strukturalnym atakiem.** AI Overviews / Google AI Mode obcinają
