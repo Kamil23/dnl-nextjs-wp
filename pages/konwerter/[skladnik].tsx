@@ -39,6 +39,14 @@ export default function IngredientConverter({ ing, similar }: { ing: Ingredient;
     (g) => ing.grams.lyzeczka == null || g >= (ing.grams.lyzeczka as number) * 3
   )
 
+  // Zdanie o łyżce/łyżeczce składane z dostępnych miar (część składników,
+  // np. płatki kukurydziane, nie ma sensownej łyżeczki - wtedy bez niej)
+  const spoonAnswer =
+    `Płaska łyżka ${ing.nameGen} (15 ml) to około ${formatGrams(ing.grams.lyzka!)} g` +
+    (ing.grams.lyzeczka != null
+      ? `, a łyżeczka (5 ml) - ${formatGrams(ing.grams.lyzeczka)} g.`
+      : `.`)
+
   const faq =
     ing.grams.szklanka != null
       ? [
@@ -46,17 +54,9 @@ export default function IngredientConverter({ ing, similar }: { ing: Ingredient;
             q: `Ile gramów waży szklanka ${ing.nameGen}?`,
             a: `Płaska szklanka ${ing.nameGen} (250 ml) to około ${formatGrams(ing.grams.szklanka)} g.`,
           },
-          {
-            q: `Ile waży łyżka ${ing.nameGen}?`,
-            a: `Płaska łyżka ${ing.nameGen} (15 ml) to około ${formatGrams(ing.grams.lyzka!)} g, a łyżeczka (5 ml) - ${formatGrams(ing.grams.lyzeczka!)} g.`,
-          },
+          { q: `Ile waży łyżka ${ing.nameGen}?`, a: spoonAnswer },
         ]
-      : [
-          {
-            q: `Ile waży łyżka ${ing.nameGen}?`,
-            a: `Płaska łyżka ${ing.nameGen} (15 ml) to około ${formatGrams(ing.grams.lyzka!)} g, a łyżeczka (5 ml) - ${formatGrams(ing.grams.lyzeczka!)} g.`,
-          },
-        ]
+      : [{ q: `Ile waży łyżka ${ing.nameGen}?`, a: spoonAnswer }]
   const faqAll = [
     ...faq,
     {

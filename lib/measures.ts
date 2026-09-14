@@ -104,6 +104,67 @@ export const INGREDIENTS: Ingredient[] = [
   { slug: "woda", name: "Woda", nameGen: "wody", group: "nabial-tluszcze", grams: { szklanka: 250, lyzka: 15, lyzeczka: 5 } },
   { slug: "sok-z-cytryny", name: "Sok z cytryny", nameGen: "soku z cytryny", group: "dodatki", grams: { szklanka: 255, lyzka: 15, lyzeczka: 5 } },
   { slug: "passata", name: "Passata pomidorowa", nameGen: "passaty pomidorowej", group: "dodatki", grams: { szklanka: 255, lyzka: 15, lyzeczka: 5 } },
+
+  // --- Rozszerzenie 2026-09: konwerter to najczęściej cytowany typ strony
+  // w odpowiedziach AI (raport GSC), więc dokładamy kolejne popularne składniki ---
+
+  // Mąki i skrobie
+  { slug: "maka-owsiana", name: "Mąka owsiana", nameGen: "mąki owsianej", group: "maki", grams: { szklanka: 110, lyzka: 7, lyzeczka: 2 } },
+  { slug: "maka-kukurydziana", name: "Mąka kukurydziana", nameGen: "mąki kukurydzianej", group: "maki", grams: { szklanka: 160, lyzka: 10, lyzeczka: 3 } },
+  { slug: "maka-ryzowa", name: "Mąka ryżowa", nameGen: "mąki ryżowej", group: "maki", grams: { szklanka: 160, lyzka: 10, lyzeczka: 3 } },
+  { slug: "maka-gryczana", name: "Mąka gryczana", nameGen: "mąki gryczanej", group: "maki", grams: { szklanka: 150, lyzka: 10, lyzeczka: 3 } },
+  { slug: "skrobia-kukurydziana", name: "Skrobia kukurydziana", nameGen: "skrobi kukurydzianej", group: "maki", grams: { szklanka: 150, lyzka: 10, lyzeczka: 3 } },
+
+  // Cukry i słodziki
+  { slug: "cukier-kokosowy", name: "Cukier kokosowy", nameGen: "cukru kokosowego", group: "cukry", grams: { szklanka: 190, lyzka: 11, lyzeczka: 4 } },
+
+  // Nabiał i tłuszcze
+  { slug: "kefir", name: "Kefir", nameGen: "kefiru", group: "nabial-tluszcze", grams: { szklanka: 255, lyzka: 15, lyzeczka: 5 } },
+  { slug: "maslanka", name: "Maślanka", nameGen: "maślanki", group: "nabial-tluszcze", grams: { szklanka: 255, lyzka: 15, lyzeczka: 5 } },
+  { slug: "mleko-kokosowe", name: "Mleko kokosowe (z puszki)", nameGen: "mleka kokosowego", group: "nabial-tluszcze", grams: { szklanka: 240, lyzka: 14, lyzeczka: 5 } },
+  { slug: "serek-wiejski", name: "Serek wiejski", nameGen: "serka wiejskiego", group: "nabial-tluszcze", grams: { szklanka: 225, lyzka: 14, lyzeczka: 5 } },
+  { slug: "parmezan-tarty", name: "Parmezan (tarty)", nameGen: "startego parmezanu", group: "nabial-tluszcze", grams: { szklanka: 90, lyzka: 6, lyzeczka: 2 } },
+  { slug: "maslo-orzechowe", name: "Masło orzechowe", nameGen: "masła orzechowego", group: "nabial-tluszcze", grams: { szklanka: 260, lyzka: 16, lyzeczka: 5 } },
+  { slug: "tahini", name: "Tahini (pasta sezamowa)", nameGen: "tahini", group: "nabial-tluszcze", grams: { szklanka: 250, lyzka: 15, lyzeczka: 5 } },
+
+  // Produkty sypkie
+  { slug: "kasza-manna", name: "Kasza manna", nameGen: "kaszy manny", group: "suche", grams: { szklanka: 170, lyzka: 10, lyzeczka: 3 } },
+  { slug: "kuskus", name: "Kuskus (suchy)", nameGen: "suchego kuskusu", group: "suche", grams: { szklanka: 180, lyzka: 11, lyzeczka: 3 } },
+  { slug: "komosa-ryzowa", name: "Komosa ryżowa (quinoa)", nameGen: "komosy ryżowej", group: "suche", grams: { szklanka: 180, lyzka: 11, lyzeczka: 4 } },
+  { slug: "kasza-bulgur", name: "Kasza bulgur", nameGen: "kaszy bulgur", group: "suche", grams: { szklanka: 180, lyzka: 11, lyzeczka: 4 } },
+  { slug: "platki-jaglane", name: "Płatki jaglane", nameGen: "płatków jaglanych", group: "suche", grams: { szklanka: 100, lyzka: 6, lyzeczka: 2 } },
+  { slug: "platki-orkiszowe", name: "Płatki orkiszowe", nameGen: "płatków orkiszowych", group: "suche", grams: { szklanka: 90, lyzka: 6, lyzeczka: 2 } },
+  { slug: "platki-kukurydziane", name: "Płatki kukurydziane", nameGen: "płatków kukurydzianych", group: "suche", grams: { szklanka: 30, lyzka: 2, lyzeczka: null } },
+  { slug: "otreby-owsiane", name: "Otręby owsiane", nameGen: "otrębów owsianych", group: "suche", grams: { szklanka: 90, lyzka: 6, lyzeczka: 2 } },
+  { slug: "soczewica-czerwona", name: "Soczewica czerwona (sucha)", nameGen: "suchej soczewicy czerwonej", group: "suche", grams: { szklanka: 200, lyzka: 13, lyzeczka: 4 } },
+  { slug: "mak", name: "Mak", nameGen: "maku", group: "suche", grams: { szklanka: 160, lyzka: 10, lyzeczka: 3 } },
+  { slug: "sezam", name: "Sezam", nameGen: "sezamu", group: "suche", grams: { szklanka: 150, lyzka: 9, lyzeczka: 3 } },
+  { slug: "slonecznik", name: "Słonecznik (łuskany)", nameGen: "słonecznika łuskanego", group: "suche", grams: { szklanka: 140, lyzka: 9, lyzeczka: 3 } },
+  { slug: "pestki-dyni", name: "Pestki dyni", nameGen: "pestek dyni", group: "suche", grams: { szklanka: 130, lyzka: 8, lyzeczka: 3 } },
+  { slug: "migdaly", name: "Migdały (całe)", nameGen: "całych migdałów", group: "suche", grams: { szklanka: 150, lyzka: 9, lyzeczka: 3 } },
+  { slug: "orzechy-laskowe", name: "Orzechy laskowe", nameGen: "orzechów laskowych", group: "suche", grams: { szklanka: 135, lyzka: 9, lyzeczka: 3 } },
+  { slug: "orzechy-nerkowca", name: "Orzechy nerkowca", nameGen: "orzechów nerkowca", group: "suche", grams: { szklanka: 140, lyzka: 9, lyzeczka: 3 } },
+  { slug: "zurawina-suszona", name: "Żurawina suszona", nameGen: "suszonej żurawiny", group: "suche", grams: { szklanka: 120, lyzka: 8, lyzeczka: 3 } },
+  { slug: "morele-suszone", name: "Morele suszone (posiekane)", nameGen: "posiekanych suszonych moreli", group: "suche", grams: { szklanka: 150, lyzka: 9, lyzeczka: 3 } },
+  { slug: "mleko-w-proszku", name: "Mleko w proszku", nameGen: "mleka w proszku", group: "suche", grams: { szklanka: 120, lyzka: 8, lyzeczka: 3 } },
+
+  // Przyprawy i dodatki
+  { slug: "sol", name: "Sól", nameGen: "soli", group: "dodatki", grams: { szklanka: null, lyzka: 20, lyzeczka: 7 } },
+  { slug: "pieprz-mielony", name: "Pieprz mielony", nameGen: "pieprzu mielonego", group: "dodatki", grams: { szklanka: null, lyzka: 7, lyzeczka: 2 } },
+  { slug: "papryka-slodka", name: "Papryka słodka (mielona)", nameGen: "papryki słodkiej", group: "dodatki", grams: { szklanka: null, lyzka: 7, lyzeczka: 2 } },
+  { slug: "kurkuma", name: "Kurkuma", nameGen: "kurkumy", group: "dodatki", grams: { szklanka: null, lyzka: 9, lyzeczka: 3 } },
+  { slug: "imbir-mielony", name: "Imbir mielony", nameGen: "imbiru mielonego", group: "dodatki", grams: { szklanka: null, lyzka: 6, lyzeczka: 2 } },
+  { slug: "oregano-suszone", name: "Oregano suszone", nameGen: "suszonego oregano", group: "dodatki", grams: { szklanka: null, lyzka: 3, lyzeczka: 1 } },
+  { slug: "bazylia-suszona", name: "Bazylia suszona", nameGen: "suszonej bazylii", group: "dodatki", grams: { szklanka: null, lyzka: 3, lyzeczka: 1 } },
+  { slug: "czosnek-granulowany", name: "Czosnek granulowany", nameGen: "czosnku granulowanego", group: "dodatki", grams: { szklanka: null, lyzka: 10, lyzeczka: 3 } },
+  { slug: "kawa-mielona", name: "Kawa mielona", nameGen: "kawy mielonej", group: "dodatki", grams: { szklanka: null, lyzka: 6, lyzeczka: 2 } },
+  { slug: "ocet-jablkowy", name: "Ocet jabłkowy", nameGen: "octu jabłkowego", group: "dodatki", grams: { szklanka: 250, lyzka: 15, lyzeczka: 5 } },
+  { slug: "sos-sojowy", name: "Sos sojowy", nameGen: "sosu sojowego", group: "dodatki", grams: { szklanka: 265, lyzka: 16, lyzeczka: 5 } },
+  { slug: "musztarda", name: "Musztarda", nameGen: "musztardy", group: "dodatki", grams: { szklanka: 250, lyzka: 15, lyzeczka: 5 } },
+  { slug: "ketchup", name: "Ketchup", nameGen: "ketchupu", group: "dodatki", grams: { szklanka: 275, lyzka: 17, lyzeczka: 6 } },
+  { slug: "koncentrat-pomidorowy", name: "Koncentrat pomidorowy", nameGen: "koncentratu pomidorowego", group: "dodatki", grams: { szklanka: 280, lyzka: 17, lyzeczka: 6 } },
+  { slug: "majonez", name: "Majonez", nameGen: "majonezu", group: "dodatki", grams: { szklanka: 230, lyzka: 14, lyzeczka: 5 } },
+  { slug: "dzem", name: "Dżem", nameGen: "dżemu", group: "dodatki", grams: { szklanka: 330, lyzka: 20, lyzeczka: 7 } },
 ];
 
 export function getIngredientBySlug(slug: string): Ingredient | undefined {
