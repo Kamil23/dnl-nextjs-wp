@@ -101,6 +101,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Nano Banana 2. Domyslnie 3.1 - gemini-2.5-flash-image jest wylaczany
+      # 2 X 2026, wiec nie zostawiamy go jako fallback w kodzie.
+      GEMINI_IMAGE_MODEL: ${GEMINI_IMAGE_MODEL:-gemini-3.1-flash-image}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # Frames land on the shared media volume, served by Caddy under /uploads/*
       UPLOADS_DIR: /srv/media/uploads

@@ -218,7 +218,9 @@ async function enhanceHeroFrame(framePath: string, dir: string): Promise<string 
   const out = path.join(dir, "hero-ai.jpg");
 
   if (process.env.GEMINI_API_KEY) {
-    const model = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+    // gemini-2.5-flash-image (Nano Banana) jest wylaczany 2 X 2026 - domyslnie
+    // 3.1 (compose i tak podaje GEMINI_IMAGE_MODEL, to fallback dla dev/CLI).
+    const model = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
