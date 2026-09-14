@@ -1,7 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
 import { GetStaticProps } from "next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { eq, inArray } from "drizzle-orm";
 import Container from "../components/container";
 import Layout from "../components/layout";
@@ -83,6 +83,15 @@ export default function CoNaObiad({
   const [bialko, setBialko] = useState(false);
   const [dieta, setDieta] = useState("");
   const [picks, setPicks] = useState<Dinner[]>(initialPicks);
+
+  // Rotate on every visit. The page is static (ISR 1h), so initialPicks would
+  // otherwise be the same top-3 for everyone until the next rebuild. SSR still
+  // paints initialPicks (no hydration mismatch); we swap to a fresh random trio
+  // right after mount.
+  useEffect(() => {
+    if (dinners.length) setPicks(shuffleTake(dinners, PICKS));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(
     () =>

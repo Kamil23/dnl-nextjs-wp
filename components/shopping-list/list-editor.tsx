@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, MutableRefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import { type ListOp, type ShoppingItem } from "../../lib/shopping-list-ops";
 import { newItemId } from "../../lib/shopping-list";
@@ -27,11 +27,19 @@ export default function ListEditor({
 
   const [toDelete, setToDelete] = useState<ShoppingItem | null>(null);
 
+  // FLIP: when an item is checked it leaves the top list and lands in the
+  // "done" list at the bottom - animate that jump (and every shift it causes)
+  // by flying each row from its previous position to the new one.
+  const skipFlip = useRef(false);
+  const listRef = useFlip(items, skipFlip);
+
   // Dragging covers the unchecked section only - checked items are done,
   // reordering them is pointless. The reorder op appends unlisted (checked)
   // ids at the end, preserving their order.
   function handleDragEnd(result: DropResult) {
     if (!result.destination || result.source.index === result.destination.index) return;
+    // dnd already plays its own drop animation - don't double it with FLIP
+    skipFlip.current = true;
     const next = [...unchecked];
     const [moved] = next.splice(result.source.index, 1);
     next.splice(result.destination.index, 0, moved);
@@ -41,7 +49,7 @@ export default function ListEditor({
   return (
     // Notepad-like minimum height: the card reads as a sheet of paper
     // whether empty or holding a few items, and grows past it as needed
-    <div className="rounded-3xl border border-gray-100 bg-white shadow-bottomSmall p-4 sm:p-6 min-h-[340px]">
+    <div ref={listRef} className="rounded-3xl border border-gray-100 bg-white shadow-bottomSmall p-4 sm:p-6 min-h-[340px]">
       {allDone && (
         <div className="rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 text-sm font-semibold text-center py-3 px-4 mb-2">
           🎉 Wszystko w koszyku!
@@ -59,6 +67,7 @@ export default function ListEditor({
                       ref={dragProvided.innerRef}
                       {...dragProvided.draggableProps}
                       {...dragProvided.dragHandleProps}
+                      data-flip-id={item.id}
                       className={`rounded-xl cursor-grab active:cursor-grabbing ${
                         dragSnapshot.isDragging ? "bg-amber-50 shadow-medium" : ""
                       }`}
@@ -92,7 +101,7 @@ export default function ListEditor({
       {checked.length > 0 && (
         <ul className="border-t border-gray-50 mt-1 pt-1">
           {checked.map((item) => (
-            <li key={item.id} className="rounded-xl">
+            <li key={item.id} data-flip-id={item.id} className="rounded-xl">
               <ItemRow
                 item={item}
                 onToggle={() => dispatch({ op: "toggleItem", id: item.id, checked: false })}
@@ -121,6 +130,46 @@ export default function ListEditor({
       )}
     </div>
   );
+}
+
+// FLIP animation for the two lists: on each change, fly every [data-flip-id]
+// row from where it was to where it landed. Rects are read BEFORE any animation
+// starts (so they're clean layout positions, untouched by a running transform)
+// and stored for the next diff. `skip` suppresses one pass (drag drops, which
+// @hello-pangea/dnd already animates itself).
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function useFlip(dep: unknown, skip: MutableRefObject<boolean>) {
+  const ref = useRef<HTMLDivElement>(null);
+  const prev = useRef<Map<string, DOMRect>>(new Map());
+  useIsomorphicLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const nodes = Array.from(el.querySelectorAll<HTMLElement>("[data-flip-id]"));
+    const rects = new Map<string, DOMRect>();
+    for (const n of nodes) rects.set(n.dataset.flipId!, n.getBoundingClientRect());
+
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!skip.current && !reduce) {
+      for (const n of nodes) {
+        const id = n.dataset.flipId!;
+        const old = prev.current.get(id);
+        const rect = rects.get(id)!;
+        if (!old) continue;
+        const dx = old.left - rect.left;
+        const dy = old.top - rect.top;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          n.animate(
+            [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }],
+            { duration: 320, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }
+          );
+        }
+      }
+    }
+    skip.current = false;
+    prev.current = rects;
+  }, [dep]);
+  return ref;
 }
 
 function ItemRow({
