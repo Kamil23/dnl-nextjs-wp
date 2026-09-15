@@ -145,6 +145,16 @@
   .handles{color:var(--muted);font-size:14px}
   footer{color:var(--soft);font-size:12px;text-align:center;padding:26px 0 40px}
   .footnote{font-size:12px;color:var(--soft);margin-top:10px}
+
+  @media print {
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .wrap{max-width:100%;padding:0}
+    section{margin:26px 0}
+    .panel,.tbl,.card,.stat,.pack,.step,.say,.dark,.sponsor,.serp,.callout,.formula,.cards{break-inside:avoid}
+    h2,h3{break-after:avoid}
+    a{text-decoration:none;color:inherit}
+    @page{size:A4;margin:12mm}
+  }
 </style>
 
 <div class="wrap">
