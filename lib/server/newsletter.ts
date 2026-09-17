@@ -121,11 +121,18 @@ export async function sendMail(m: Mail) {
   return resendRequest("/emails", toPayload(m));
 }
 
-// Resend batch endpoint accepts up to 100 mails per call
-export async function sendBatch(mails: Mail[]) {
+// Resend batch endpoint accepts up to 100 mails per call. Returns the Resend
+// mail id per recipient (same order as `mails`) so the caller can persist them
+// - webhook events only carry that id, it is the join key for open/click stats.
+export async function sendBatch(mails: Mail[]): Promise<(string | null)[]> {
+  const ids: (string | null)[] = [];
   for (let i = 0; i < mails.length; i += 100) {
-    await resendRequest("/emails/batch", mails.slice(i, i + 100).map(toPayload));
+    const chunk = mails.slice(i, i + 100);
+    const json = await resendRequest("/emails/batch", chunk.map(toPayload));
+    const data: { id?: string }[] = Array.isArray(json?.data) ? json.data : [];
+    for (let j = 0; j < chunk.length; j++) ids.push(data[j]?.id ?? null);
   }
+  return ids;
 }
 
 // ── mail templates ───────────────────────────────────────────────────────────

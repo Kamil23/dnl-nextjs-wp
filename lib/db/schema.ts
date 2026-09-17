@@ -315,7 +315,11 @@ export const subscribers = pgTable(
   {
     id: serial("id").primaryKey(),
     email: text("email").notNull(),
-    status: text("status", { enum: ["pending", "confirmed", "unsubscribed"] })
+    // bounced/complained are set by the Resend webhook (hard bounce / spam
+    // report) - both exclude the address from future sends, like unsubscribed
+    status: text("status", {
+      enum: ["pending", "confirmed", "unsubscribed", "bounced", "complained"],
+    })
       .notNull()
       .default("pending"),
     // Where the signup happened: recipe-slodkie | recipe-slone | kalkulator |
@@ -346,6 +350,52 @@ export const newsletterEditions = pgTable("newsletter_editions", {
   recipientCount: integer("recipient_count"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+// One row per recipient per edition, keyed by the Resend mail id from the
+// batch-send response. The Resend webhook (email.delivered/opened/clicked/
+// bounced/complained) aggregates straight into these columns - no separate
+// events table, the panel only needs unique opens/clicks and rates.
+export const newsletterSends = pgTable(
+  "newsletter_sends",
+  {
+    id: serial("id").primaryKey(),
+    editionId: integer("edition_id")
+      .notNull()
+      .references(() => newsletterEditions.id, { onDelete: "cascade" }),
+    subscriberId: integer("subscriber_id").references(() => subscribers.id, {
+      onDelete: "set null",
+    }),
+    email: text("email").notNull(),
+    resendId: text("resend_id"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    firstOpenedAt: timestamp("first_opened_at", { withTimezone: true }),
+    openCount: integer("open_count").notNull().default(0),
+    firstClickedAt: timestamp("first_clicked_at", { withTimezone: true }),
+    clickCount: integer("click_count").notNull().default(0),
+    bouncedAt: timestamp("bounced_at", { withTimezone: true }),
+    complainedAt: timestamp("complained_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("newsletter_sends_resend_idx").on(t.resendId),
+    index("newsletter_sends_edition_idx").on(t.editionId),
+  ]
+);
+
+// Total clicks per link per edition (which section actually pulls traffic).
+// Unsubscribe links are filtered out before landing here.
+export const newsletterLinkClicks = pgTable(
+  "newsletter_link_clicks",
+  {
+    id: serial("id").primaryKey(),
+    editionId: integer("edition_id")
+      .notNull()
+      .references(() => newsletterEditions.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    clicks: integer("clicks").notNull().default(0),
+  },
+  (t) => [uniqueIndex("newsletter_link_clicks_edition_url_idx").on(t.editionId, t.url)]
+);
 
 // Lekkie konta użytkowników (magic link, bez haseł) - odblokowują "zapisz
 // przepis", a docelowo plan tygodnia i preferencje (strategia: owned audience).

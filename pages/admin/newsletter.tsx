@@ -14,6 +14,20 @@ type Edition = {
   recipientCount: number | null;
 };
 
+// Aggregated by the Resend webhook; opened/clicked are UNIQUE recipients
+type EditionStats = {
+  editionId: number;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  complained: number;
+};
+
+const pct = (part: number, whole: number) =>
+  whole > 0 ? `${Math.round((part / whole) * 100)}%` : "–";
+
 const SOURCE_LABELS: Record<string, string> = {
   "recipe-slodkie": "przepisy (słodkie)",
   "recipe-slone": "przepisy (słone)",
@@ -58,6 +72,9 @@ export default function AdminNewsletter() {
   const [editions, setEditions] = useState<Edition[]>([]);
   const [stats, setStats] = useState<{ status: string; n: number }[]>([]);
   const [bySource, setBySource] = useState<{ source: string; n: number }[]>([]);
+  const [editionStats, setEditionStats] = useState<EditionStats[]>([]);
+  const [openLinks, setOpenLinks] = useState<number | null>(null);
+  const [linksByEdition, setLinksByEdition] = useState<Record<number, { url: string; clicks: number }[]>>({});
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [testTo, setTestTo] = useState("");
@@ -70,6 +87,7 @@ export default function AdminNewsletter() {
     setEditions(data.editions ?? []);
     setStats(data.stats ?? []);
     setBySource(data.bySource ?? []);
+    setEditionStats(data.editionStats ?? []);
   }, []);
   useEffect(() => {
     load();
@@ -98,6 +116,20 @@ export default function AdminNewsletter() {
   const confirmed = stats.find((s) => s.status === "confirmed")?.n ?? 0;
   const pending = stats.find((s) => s.status === "pending")?.n ?? 0;
   const unsub = stats.find((s) => s.status === "unsubscribed")?.n ?? 0;
+  const bounced = stats.find((s) => s.status === "bounced")?.n ?? 0;
+  const complained = stats.find((s) => s.status === "complained")?.n ?? 0;
+
+  async function toggleLinks(editionId: number) {
+    if (openLinks === editionId) return setOpenLinks(null);
+    setOpenLinks(editionId);
+    if (!linksByEdition[editionId]) {
+      const res = await fetch(`/api/admin/newsletter/stats?edition=${editionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLinksByEdition((m) => ({ ...m, [editionId]: data.links ?? [] }));
+      }
+    }
+  }
 
   function patchDraft(fn: (c: EditionContent) => EditionContent) {
     if (!draft) return;
@@ -209,10 +241,20 @@ export default function AdminNewsletter() {
           <div className="text-xs text-gray-400 mt-1">wypisanych</div>
         </div>
       </div>
-      {bySource.length > 0 && (
+      {(bySource.length > 0 || bounced > 0 || complained > 0) && (
         <p className="text-xs text-gray-400 -mt-4 mb-8">
-          Źródła zapisów:{" "}
-          {bySource.map((s) => `${SOURCE_LABELS[s.source] ?? s.source}: ${s.n}`).join(" · ")}
+          {bySource.length > 0 && (
+            <>
+              Źródła zapisów:{" "}
+              {bySource.map((s) => `${SOURCE_LABELS[s.source] ?? s.source}: ${s.n}`).join(" · ")}
+            </>
+          )}
+          {(bounced > 0 || complained > 0) && (
+            <span className="text-red-400">
+              {bySource.length > 0 ? " · " : ""}
+              odbite: {bounced} · zgłoszenia spamu: {complained}
+            </span>
+          )}
         </p>
       )}
 
@@ -435,25 +477,80 @@ export default function AdminNewsletter() {
         {sent.length === 0 ? (
           <p className="p-5 text-sm text-gray-500">Jeszcze nic nie poszło w świat.</p>
         ) : (
-          sent.map((e) => (
-            <div key={e.id} className="px-5 py-3 border-b border-gray-50 last:border-0 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">
-                  #{e.number} · {e.subject}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {e.sentAt ? new Date(e.sentAt).toLocaleString("pl-PL") : ""} · {e.recipientCount} odbiorców
-                </p>
+          sent.map((e) => {
+            const st = editionStats.find((s) => s.editionId === e.id);
+            // open rate liczony od dostarczonych; zanim webhook doniesie
+            // delivered, mianownikiem jest liczba wysłanych
+            const base = st ? (st.delivered > 0 ? st.delivered : st.sent) : 0;
+            return (
+              <div key={e.id} className="px-5 py-3 border-b border-gray-50 last:border-0">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      #{e.number} · {e.subject}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {e.sentAt ? new Date(e.sentAt).toLocaleString("pl-PL") : ""} · {e.recipientCount} odbiorców
+                    </p>
+                    {st ? (
+                      <p className="text-xs text-gray-500 mt-1 tabular-nums">
+                        otwarcia <b>{st.opened}</b> ({pct(st.opened, base)}) · kliknięcia{" "}
+                        <b>{st.clicked}</b> ({pct(st.clicked, base)}) · dostarczone {st.delivered}/
+                        {st.sent}
+                        {st.bounced > 0 && <span className="text-red-400"> · odbite {st.bounced}</span>}
+                        {st.complained > 0 && (
+                          <span className="text-red-500"> · spam {st.complained}</span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-300 mt-1">brak danych (wysłane przed włączeniem trackingu)</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {st && st.clicked > 0 && (
+                      <button
+                        onClick={() => toggleLinks(e.id)}
+                        className="text-xs text-gray-500 underline hover:text-gray-900"
+                      >
+                        {openLinks === e.id ? "zwiń linki" : "linki"}
+                      </button>
+                    )}
+                    <a
+                      href={`/api/admin/newsletter/${e.id}`}
+                      target="_blank"
+                      className="text-xs text-gray-500 underline hover:text-gray-900"
+                    >
+                      podgląd
+                    </a>
+                  </div>
+                </div>
+                {openLinks === e.id && (
+                  <div className="mt-2 bg-gray-50 rounded-lg p-3">
+                    {!linksByEdition[e.id] ? (
+                      <p className="text-xs text-gray-400">Ładuję…</p>
+                    ) : linksByEdition[e.id].length === 0 ? (
+                      <p className="text-xs text-gray-400">Brak zarejestrowanych kliknięć w linki.</p>
+                    ) : (
+                      linksByEdition[e.id].map((l) => (
+                        <p key={l.url} className="text-xs text-gray-600 truncate tabular-nums">
+                          <b>{l.clicks}×</b>{" "}
+                          <a href={l.url} target="_blank" className="hover:underline" rel="noreferrer">
+                            {l.url.replace(/^https?:\/\/[^/]+/, "").replace(/\?utm_source=.*$/, "")}
+                          </a>
+                        </p>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-              <a
-                href={`/api/admin/newsletter/${e.id}`}
-                target="_blank"
-                className="text-xs text-gray-500 underline hover:text-gray-900 shrink-0"
-              >
-                podgląd
-              </a>
-            </div>
-          ))
+            );
+          })
+        )}
+        {sent.length > 0 && (
+          <p className="px-5 py-2 text-[11px] text-gray-300 border-t border-gray-50">
+            Otwarcia to unikalni odbiorcy. Apple Mail sztucznie zawyża open rate (prefetch pikseli),
+            realne zaangażowanie lepiej mierzą kliknięcia.
+          </p>
         )}
       </div>
     </AdminShell>

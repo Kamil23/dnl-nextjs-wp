@@ -5,7 +5,7 @@ import { db, dbSchema } from "../../../../lib/db";
 import { renderEditionHtml, type EditionContent } from "../../../../lib/server/edition-composer";
 import { sendMail, sendBatch } from "../../../../lib/server/newsletter";
 
-const { newsletterEditions, subscribers } = dbSchema;
+const { newsletterEditions, newsletterSends, subscribers } = dbSchema;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdminApi(req, res)) return;
@@ -79,14 +79,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (action === "send") {
       if (edition.status === "sent") return res.status(400).json({ error: "Wydanie już wysłane" });
       const recipients = await db
-        .select({ email: subscribers.email, token: subscribers.token })
+        .select({ id: subscribers.id, email: subscribers.email, token: subscribers.token })
         .from(subscribers)
         .where(and(eq(subscribers.status, "confirmed")));
       if (recipients.length === 0) {
         return res.status(400).json({ error: "Brak potwierdzonych subskrybentów" });
       }
       try {
-        await sendBatch(
+        const resendIds = await sendBatch(
           recipients.map((r) => ({
             to: r.email,
             subject: edition.subject,
@@ -94,6 +94,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             unsubToken: r.token,
           }))
         );
+        // One send row per recipient: the Resend webhook joins on resend_id to
+        // aggregate opens/clicks/bounces into these rows
+        const sendRows = recipients.map((r, i) => ({
+          editionId: id,
+          subscriberId: r.id,
+          email: r.email,
+          resendId: resendIds[i],
+        }));
+        for (let i = 0; i < sendRows.length; i += 1000) {
+          await db.insert(newsletterSends).values(sendRows.slice(i, i + 1000));
+        }
         const [row] = await db
           .update(newsletterEditions)
           .set({ status: "sent", sentAt: new Date(), recipientCount: recipients.length })

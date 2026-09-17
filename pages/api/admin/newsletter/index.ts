@@ -4,13 +4,13 @@ import { requireAdminApi } from "../../../../lib/admin-auth";
 import { db, dbSchema } from "../../../../lib/db";
 import { composeDraft } from "../../../../lib/server/edition-composer";
 
-const { newsletterEditions, subscribers } = dbSchema;
+const { newsletterEditions, newsletterSends, subscribers } = dbSchema;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdminApi(req, res)) return;
 
   if (req.method === "GET") {
-    const [editions, stats, bySource] = await Promise.all([
+    const [editions, stats, bySource, editionStats] = await Promise.all([
       db.select().from(newsletterEditions).orderBy(desc(newsletterEditions.number)).limit(30),
       db
         .select({ status: subscribers.status, n: sql<number>`count(*)::int` })
@@ -21,8 +21,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from(subscribers)
         .where(eq(subscribers.status, "confirmed"))
         .groupBy(subscribers.source),
+      // Per-edition delivery/engagement, fed by the Resend webhook. count(col)
+      // counts non-null rows, so first_opened_at etc. give UNIQUE opens/clicks.
+      db
+        .select({
+          editionId: newsletterSends.editionId,
+          sent: sql<number>`count(*)::int`,
+          delivered: sql<number>`count(${newsletterSends.deliveredAt})::int`,
+          opened: sql<number>`count(${newsletterSends.firstOpenedAt})::int`,
+          clicked: sql<number>`count(${newsletterSends.firstClickedAt})::int`,
+          bounced: sql<number>`count(${newsletterSends.bouncedAt})::int`,
+          complained: sql<number>`count(${newsletterSends.complainedAt})::int`,
+        })
+        .from(newsletterSends)
+        .groupBy(newsletterSends.editionId),
     ]);
-    return res.status(200).json({ editions, stats, bySource });
+    return res.status(200).json({ editions, stats, bySource, editionStats });
   }
 
   if (req.method === "POST") {
