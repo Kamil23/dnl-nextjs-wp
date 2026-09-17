@@ -29,11 +29,12 @@ export default function CookieConsent({
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[90] p-4 sm:p-6 pointer-events-none print:hidden">
-      <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-amber-100 bg-white shadow-medium p-5">
-        <p className="font-bold tracking-tight mb-1">Ciasteczka? 🍪</p>
+      <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-amber-100 bg-white shadow-medium p-5 animate-consent-in">
+        <p className="font-bold tracking-tight mb-1">Pomożesz nam ulepszać przepisy? 🍪</p>
         <p className="text-sm text-gray-600 leading-relaxed mb-4">
-          Używamy cookies wyłącznie do anonimowych statystyk, żeby wiedzieć,
-          które przepisy Ci smakują. Żadnych reklam. Szczegóły w{" "}
+          Anonimowe statystyki pokazują nam, które przepisy smakują Ci
+          najbardziej i co gotować dalej. Zero reklam, zero sprzedawania
+          danych. Szczegóły w{" "}
           <Link href="/polityka-prywatnosci/" className="underline hover:text-gray-900">
             polityce prywatności
           </Link>
@@ -50,7 +51,7 @@ export default function CookieConsent({
             onClick={() => decide("granted")}
             className="rounded-full bg-gray-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-gray-700 transition-colors"
           >
-            Akceptuję
+            Zgadzam się
           </button>
         </div>
       </div>
