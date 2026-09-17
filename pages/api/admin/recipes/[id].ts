@@ -5,6 +5,7 @@ import { getRecipeById } from "../../../../lib/queries";
 import { db, dbSchema } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slugify";
 import { syncRecipeToSearch, removeRecipeFromSearch } from "../../../../lib/search-sync";
+import { notifyIndexNow } from "../../../../lib/server/indexnow";
 
 const {
   recipes,
@@ -174,13 +175,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const updated = await getRecipeById(id);
     await syncRecipeToSearch(db, id);
-    await revalidatePaths(res, [
+    const touchedPaths = [
       existing.uri,
       updated!.uri,
       "/",
       ...existing.categories.map((c) => c.uri),
       ...updated!.categories.map((c) => c.uri),
-    ]);
+    ];
+    await revalidatePaths(res, touchedPaths);
+    // Ping tylko przy realnej zmianie opublikowanej treści - drafty, komentarze
+    // i oceny nie generują zgłoszeń, żeby nie rozmywać sygnału świeżości.
+    if (updated!.status === "published") void notifyIndexNow(touchedPaths);
     return res.json(JSON.parse(JSON.stringify(updated)));
   }
 

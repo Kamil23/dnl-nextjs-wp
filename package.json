@@ -14,7 +14,8 @@
     "search:reindex": "tsx scripts/reindex-search.ts",
     "qc:recipes": "tsx scripts/qc-recipes.ts",
     "substitutions:generate": "tsx scripts/generate-substitutions.ts",
-    "tiktok:backlog": "tsx scripts/tiktok-backlog.ts"
+    "tiktok:backlog": "tsx scripts/tiktok-backlog.ts",
+    "indexnow:submit-all": "tsx scripts/indexnow-submit-all.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

@@ -68,6 +68,8 @@ services:
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       GA4_PROPERTY_ID: ${GA4_PROPERTY_ID:-}
       GA4_SERVICE_ACCOUNT_KEY_PATH: ${GA4_SERVICE_ACCOUNT_KEY_PATH:-}
+      # IndexNow: ping Bing/Yandex przy publikacji przepisu (puste = wyłączone)
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       # Szacowanie kalorii/makr z AI: "Oszacuj z AI" w edytorze przepisu i
       # "Porcje z AI" w /admin/qc wołają estimateMacros (OpenAI) w kontenerze web.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -130,6 +132,8 @@ services:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      # npm run indexnow:submit-all (jednorazowe zgłoszenie wszystkich URL-i)
+      INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       # TikTok import frames are written here (shared media volume, served by Caddy)
       UPLOADS_DIR: /srv/media/uploads
     volumes:

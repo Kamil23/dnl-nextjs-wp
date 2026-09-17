@@ -223,7 +223,7 @@ export async function getPageByUri(uri: string) {
 }
 
 export async function getAllPageUris() {
-  return db.select({ uri: pages.uri }).from(pages);
+  return db.select({ uri: pages.uri, updatedAt: pages.updatedAt }).from(pages);
 }
 
 export async function getCategoryByUri(uri: string) {
@@ -611,9 +611,12 @@ export async function getCategoriesWithCounts() {
       slug: categories.slug,
       name: categories.name,
       count: sql<number>`count(${recipeCategories.recipeId})::int`,
+      // lastmod archiwum = ostatnia zmiana opublikowanego przepisu w kategorii
+      lastmod: sql<string | null>`max(${recipes.updatedAt}) filter (where ${recipes.status} = 'published')`,
     })
     .from(categories)
     .leftJoin(recipeCategories, eq(recipeCategories.categoryId, categories.id))
+    .leftJoin(recipes, eq(recipes.id, recipeCategories.recipeId))
     .groupBy(categories.id);
 }
 

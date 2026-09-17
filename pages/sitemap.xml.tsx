@@ -30,14 +30,14 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     ...staticSitemapPaths().map((p) => urlEntry(`${SITE_URL}${p}`)),
     // Treść z bazy (auto): przepisy + daty modyfikacji
     ...recipeUris.map(({ uri, updatedAt }) => urlEntry(`${SITE_URL}${uri}`, updatedAt)),
-    // Kategorie z zawartością
+    // Kategorie z zawartością + data ostatniej zmiany przepisu w kategorii
     ...categories
       .filter((c) => c.count > 0)
-      .map((c) => urlEntry(`${SITE_URL}${c.uri}`)),
+      .map((c) => urlEntry(`${SITE_URL}${c.uri}`, c.lastmod)),
     // Strony redakcyjne z tabeli `pages` (np. /do-pobrania, polityka prywatności)
     ...pageUris
       .filter(({ uri }) => uri !== '/' && !EXCLUDED_PAGE_URIS.includes(uri))
-      .map(({ uri }) => urlEntry(`${SITE_URL}${uri}`)),
+      .map(({ uri, updatedAt }) => urlEntry(`${SITE_URL}${uri}`, updatedAt)),
   ]
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
