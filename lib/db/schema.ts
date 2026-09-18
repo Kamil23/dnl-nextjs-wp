@@ -190,8 +190,9 @@ export const ratings = pgTable(
 // Reader comments under a recipe/article. Same trust model as ratings:
 // everything lands as `pending` and only admin-approved comments render
 // publicly (and count towards commentCount in the JSON-LD).
-// `parentId` holds one level of nesting - replies (typically Roksana
-// answering from the admin, marked with isAuthor) render indented.
+// `parentId` builds arbitrarily deep threads - both readers and the blog
+// author (marked with isAuthor) can reply to any comment; replies render
+// indented under their parent.
 export const comments = pgTable(
   "comments",
   {

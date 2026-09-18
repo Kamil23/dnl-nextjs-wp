@@ -39,6 +39,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ error: "Not found" });
   }
 
+  // Threaded reply: only under a comment that is actually visible on the page
+  let parentId: number | null = null;
+  if (req.body?.parentId != null && req.body.parentId !== "") {
+    parentId = parseInt(req.body.parentId, 10);
+    if (!Number.isInteger(parentId)) {
+      return res.status(400).json({ error: "Bad request" });
+    }
+    const [parent] = await db.select().from(comments).where(eq(comments.id, parentId));
+    if (!parent || parent.recipeId !== recipeId || parent.status !== "approved") {
+      return res.status(400).json({ error: "Nie można odpowiedzieć na ten komentarz" });
+    }
+  }
+
   const fp = fingerprint(req, recipeId);
 
   // Double-submit guard: an identical repeat from the same reader is a no-op
@@ -67,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(429).json({ error: "Masz już kilka komentarzy czekających na akceptację" });
   }
 
-  await db.insert(comments).values({ recipeId, authorName: name, body, fingerprint: fp });
+  await db.insert(comments).values({ recipeId, parentId, authorName: name, body, fingerprint: fp });
 
   return res.json({ ok: true, pending: true });
 }

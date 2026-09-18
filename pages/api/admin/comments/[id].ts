@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { eq, or } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireAdminApi } from "../../../../lib/admin-auth";
 import { db, dbSchema } from "../../../../lib/db";
 
@@ -24,8 +24,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!comment) return res.status(404).json({ error: "Not found" });
 
   if (req.method === "DELETE") {
-    // Replies hang off their parent - remove them along with it
-    await db.delete(comments).where(or(eq(comments.id, id), eq(comments.parentId, id)));
+    // Replies hang off their parent (arbitrarily deep) - remove the whole subtree
+    await db.execute(sql`
+      WITH RECURSIVE tree AS (
+        SELECT id FROM comments WHERE id = ${id}
+        UNION ALL
+        SELECT c.id FROM comments c JOIN tree t ON c.parent_id = t.id
+      )
+      DELETE FROM comments WHERE id IN (SELECT id FROM tree)
+    `);
     await revalidateRecipe(res, comment.recipeId);
     return res.json({ ok: true });
   }
