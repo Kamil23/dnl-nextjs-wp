@@ -16,6 +16,12 @@ module.exports = {
   output: 'standalone',
   // WordPress permalinks end with a slash - keep identical URLs after migration
   trailingSlash: true,
+  async rewrites() {
+    // IndexNow: plik klucza MUSI leżeć w rootcie domeny - jego katalog wyznacza
+    // zakres URL-i, które można zgłaszać (klucz pod /api/ pozwalałby zgłaszać
+    // tylko /api/*). /<32-hex>.txt → endpoint, który zwraca INDEXNOW_KEY.
+    return [{ source: '/:key([a-f0-9]{32}).txt', destination: '/api/indexnow-key' }]
+  },
   async redirects() {
     // The WooCommerce shop is gone and won't return - permanent redirects
     // so any indexed/linked shop URLs pass their signals to the homepage

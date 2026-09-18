@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-// Plik klucza IndexNow: protokół wymaga, by klucz był publicznie dostępny na
-// tym samym hoście (przekazujemy ten adres jako keyLocation w pingach).
+// Plik klucza IndexNow, publicznie dostępny jako /<klucz>.txt w ROOTCIE domeny
+// (rewrite w next.config.js) - katalog pliku klucza wyznacza zakres URL-i,
+// które można zgłaszać, więc root obejmuje całą witrynę.
 // Klucz nie jest sekretem - służy tylko do potwierdzenia własności domeny.
 export default function handler(_req: NextApiRequest, res: NextApiResponse) {
   const key = process.env.INDEXNOW_KEY;

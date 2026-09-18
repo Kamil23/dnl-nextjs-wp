@@ -30,8 +30,9 @@ export async function notifyIndexNow(paths: string[]): Promise<number | null> {
       body: JSON.stringify({
         host: new URL(SITE_URL).host,
         key,
-        // trailingSlash: true - bez ukośnika Next odpowiada 308
-        keyLocation: `${SITE_URL}/api/indexnow-key/`,
+        // Root, nie /api/ - katalog pliku klucza wyznacza zakres zgłaszanych
+        // URL-i (rewrite w next.config.js kieruje na /api/indexnow-key)
+        keyLocation: `${SITE_URL}/${key}.txt`,
         urlList,
       }),
     });
