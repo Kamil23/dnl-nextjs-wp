@@ -1,6 +1,6 @@
-// Backlog TikTok: katalog profilu (tiktok_catalog) minus filmy, które już są
-// w kolejce importów albo mają przepis na stronie. Zasila /admin/tiktok-backlog
-// i podstronę szczegółów filmu /admin/tiktok-backlog/[videoId].
+// Backlog TikTok: pełny katalog profilu (tiktok_catalog) z oznaczeniem, które
+// filmy mają już przepis na stronie / czekają w kolejce importu. Zasila
+// /admin/tiktok-backlog i podstronę szczegółów /admin/tiktok-backlog/[videoId].
 import { eq, sql } from "drizzle-orm";
 import { db, dbSchema } from "./db";
 
@@ -26,6 +26,10 @@ export type BacklogRow = SnapshotStats & {
   // Przedostatni snapshot statystyk (ostatni = stan bieżący po odświeżeniu):
   // baza do pokazania przyrostów. Null, dopóki nie ma dwóch snapshotów.
   prev: (SnapshotStats & { capturedOn: string }) | null;
+  // Film ma już przepis na stronie / czeka w kolejce importu - taki wiersz
+  // jest w tabeli widoczny, ale bez przycisku "Do kolejki".
+  hasRecipe: boolean;
+  inQueue: boolean;
 };
 
 // TikTok koduje datę publikacji w ID filmu: górne 32 bity 64-bitowego ID to
@@ -88,9 +92,16 @@ export async function listBacklog(): Promise<BacklogRow[]> {
         repostCount: tiktokCatalog.repostCount,
         kind: tiktokCatalog.kind,
         uploadedTs: UPLOADED_TS,
+        // Korelacja zapisana dosłownie - patrz komentarz przy prevSnapshots.
+        hasRecipe: sql<boolean>`exists (
+          select 1 from recipes r
+          where r.video_url like '%' || "tiktok_catalog"."video_id" || '%')`,
+        inQueue: sql<boolean>`exists (
+          select 1 from imports i
+          where i.video_id = "tiktok_catalog"."video_id"
+             or i.tiktok_url like '%/' || "tiktok_catalog"."video_id" || '%')`,
       })
       .from(tiktokCatalog)
-      .where(NOT_IMPORTED)
       .orderBy(sql`${UPLOADED_TS} desc nulls last, ${tiktokCatalog.viewCount} desc nulls last`),
     prevSnapshots(),
   ]);

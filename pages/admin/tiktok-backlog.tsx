@@ -6,10 +6,11 @@ import JobRunner from "../../components/admin/job-runner";
 import { isAdminRequest } from "../../lib/admin-auth";
 import { listBacklog, backlogStats, type BacklogRow } from "../../lib/tiktok-backlog";
 
-// Backlog TikTok: filmy z profilu, które NIE mają jeszcze przepisu ani wpisu w
-// kolejce. Katalog odświeża skrypt `npm run tiktok:backlog` (yt-dlp + tania
-// klasyfikacja opisów). Stąd jednym klikiem wrzucasz film do kolejki importu,
-// dalej przejmuje go worker i normalny flow akceptu w /admin/tiktok.
+// Backlog TikTok: WSZYSTKIE filmy z profilu; te z przepisem na stronie albo
+// w kolejce mają znacznik zamiast przycisku. Katalog odświeża skrypt
+// `npm run tiktok:backlog` (yt-dlp + tania klasyfikacja opisów). Stąd jednym
+// klikiem wrzucasz film do kolejki importu, dalej przejmuje go worker
+// i normalny flow akceptu w /admin/tiktok.
 
 type Filter = "przepis" | "niejasne" | "inne" | "wszystkie";
 
@@ -98,7 +99,7 @@ export default function TikTokBacklog({
   }
 
   async function enqueueAllVisible() {
-    const todo = visible.filter((r) => queued[r.videoId] !== "ok");
+    const todo = visible.filter((r) => !r.hasRecipe && !r.inQueue && queued[r.videoId] !== "ok");
     if (todo.length === 0) return;
     if (!confirm(`Dodać ${todo.length} filmów do kolejki importu? Worker przetworzy je po kolei.`)) return;
     setBulk({ running: true, done: 0, total: todo.length });
@@ -138,7 +139,7 @@ export default function TikTokBacklog({
           >
             {bulk?.running
               ? `Dodaję... ${bulk.done}/${bulk.total}`
-              : `Dodaj widoczne do kolejki (${visible.filter((r) => queued[r.videoId] !== "ok").length})`}
+              : `Dodaj widoczne do kolejki (${visible.filter((r) => !r.hasRecipe && !r.inQueue && queued[r.videoId] !== "ok").length})`}
           </button>
         )}
       </div>
@@ -235,7 +236,9 @@ export default function TikTokBacklog({
                       </span>
                     </td>
                     <td className="px-4 py-3 align-top text-right whitespace-nowrap">
-                      {state === "ok" ? (
+                      {r.hasRecipe ? (
+                        <span className="text-emerald-600 text-xs font-medium">✓ na stronie</span>
+                      ) : r.inQueue || state === "ok" ? (
                         <span className="text-emerald-600 text-xs font-medium">✓ w kolejce</span>
                       ) : (
                         <button
