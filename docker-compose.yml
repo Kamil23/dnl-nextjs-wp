@@ -111,6 +111,10 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # Frames land on the shared media volume, served by Caddy under /uploads/*
       UPLOADS_DIR: /srv/media/uploads
+      # Komentarze TikTok wymagają sesji zalogowanego - eksport cookies.txt
+      # autorki na wolumenie mediów (patrz DEPLOY.md). Brak pliku = zlecenie
+      # komentarzy kończy się czytelnym błędem, reszta działa normalnie.
+      TIKTOK_COOKIES_PATH: ${TIKTOK_COOKIES_PATH:-/srv/media/tiktok-cookies.txt}
     volumes:
       - ${MEDIA_DIR:-/srv/dnl/media}:/srv/media
     command: ["npm", "run", "imports:watch"]

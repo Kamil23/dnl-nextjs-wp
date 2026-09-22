@@ -260,6 +260,12 @@ Jeśli 80/443 są wolne - zostaje nasze Caddy bez zmian. (Ustalimy na podstawie 
 - `DATABASE_URL` jako build-arg trafia do warstw obrazu (`docker history`) - to lokalne dane dostępowe do bazy na Twoim VPS, nie współdziel obrazu publicznie.
 - Panel admina: zrotuj `ADMIN_PASSWORD` na mocne hasło przed startem (login ma limit prób: 5 → blokada 15 min).
 - Importy TikTok na VPS wymagają `ffmpeg` + `yt-dlp` - są w obrazie `tools` (Dockerfile, warstwa `source`).
+- **Komentarze TikTok** (przycisk na podstronie filmu w backlogu): TikTok pokazuje komentarze
+  tylko zalogowanym, więc worker potrzebuje sesji autorki. Na komputerze, gdzie Roksana jest
+  zalogowana na tiktok.com: rozszerzenie **"Get cookies.txt LOCALLY"** → wyeksportuj cookies dla
+  tiktok.com → wgraj plik na VPS jako `/srv/dnl/media/tiktok-cookies.txt` (worker czyta go ze
+  ścieżki `TIKTOK_COOKIES_PATH`, domyślnie `/srv/media/tiktok-cookies.txt` na wolumenie).
+  Sesja żyje miesiącami; gdy wygaśnie, zlecenie zgłosi błąd - wtedy powtórz eksport.
 
 ---
 

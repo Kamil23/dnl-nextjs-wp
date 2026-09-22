@@ -1,8 +1,10 @@
 import { GetServerSideProps } from "next";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/router";
+import { useEffect, useRef, useState } from "react";
 import AdminShell from "../../../components/admin/admin-shell";
 import { isAdminRequest } from "../../../lib/admin-auth";
+import { getPathStats, type PathStats } from "../../../lib/server/ga";
 import { getVideoDetail, type VideoDetail } from "../../../lib/tiktok-backlog";
 
 // Szczegóły filmu z katalogu TikTok: osadzony odtwarzacz, pełne statystyki
@@ -77,6 +79,25 @@ function ViewsChart({ history }: { history: VideoDetail["history"] }) {
   );
 }
 
+// Dzienne odsłony strony przepisu (GA4) jako słupki - czy hit na TikToku
+// przekłada się na ruch na stronie.
+function GaBars({ daily }: { daily: PathStats["daily"] }) {
+  if (daily.length === 0) return <p className="text-sm text-gray-400">Brak odsłon w tym okresie.</p>;
+  const max = Math.max(...daily.map((d) => d.views), 1);
+  return (
+    <div className="flex items-end gap-[3px] h-24">
+      {daily.map((d) => (
+        <div
+          key={d.date}
+          className="flex-1 bg-emerald-500/70 rounded-t min-w-[4px]"
+          style={{ height: `${Math.max(4, (d.views / max) * 100)}%` }}
+          title={`${fmtDate(d.date)}: ${d.views.toLocaleString("pl-PL")} odsłon`}
+        />
+      ))}
+    </div>
+  );
+}
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string | null }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
@@ -87,8 +108,14 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-export default function TikTokVideoDetail({ detail }: { detail: VideoDetail }) {
-  const { video, history, medianViews, importRow, recipe } = detail;
+export default function TikTokVideoDetail({
+  detail,
+  gaStats,
+}: {
+  detail: VideoDetail;
+  gaStats: PathStats | null;
+}) {
+  const { video, history, medianViews, importRow, recipe, comments } = detail;
   const [queued, setQueued] = useState<"idle" | "sending" | "ok" | "error">("idle");
 
   const first = history.find((h) => h.viewCount != null) ?? null;
@@ -100,6 +127,41 @@ export default function TikTokVideoDetail({ detail }: { detail: VideoDetail }) {
   const engagement =
     (video.likeCount ?? 0) + (video.commentCount ?? 0) + (video.saveCount ?? 0) + (video.repostCount ?? 0);
   const hashtags = video.caption?.match(/#[\p{L}\p{N}_]+/gu) ?? [];
+
+  // Pobieranie komentarzy: zlecenie dla workera + polling statusu; po "done"
+  // odświeżamy propsy SSR (router.replace), żeby sekcja się zapełniła.
+  const router = useRouter();
+  const [commentsJob, setCommentsJob] = useState<"idle" | "waiting" | "error">("idle");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  async function fetchComments() {
+    setCommentsJob("waiting");
+    try {
+      const res = await fetch("/api/admin/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "tiktok_comments", action: "run", videoId: video.videoId }),
+      });
+      if (!res.ok && res.status !== 409) throw new Error();
+      pollRef.current = setInterval(async () => {
+        const st = await fetch("/api/admin/jobs?kind=tiktok_comments").then((r) => r.json());
+        if (st.job && st.job.status !== "pending" && st.job.status !== "running") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (st.job.status === "done") {
+            router.replace(router.asPath, undefined, { scroll: false });
+            setCommentsJob("idle");
+          } else {
+            setCommentsJob("error");
+          }
+        }
+      }, 4000);
+    } catch {
+      setCommentsJob("error");
+    }
+  }
+
+  const questions = comments.list.filter((c) => c.text.includes("?") && !c.isReply).slice(0, 12);
 
   async function enqueue() {
     setQueued("sending");
@@ -287,6 +349,115 @@ export default function TikTokVideoDetail({ detail }: { detail: VideoDetail }) {
               </tbody>
             </table>
           </div>
+
+          {recipe && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4 mt-6">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Ruch na stronie przepisu (28 dni)
+                </h2>
+                {gaStats && (
+                  <span className="text-sm text-gray-500">
+                    łącznie <span className="font-semibold text-gray-900">{fmtNum(gaStats.total)}</span> odsłon
+                    {gaStats.daily.length >= 7 && (
+                      <>
+                        , ostatnie 7 dni:{" "}
+                        <span className="font-semibold text-gray-900">
+                          {fmtNum(gaStats.daily.slice(-7).reduce((s, d) => s + d.views, 0))}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
+              {gaStats ? (
+                <GaBars daily={gaStats.daily} />
+              ) : (
+                <p className="text-sm text-gray-400">
+                  GA4 nieskonfigurowane albo chwilowo niedostępne.
+                </p>
+              )}
+            </div>
+          )}
+
+          {importRow?.transcript && (
+            <details className="bg-white rounded-xl border border-gray-200 mt-6 group">
+              <summary className="px-4 py-3 text-sm font-semibold text-gray-700 cursor-pointer select-none">
+                Transkrypcja filmu (Whisper, z importu)
+              </summary>
+              <p className="px-4 pb-4 text-sm text-gray-600 whitespace-pre-wrap">{importRow.transcript}</p>
+            </details>
+          )}
+
+          <div className="bg-white rounded-xl border border-gray-200 p-4 mt-6">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Komentarze{comments.total > 0 && ` (${comments.total})`}
+                {comments.fetchedAt && (
+                  <span className="font-normal text-gray-400"> · pobrano {fmtDate(comments.fetchedAt, true)}</span>
+                )}
+              </h2>
+              <button
+                onClick={fetchComments}
+                disabled={commentsJob === "waiting"}
+                className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-500 disabled:opacity-50"
+              >
+                {commentsJob === "waiting"
+                  ? "Worker pobiera..."
+                  : commentsJob === "error"
+                    ? "Błąd - ponów"
+                    : comments.total > 0
+                      ? "Odśwież komentarze"
+                      : "Pobierz komentarze"}
+              </button>
+            </div>
+
+            {comments.total === 0 ? (
+              <p className="text-sm text-gray-400">
+                Jeszcze nie pobrane. Kliknij „Pobierz komentarze" - worker otworzy film w headless
+                Chromium i zbierze komentarze (ok. minuty). TikTok pokazuje komentarze tylko
+                zalogowanym, więc na serwerze musi być plik cookies sesji autorki
+                (DEPLOY.md → „Komentarze TikTok"). {commentsJob === "error" && (
+                  <span className="text-red-500">Ostatnie zlecenie zakończyło się błędem - najczęściej to brak/wygaśnięcie cookies.</span>
+                )}
+              </p>
+            ) : (
+              <>
+                {questions.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+                      Pytania widzów - pomysły na FAQ przepisu
+                    </h3>
+                    <ul className="space-y-1.5">
+                      {questions.map((c) => (
+                        <li key={c.id} className="text-sm text-gray-700 bg-amber-50 rounded-lg px-3 py-2">
+                          {c.text}
+                          <span className="text-xs text-gray-400"> — {c.author ?? "?"}{c.likeCount ? ` · ${c.likeCount} ❤` : ""}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <ul className="divide-y divide-gray-100">
+                  {comments.list.slice(0, 30).map((c) => (
+                    <li key={c.id} className={`py-2 text-sm ${c.isReply ? "pl-6 text-gray-500" : "text-gray-700"}`}>
+                      {c.text}
+                      <span className="text-xs text-gray-400">
+                        {" "}— {c.author ?? "?"}
+                        {c.likeCount ? ` · ${c.likeCount} ❤` : ""}
+                        {c.publishedAt ? ` · ${fmtDate(c.publishedAt)}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {comments.total > 30 && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    Pokazuję 30 najbardziej polubionych z {comments.total} zapisanych.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </AdminShell>
@@ -301,5 +472,6 @@ export const getServerSideProps: GetServerSideProps = async ({ req, params }) =>
   if (!/^\d+$/.test(videoId)) return { notFound: true };
   const detail = await getVideoDetail(videoId);
   if (!detail) return { notFound: true };
-  return { props: { detail: JSON.parse(JSON.stringify(detail)) } };
+  const gaStats = detail.recipe?.slug ? await getPathStats(`/przepisy/${detail.recipe.slug}/`) : null;
+  return { props: { detail: JSON.parse(JSON.stringify(detail)), gaStats } };
 };

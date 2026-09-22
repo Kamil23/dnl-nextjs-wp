@@ -509,6 +509,28 @@ export const tiktokViewSnapshots = pgTable(
   (t) => [uniqueIndex("tiktok_view_snapshots_video_day_idx").on(t.videoId, t.capturedOn)]
 );
 
+// Komentarze pod filmami TikTok, pobierane na żądanie z podstrony filmu
+// (zlecenie tiktok_comments -> worker -> yt-dlp --write-comments). Źródło
+// analizy: top komentarze i pytania widzów = pomysły na sekcje przepisu/FAQ.
+export const tiktokComments = pgTable(
+  "tiktok_comments",
+  {
+    id: serial("id").primaryKey(),
+    videoId: text("video_id").notNull(),
+    commentId: text("comment_id").notNull(),
+    author: text("author"),
+    text: text("text").notNull(),
+    likeCount: integer("like_count"),
+    isReply: boolean("is_reply").notNull().default(false),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("tiktok_comments_comment_idx").on(t.commentId),
+    index("tiktok_comments_video_idx").on(t.videoId),
+  ]
+);
+
 // Klucze sprzętowe / passkeys admina (WebAuthn). Jeśli istnieje choć jeden
 // wpis, logowanie hasłem wymaga jeszcze potwierdzenia kluczem (drugi składnik).
 // Awaryjnie: DELETE FROM webauthn_credentials przywraca logowanie samym hasłem.
@@ -533,7 +555,7 @@ export const jobs = pgTable(
   "jobs",
   {
     id: serial("id").primaryKey(),
-    kind: text("kind", { enum: ["tiktok_backlog", "substitutions"] }).notNull(),
+    kind: text("kind", { enum: ["tiktok_backlog", "substitutions", "tiktok_comments"] }).notNull(),
     status: text("status", { enum: ["pending", "running", "done", "error"] })
       .notNull()
       .default("pending"),

@@ -8,7 +8,7 @@ import { db, dbSchema } from "../../../lib/db";
 // POST {kind, action:'run', payload?} dodaje zlecenie;
 // POST {kind:'tiktok_backlog', action:'interval', days} zapisuje interwał.
 
-const KINDS = ["tiktok_backlog", "substitutions"] as const;
+const KINDS = ["tiktok_backlog", "substitutions", "tiktok_comments"] as const;
 type Kind = (typeof KINDS)[number];
 
 const INTERVAL_KEY = "tiktok_backlog_interval_days";
@@ -55,7 +55,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .where(and(eq(jobs.kind, kind), or(eq(jobs.status, "pending"), eq(jobs.status, "running"))));
       if (active.length > 0) return res.status(409).json({ error: "Zlecenie już czeka lub trwa" });
 
-      const payload = kind === "substitutions" ? { limit: Math.max(1, Math.min(50, Number(req.body?.limit) || 10)) } : null;
+      let payload: Record<string, unknown> | null = null;
+      if (kind === "substitutions") {
+        payload = { limit: Math.max(1, Math.min(50, Number(req.body?.limit) || 10)) };
+      } else if (kind === "tiktok_comments") {
+        const videoId = String(req.body?.videoId ?? "");
+        if (!/^\d+$/.test(videoId)) return res.status(400).json({ error: "videoId?" });
+        payload = { videoId };
+      }
       const [job] = await db.insert(jobs).values({ kind, status: "pending", payload }).returning();
       return res.json({ ok: true, job });
     }

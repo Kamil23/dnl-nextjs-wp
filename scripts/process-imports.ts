@@ -31,6 +31,7 @@ import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import * as schema from "../lib/db/schema";
 import { runTiktokBacklog } from "../lib/server/tiktok-backlog-run";
+import { runTiktokComments } from "../lib/server/tiktok-comments-run";
 import { runSubstitutionsGenerate } from "../lib/server/substitutions-run";
 import { enhanceHeroToFile } from "../lib/server/enhance-hero";
 
@@ -828,6 +829,10 @@ async function processJobs(): Promise<number> {
   try {
     if (job.kind === "tiktok_backlog") {
       await runTiktokBacklog(db, log);
+    } else if (job.kind === "tiktok_comments") {
+      const payload = (job.payload ?? {}) as { videoId?: string };
+      if (!payload.videoId) throw new Error("Zlecenie tiktok_comments bez videoId");
+      await runTiktokComments(db, payload.videoId, log);
     } else if (job.kind === "substitutions") {
       const payload = (job.payload ?? {}) as { limit?: number };
       await runSubstitutionsGenerate(db, log, { limit: payload.limit ?? 10 });
