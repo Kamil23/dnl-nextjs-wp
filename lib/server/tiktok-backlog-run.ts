@@ -87,6 +87,18 @@ export async function runTiktokBacklog(
   let fresh = 0;
 
   if (!opts.skipFetch) {
+    // Baseline historii wyświetleń: filmom bez żadnego snapshotu zapisz stan
+    // SPRZED tego odświeżenia, datowany poprzednim refreshed_at. Dzięki temu
+    // przyrost widać już po pierwszym odświeżeniu po wdrożeniu, nie po drugim.
+    // Musi iść przed pętlą upsertów, bo ta nadpisuje view_count i refreshed_at.
+    await db.execute(sql`
+      insert into tiktok_view_snapshots (video_id, view_count, captured_on)
+      select c.video_id, c.view_count, coalesce(c.refreshed_at::date, current_date)
+      from tiktok_catalog c
+      where c.view_count is not null
+        and not exists (select 1 from tiktok_view_snapshots s where s.video_id = c.video_id)
+      on conflict do nothing`);
+
     const entries = await fetchProfile(log);
     profileTotal = entries.length;
     log(`Profil ma ${entries.length} filmów.`);
