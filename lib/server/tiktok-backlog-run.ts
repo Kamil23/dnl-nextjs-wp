@@ -109,6 +109,14 @@ export async function runTiktokBacklog(
         .returning({ classifiedAt: tiktokCatalog.classifiedAt });
       if (res[0] && res[0].classifiedAt == null) fresh++;
     }
+    // Dzienny snapshot wyświetleń całego katalogu - historia przyrostów dla
+    // backlogu. Drugi refresh tego samego dnia nadpisuje dzisiejszy wiersz.
+    await db.execute(sql`
+      insert into tiktok_view_snapshots (video_id, view_count, captured_on)
+      select video_id, view_count, current_date from tiktok_catalog
+      where view_count is not null
+      on conflict (video_id, captured_on)
+      do update set view_count = excluded.view_count`);
     log(`Katalog zaktualizowany (${fresh} nowych/nieklasyfikowanych).`);
   }
 

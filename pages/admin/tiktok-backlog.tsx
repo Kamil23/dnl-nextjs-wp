@@ -165,7 +165,19 @@ export default function TikTokBacklog({
                       </a>
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">{fmtDate(r.uploadedTs)}</td>
-                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">{fmtViews(r.viewCount)}</td>
+                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">
+                      {fmtViews(r.viewCount)}
+                      {r.viewCount != null && r.prevViews != null && r.viewCount !== r.prevViews && (
+                        <span
+                          className={`block text-xs ${r.viewCount > r.prevViews ? "text-emerald-600" : "text-gray-400"}`}
+                          title={`Poprzedni snapshot (${r.prevSnapshotOn}): ${r.prevViews.toLocaleString("pl-PL")}`}
+                        >
+                          {r.viewCount > r.prevViews ? "+" : "−"}
+                          {fmtViews(Math.abs(r.viewCount - r.prevViews))} od{" "}
+                          {new Date(r.prevSnapshotOn!).toLocaleDateString("pl-PL", { day: "numeric", month: "short" })}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 align-top">
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs ${

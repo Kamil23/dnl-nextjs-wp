@@ -15,6 +15,10 @@ export type BacklogRow = {
   kind: "przepis" | "inne" | "niejasne" | null;
   // Uniksowy czas publikacji filmu (sekundy) wyliczony z ID.
   uploadedTs: number | null;
+  // Poprzedni snapshot wyświetleń (sprzed ostatniego odświeżenia): baza do
+  // pokazania przyrostu. Null, dopóki nie ma co najmniej dwóch snapshotów.
+  prevViews: number | null;
+  prevSnapshotOn: string | null;
 };
 
 // TikTok koduje datę publikacji w ID filmu: górne 32 bity 64-bitowego ID to
@@ -47,6 +51,18 @@ export async function listBacklog(): Promise<BacklogRow[]> {
       viewCount: tiktokCatalog.viewCount,
       kind: tiktokCatalog.kind,
       uploadedTs: UPLOADED_TS,
+      // Przedostatni snapshot (ostatni = stan bieżący po odświeżeniu).
+      // Kolumna korelacji zapisana dosłownie: w liście SELECT drizzle renderuje
+      // ${tiktokCatalog.videoId} bez prefiksu tabeli i podzapytanie związałoby
+      // ją z własnym aliasem "s" (brak korelacji, losowy wiersz).
+      prevViews: sql<number | null>`(
+        select s.view_count from tiktok_view_snapshots s
+        where s.video_id = "tiktok_catalog"."video_id"
+        order by s.captured_on desc offset 1 limit 1)`,
+      prevSnapshotOn: sql<string | null>`(
+        select s.captured_on::text from tiktok_view_snapshots s
+        where s.video_id = "tiktok_catalog"."video_id"
+        order by s.captured_on desc offset 1 limit 1)`,
     })
     .from(tiktokCatalog)
     .where(NOT_IMPORTED)

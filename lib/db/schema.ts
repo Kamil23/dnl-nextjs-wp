@@ -6,6 +6,7 @@ import {
   smallint,
   numeric,
   boolean,
+  date,
   timestamp,
   jsonb,
   uuid,
@@ -482,6 +483,21 @@ export const tiktokCatalog = pgTable(
     refreshedAt: timestamp("refreshed_at", { withTimezone: true }).defaultNow(),
   },
   (t) => [uniqueIndex("tiktok_catalog_video_idx").on(t.videoId)]
+);
+
+// Dzienne snapshoty wyświetleń z odświeżeń katalogu TikTok - w backlogu
+// pokazują przyrost między odświeżeniami (ręcznymi lub z interwału workera).
+// Max jeden wiersz na film na dzień; kolejne odświeżenia tego samego dnia
+// nadpisują dzisiejszy snapshot.
+export const tiktokViewSnapshots = pgTable(
+  "tiktok_view_snapshots",
+  {
+    id: serial("id").primaryKey(),
+    videoId: text("video_id").notNull(),
+    viewCount: integer("view_count").notNull(),
+    capturedOn: date("captured_on").notNull(),
+  },
+  (t) => [uniqueIndex("tiktok_view_snapshots_video_day_idx").on(t.videoId, t.capturedOn)]
 );
 
 // Klucze sprzętowe / passkeys admina (WebAuthn). Jeśli istnieje choć jeden
