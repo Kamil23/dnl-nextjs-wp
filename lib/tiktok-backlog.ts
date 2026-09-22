@@ -13,7 +13,16 @@ export type BacklogRow = {
   durationSec: number | null;
   viewCount: number | null;
   kind: "przepis" | "inne" | "niejasne" | null;
+  // Uniksowy czas publikacji filmu (sekundy) wyliczony z ID.
+  uploadedTs: number | null;
 };
+
+// TikTok koduje datę publikacji w ID filmu: górne 32 bity 64-bitowego ID to
+// uniksowy timestamp. Dzięki temu nie trzeba kolumny ani ponownego fetcha.
+const UPLOADED_TS = sql<number | null>`
+  case when ${tiktokCatalog.videoId} ~ '^[0-9]+$'
+       then ((${tiktokCatalog.videoId}::bigint >> 32))::double precision
+  end`;
 
 // Nie w imports (po video_id lub URL zawierającym id) i nie w recipes.video_url.
 const NOT_IMPORTED = sql`
@@ -37,10 +46,11 @@ export async function listBacklog(): Promise<BacklogRow[]> {
       durationSec: tiktokCatalog.durationSec,
       viewCount: tiktokCatalog.viewCount,
       kind: tiktokCatalog.kind,
+      uploadedTs: UPLOADED_TS,
     })
     .from(tiktokCatalog)
     .where(NOT_IMPORTED)
-    .orderBy(sql`${tiktokCatalog.viewCount} desc nulls last`);
+    .orderBy(sql`${UPLOADED_TS} desc nulls last, ${tiktokCatalog.viewCount} desc nulls last`);
 }
 
 export async function backlogStats() {

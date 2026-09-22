@@ -20,6 +20,15 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "wszystkie", label: "Wszystkie" },
 ];
 
+function fmtDate(ts: number | null) {
+  if (ts == null) return "";
+  return new Date(ts * 1000).toLocaleDateString("pl-PL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function fmtViews(v: number | null) {
   if (v == null) return "";
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(".", ",")} mln`;
@@ -137,6 +146,7 @@ export default function TikTokBacklog({
             <thead className="bg-gray-50 text-left text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Opis filmu</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Dodano</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Wyświetlenia</th>
                 <th className="px-4 py-3 font-medium">Typ</th>
                 <th className="px-4 py-3"></th>
@@ -154,6 +164,7 @@ export default function TikTokBacklog({
                         )}
                       </a>
                     </td>
+                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">{fmtDate(r.uploadedTs)}</td>
                     <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">{fmtViews(r.viewCount)}</td>
                     <td className="px-4 py-3 align-top">
                       <span
