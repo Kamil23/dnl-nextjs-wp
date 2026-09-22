@@ -1,0 +1,40 @@
+# Automatyczny deploy na VPS po pushu do main (+ przycisk "Run workflow").
+# Runner tylko loguje się po ssh i odpala scripts/ci-deploy.sh na serwerze -
+# build obrazów dzieje się na VPS, więc job jest lekki (sekundy w Actions).
+#
+# Wymagane sekrety repo (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_KEY     - klucz prywatny dedykowany dla CI (ed25519)
+#   DEPLOY_HOST        - adres VPS
+#   DEPLOY_USER        - użytkownik ssh
+#   DEPLOY_KNOWN_HOSTS - wynik `ssh-keyscan <host>` (pinning klucza hosta)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deploye nie mogą się przeplatać; kolejny push czeka na poprzedni.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Przygotuj klucz ssh
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy na VPS
+        run: |
+          ssh -i ~/.ssh/deploy \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=15 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'bash /opt/dnl/scripts/ci-deploy.sh'

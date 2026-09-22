@@ -87,6 +87,24 @@ du -sh /srv/dnl/media                                     # rozmiar
 
 ---
 
+## 🤖 Automatyczny deploy (CI)
+
+Push do `main` odpala workflow **`.github/workflows/deploy.yml`**: runner loguje się po ssh na VPS
+i uruchamia **`scripts/ci-deploy.sh`**, który realizuje ścieżki A/B/C z sekcji niżej (pull →
+świeży `tools` + `db:push` → build `web worker` → podmiana kontenerów → reindeks, gdy zmienił się
+kod wyszukiwarki → smoke-test). Ręczny start: zakładka Actions → Deploy → „Run workflow";
+awaryjnie z VPS: `bash /opt/dnl/scripts/ci-deploy.sh`.
+
+- **Destrukcyjna zmiana schematu (DROP)**: `drizzle-kit push` pyta o potwierdzenie, w CI nie ma
+  TTY → **deploy celowo pada**. Wtedy schemat wdrażasz ręcznie wg ścieżki B i restartujesz workflow.
+- Sekrety w repo (Settings → Secrets and variables → Actions): `DEPLOY_SSH_KEY` (dedykowany klucz
+  CI), `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_KNOWN_HOSTS` (wynik `ssh-keyscan <host>`).
+- Wpis klucza CI w `authorized_keys` na VPS jest **przypięty do jednej komendy**
+  (`command="bash /opt/dnl/scripts/ci-deploy.sh",no-port-forwarding,no-agent-forwarding,no-X11-forwarding`)
+  - wyciek klucza z GitHuba pozwala co najwyżej odpalić deploy, nie daje shella.
+
+---
+
 ## 🔄 Jak robić aktualizacje
 
 > ⚠️ **`db:push` i `search:reindex` uruchamiają się z obrazu `tools`.** `docker compose build web worker`
