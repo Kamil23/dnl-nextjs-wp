@@ -1,9 +1,10 @@
 // Backlog TikTok: katalog profilu (tiktok_catalog) minus filmy, które już są
-// w kolejce importów albo mają przepis na stronie. Zasila /admin/tiktok-backlog.
-import { sql } from "drizzle-orm";
+// w kolejce importów albo mają przepis na stronie. Zasila /admin/tiktok-backlog
+// i podstronę szczegółów filmu /admin/tiktok-backlog/[videoId].
+import { eq, sql } from "drizzle-orm";
 import { db, dbSchema } from "./db";
 
-const { tiktokCatalog, imports, recipes } = dbSchema;
+const { tiktokCatalog, tiktokViewSnapshots, imports, recipes } = dbSchema;
 
 export type SnapshotStats = {
   viewCount: number | null;
@@ -94,6 +95,91 @@ export async function listBacklog(): Promise<BacklogRow[]> {
     prevSnapshots(),
   ]);
   return rows.map((r) => ({ ...r, prev: prev.get(r.videoId) ?? null }));
+}
+
+export type VideoDetail = {
+  video: SnapshotStats & {
+    id: number;
+    videoId: string;
+    url: string;
+    caption: string | null;
+    durationSec: number | null;
+    kind: "przepis" | "inne" | "niejasne" | null;
+    uploadedTs: number | null;
+    classifiedAt: string | null;
+    refreshedAt: string | null;
+  };
+  // Pełna historia snapshotów, rosnąco po dacie - do wykresu i tabeli przyrostów.
+  history: (SnapshotStats & { capturedOn: string })[];
+  // Mediana wyświetleń całego katalogu - punkt odniesienia "ile to jest dużo".
+  medianViews: number | null;
+  importRow: { id: number; status: string } | null;
+  recipe: { id: number; slug: string | null; title: string | null } | null;
+};
+
+export async function getVideoDetail(videoId: string): Promise<VideoDetail | null> {
+  const [video] = await db
+    .select({
+      id: tiktokCatalog.id,
+      videoId: tiktokCatalog.videoId,
+      url: tiktokCatalog.url,
+      caption: tiktokCatalog.caption,
+      durationSec: tiktokCatalog.durationSec,
+      viewCount: tiktokCatalog.viewCount,
+      likeCount: tiktokCatalog.likeCount,
+      commentCount: tiktokCatalog.commentCount,
+      saveCount: tiktokCatalog.saveCount,
+      repostCount: tiktokCatalog.repostCount,
+      kind: tiktokCatalog.kind,
+      uploadedTs: UPLOADED_TS,
+      classifiedAt: sql<string | null>`classified_at::text`,
+      refreshedAt: sql<string | null>`refreshed_at::text`,
+    })
+    .from(tiktokCatalog)
+    .where(eq(tiktokCatalog.videoId, videoId));
+  if (!video) return null;
+
+  const [history, medianRows, importRows, recipeRows] = await Promise.all([
+    db
+      .select({
+        viewCount: tiktokViewSnapshots.viewCount,
+        likeCount: tiktokViewSnapshots.likeCount,
+        commentCount: tiktokViewSnapshots.commentCount,
+        saveCount: tiktokViewSnapshots.saveCount,
+        repostCount: tiktokViewSnapshots.repostCount,
+        capturedOn: sql<string>`captured_on::text`,
+      })
+      .from(tiktokViewSnapshots)
+      .where(eq(tiktokViewSnapshots.videoId, videoId))
+      .orderBy(tiktokViewSnapshots.capturedOn),
+    db
+      .select({
+        median: sql<number | null>`
+          percentile_cont(0.5) within group (order by view_count)::double precision`,
+      })
+      .from(tiktokCatalog)
+      .where(sql`view_count is not null`),
+    db
+      .select({ id: imports.id, status: imports.status })
+      .from(imports)
+      .where(
+        sql`${imports.videoId} = ${videoId} or ${imports.tiktokUrl} like ${"%/" + videoId + "%"}`
+      )
+      .limit(1),
+    db
+      .select({ id: recipes.id, slug: recipes.slug, title: recipes.title })
+      .from(recipes)
+      .where(sql`${recipes.videoUrl} like ${"%" + videoId + "%"}`)
+      .limit(1),
+  ]);
+
+  return {
+    video,
+    history,
+    medianViews: medianRows[0]?.median ?? null,
+    importRow: importRows[0] ?? null,
+    recipe: recipeRows[0] ?? null,
+  };
 }
 
 export async function backlogStats() {

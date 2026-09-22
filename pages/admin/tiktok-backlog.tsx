@@ -195,10 +195,19 @@ export default function TikTokBacklog({
                 return (
                   <tr key={r.videoId} className={state === "ok" ? "bg-emerald-50/40" : ""}>
                     <td className="px-4 py-3 align-top">
-                      <a href={r.url} target="_blank" rel="noreferrer" className="text-gray-900 hover:underline">
+                      <Link href={`/admin/tiktok-backlog/${r.videoId}`} className="text-gray-900 hover:underline">
                         {r.caption ? (r.caption.length > 120 ? r.caption.slice(0, 120) + "…" : r.caption) : (
                           <span className="text-gray-400">(bez opisu) {r.videoId}</span>
                         )}
+                      </Link>{" "}
+                      <a
+                        href={r.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
+                        title="Otwórz na TikToku"
+                      >
+                        ↗
                       </a>
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">{fmtDate(r.uploadedTs)}</td>
