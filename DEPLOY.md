@@ -260,6 +260,8 @@ Jeśli 80/443 są wolne - zostaje nasze Caddy bez zmian. (Ustalimy na podstawie 
 - `DATABASE_URL` jako build-arg trafia do warstw obrazu (`docker history`) - to lokalne dane dostępowe do bazy na Twoim VPS, nie współdziel obrazu publicznie.
 - Panel admina: zrotuj `ADMIN_PASSWORD` na mocne hasło przed startem (login ma limit prób: 5 → blokada 15 min).
 - Importy TikTok na VPS wymagają `ffmpeg` + `yt-dlp` - są w obrazie `tools` (Dockerfile, warstwa `source`).
+- Pobieranie komentarzy TikToka jest ODŁOŻONE (gałąź `feat/tiktok-komentarze`): TikTok zwraca
+  komentarze tylko zalogowanym, wdrożenie wymagałoby cookies sesji autorki + Chromium w obrazie.
 
 ---
 

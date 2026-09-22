@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import AdminShell from "../../../components/admin/admin-shell";
 import { isAdminRequest } from "../../../lib/admin-auth";
+import { getPathStats, type PathStats } from "../../../lib/server/ga";
 import { getVideoDetail, type VideoDetail } from "../../../lib/tiktok-backlog";
 
 // Szczegóły filmu z katalogu TikTok: osadzony odtwarzacz, pełne statystyki
@@ -77,6 +78,25 @@ function ViewsChart({ history }: { history: VideoDetail["history"] }) {
   );
 }
 
+// Dzienne odsłony strony przepisu (GA4) jako słupki - czy hit na TikToku
+// przekłada się na ruch na stronie.
+function GaBars({ daily }: { daily: PathStats["daily"] }) {
+  if (daily.length === 0) return <p className="text-sm text-gray-400">Brak odsłon w tym okresie.</p>;
+  const max = Math.max(...daily.map((d) => d.views), 1);
+  return (
+    <div className="flex items-end gap-[3px] h-24">
+      {daily.map((d) => (
+        <div
+          key={d.date}
+          className="flex-1 bg-emerald-500/70 rounded-t min-w-[4px]"
+          style={{ height: `${Math.max(4, (d.views / max) * 100)}%` }}
+          title={`${fmtDate(d.date)}: ${d.views.toLocaleString("pl-PL")} odsłon`}
+        />
+      ))}
+    </div>
+  );
+}
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string | null }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
@@ -87,7 +107,13 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-export default function TikTokVideoDetail({ detail }: { detail: VideoDetail }) {
+export default function TikTokVideoDetail({
+  detail,
+  gaStats,
+}: {
+  detail: VideoDetail;
+  gaStats: PathStats | null;
+}) {
   const { video, history, medianViews, importRow, recipe } = detail;
   const [queued, setQueued] = useState<"idle" | "sending" | "ok" | "error">("idle");
 
@@ -287,6 +313,45 @@ export default function TikTokVideoDetail({ detail }: { detail: VideoDetail }) {
               </tbody>
             </table>
           </div>
+
+          {recipe && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4 mt-6">
+              <div className="flex items-baseline justify-between gap-3 flex-wrap mb-3">
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Ruch na stronie przepisu (28 dni)
+                </h2>
+                {gaStats && (
+                  <span className="text-sm text-gray-500">
+                    łącznie <span className="font-semibold text-gray-900">{fmtNum(gaStats.total)}</span> odsłon
+                    {gaStats.daily.length >= 7 && (
+                      <>
+                        , ostatnie 7 dni:{" "}
+                        <span className="font-semibold text-gray-900">
+                          {fmtNum(gaStats.daily.slice(-7).reduce((s, d) => s + d.views, 0))}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
+              {gaStats ? (
+                <GaBars daily={gaStats.daily} />
+              ) : (
+                <p className="text-sm text-gray-400">
+                  GA4 nieskonfigurowane albo chwilowo niedostępne.
+                </p>
+              )}
+            </div>
+          )}
+
+          {importRow?.transcript && (
+            <details className="bg-white rounded-xl border border-gray-200 mt-6 group">
+              <summary className="px-4 py-3 text-sm font-semibold text-gray-700 cursor-pointer select-none">
+                Transkrypcja filmu (Whisper, z importu)
+              </summary>
+              <p className="px-4 pb-4 text-sm text-gray-600 whitespace-pre-wrap">{importRow.transcript}</p>
+            </details>
+          )}
         </div>
       </div>
     </AdminShell>
@@ -301,5 +366,6 @@ export const getServerSideProps: GetServerSideProps = async ({ req, params }) =>
   if (!/^\d+$/.test(videoId)) return { notFound: true };
   const detail = await getVideoDetail(videoId);
   if (!detail) return { notFound: true };
-  return { props: { detail: JSON.parse(JSON.stringify(detail)) } };
+  const gaStats = detail.recipe?.slug ? await getPathStats(`/przepisy/${detail.recipe.slug}/`) : null;
+  return { props: { detail: JSON.parse(JSON.stringify(detail)), gaStats } };
 };

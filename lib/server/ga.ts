@@ -49,6 +49,67 @@ async function getAccessToken(clientEmail: string, privateKey: string) {
   return (await res.json()).access_token as string;
 }
 
+// Per-path daily views cache (admin video-detail page). Small map, short TTL -
+// the page is opened rarely and freshness matters more than for the ranking.
+const PATH_TTL_MS = 60 * 60 * 1000;
+const pathCache = new Map<string, { at: number; stats: PathStats }>();
+
+export type PathStats = {
+  total: number;
+  daily: { date: string; views: number }[];
+};
+
+/**
+ * Daily views of a single page path over the last `days` (admin analytics).
+ * Returns null when GA is not configured or the call fails.
+ */
+export async function getPathStats(path: string, days = 28): Promise<PathStats | null> {
+  const propertyId = process.env.GA4_PROPERTY_ID;
+  const keyPath = process.env.GA4_SERVICE_ACCOUNT_KEY_PATH;
+  if (!propertyId || !keyPath) return null;
+  const cacheKey = `${path}|${days}`;
+  const hit = pathCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < PATH_TTL_MS) return hit.stats;
+
+  try {
+    const key = JSON.parse(readFileSync(keyPath, "utf8"));
+    const token = await getAccessToken(key.client_email, key.private_key);
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
+          dimensions: [{ name: "date" }],
+          metrics: [{ name: "screenPageViews" }],
+          dimensionFilter: {
+            filter: {
+              fieldName: "pagePath",
+              // BEGINS_WITH łapie wariant z ukośnikiem i bez na końcu
+              stringFilter: { matchType: "BEGINS_WITH", value: path.replace(/\/$/, "") },
+            },
+          },
+          orderBys: [{ dimension: { dimensionName: "date" } }],
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`GA runReport failed: ${res.status}`);
+    const data = await res.json();
+    const daily = (data.rows ?? []).map((row: any) => ({
+      // GA zwraca YYYYMMDD
+      date: String(row.dimensionValues[0].value).replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3"),
+      views: Number(row.metricValues[0].value),
+    }));
+    const stats: PathStats = { total: daily.reduce((s: number, d: any) => s + d.views, 0), daily };
+    pathCache.set(cacheKey, { at: Date.now(), stats });
+    return stats;
+  } catch (e) {
+    console.error("GA4 path stats fetch failed:", e);
+    return hit?.stats ?? null;
+  }
+}
+
 /**
  * Most-viewed page paths over the last `days`, most read first.
  * Returns null when GA is not configured or the API call fails -

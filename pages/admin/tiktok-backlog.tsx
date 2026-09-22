@@ -115,7 +115,12 @@ export default function TikTokBacklog({
     <AdminShell title="Backlog TikTok">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold mb-1">Backlog TikTok</h1>
+          <h1 className="text-2xl font-bold mb-1">
+            Backlog TikTok{" "}
+            <Link href="/admin/tiktok-statystyki" className="text-sm font-normal text-emerald-700 underline align-middle">
+              statystyki profilu →
+            </Link>
+          </h1>
           <p className="text-sm text-gray-500">
             W katalogu {stats.catalogTotal} filmów, w backlogu {stats.backlog} (w tym{" "}
             <span className="font-medium text-gray-700">{stats.backlogPrzepisy} sklasyfikowanych jako przepisy</span>).

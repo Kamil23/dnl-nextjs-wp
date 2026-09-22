@@ -113,7 +113,8 @@ export type VideoDetail = {
   history: (SnapshotStats & { capturedOn: string })[];
   // Mediana wyświetleń całego katalogu - punkt odniesienia "ile to jest dużo".
   medianViews: number | null;
-  importRow: { id: number; status: string } | null;
+  // transcript: z pipeline'u importu (Whisper) - jest tylko dla importowanych.
+  importRow: { id: number; status: string; transcript: string | null } | null;
   recipe: { id: number; slug: string | null; title: string | null } | null;
 };
 
@@ -160,7 +161,7 @@ export async function getVideoDetail(videoId: string): Promise<VideoDetail | nul
       .from(tiktokCatalog)
       .where(sql`view_count is not null`),
     db
-      .select({ id: imports.id, status: imports.status })
+      .select({ id: imports.id, status: imports.status, transcript: imports.transcript })
       .from(imports)
       .where(
         sql`${imports.videoId} = ${videoId} or ${imports.tiktokUrl} like ${"%/" + videoId + "%"}`
@@ -180,6 +181,34 @@ export async function getVideoDetail(videoId: string): Promise<VideoDetail | nul
     importRow: importRows[0] ?? null,
     recipe: recipeRows[0] ?? null,
   };
+}
+
+export type CatalogStatsRow = SnapshotStats & {
+  videoId: string;
+  caption: string | null;
+  kind: "przepis" | "inne" | "niejasne" | null;
+  durationSec: number | null;
+  uploadedTs: number | null;
+};
+
+// Cały katalog (też filmy z przepisami) do zbiorczych statystyk profilu:
+// najlepsze dni/godziny publikacji, hashtagi. /admin/tiktok-statystyki.
+export async function listCatalogForStats(): Promise<CatalogStatsRow[]> {
+  return db
+    .select({
+      videoId: tiktokCatalog.videoId,
+      caption: tiktokCatalog.caption,
+      kind: tiktokCatalog.kind,
+      durationSec: tiktokCatalog.durationSec,
+      viewCount: tiktokCatalog.viewCount,
+      likeCount: tiktokCatalog.likeCount,
+      commentCount: tiktokCatalog.commentCount,
+      saveCount: tiktokCatalog.saveCount,
+      repostCount: tiktokCatalog.repostCount,
+      uploadedTs: UPLOADED_TS,
+    })
+    .from(tiktokCatalog)
+    .where(sql`view_count is not null`);
 }
 
 export async function backlogStats() {
