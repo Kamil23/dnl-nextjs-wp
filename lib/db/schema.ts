@@ -478,6 +478,10 @@ export const tiktokCatalog = pgTable(
     caption: text("caption"),
     durationSec: integer("duration_sec"),
     viewCount: integer("view_count"),
+    likeCount: integer("like_count"),
+    commentCount: integer("comment_count"),
+    saveCount: integer("save_count"),
+    repostCount: integer("repost_count"),
     kind: text("kind", { enum: ["przepis", "inne", "niejasne"] }),
     classifiedAt: timestamp("classified_at", { withTimezone: true }),
     refreshedAt: timestamp("refreshed_at", { withTimezone: true }).defaultNow(),
@@ -485,16 +489,21 @@ export const tiktokCatalog = pgTable(
   (t) => [uniqueIndex("tiktok_catalog_video_idx").on(t.videoId)]
 );
 
-// Dzienne snapshoty wyświetleń z odświeżeń katalogu TikTok - w backlogu
+// Dzienne snapshoty statystyk z odświeżeń katalogu TikTok - w backlogu
 // pokazują przyrost między odświeżeniami (ręcznymi lub z interwału workera).
 // Max jeden wiersz na film na dzień; kolejne odświeżenia tego samego dnia
-// nadpisują dzisiejszy snapshot.
+// nadpisują dzisiejszy snapshot. Metryki poza view_count nullable - starsze
+// snapshoty ich nie mają.
 export const tiktokViewSnapshots = pgTable(
   "tiktok_view_snapshots",
   {
     id: serial("id").primaryKey(),
     videoId: text("video_id").notNull(),
     viewCount: integer("view_count").notNull(),
+    likeCount: integer("like_count"),
+    commentCount: integer("comment_count"),
+    saveCount: integer("save_count"),
+    repostCount: integer("repost_count"),
     capturedOn: date("captured_on").notNull(),
   },
   (t) => [uniqueIndex("tiktok_view_snapshots_video_day_idx").on(t.videoId, t.capturedOn)]

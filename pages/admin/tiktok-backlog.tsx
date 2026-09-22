@@ -36,6 +36,33 @@ function fmtViews(v: number | null) {
   return String(v);
 }
 
+// Zaangażowanie: (polubienia+komentarze+zapisy+udostępnienia)/wyświetlenia.
+// Dla przepisów najciekawsze są zapisy - "ugotuję później" - stąd osobna kolumna.
+function engagementRate(r: BacklogRow): string {
+  const eng = (r.likeCount ?? 0) + (r.commentCount ?? 0) + (r.saveCount ?? 0) + (r.repostCount ?? 0);
+  if (!r.viewCount || eng === 0) return "";
+  return `${((eng / r.viewCount) * 100).toFixed(1).replace(".", ",")}%`;
+}
+
+// Wartość metryki + przyrost od poprzedniego snapshotu (zielony = rośnie).
+function MetricCell({ value, prev, prevOn }: { value: number | null; prev?: number | null; prevOn?: string }) {
+  const delta = value != null && prev != null ? value - prev : null;
+  return (
+    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">
+      {fmtViews(value)}
+      {delta != null && delta !== 0 && (
+        <span
+          className={`block text-xs ${delta > 0 ? "text-emerald-600" : "text-gray-400"}`}
+          title={`Poprzedni snapshot (${prevOn}): ${prev!.toLocaleString("pl-PL")}`}
+        >
+          {delta > 0 ? "+" : "−"}
+          {fmtViews(Math.abs(delta))}
+        </span>
+      )}
+    </td>
+  );
+}
+
 export default function TikTokBacklog({
   rows,
   stats,
@@ -94,7 +121,8 @@ export default function TikTokBacklog({
             <span className="font-medium text-gray-700">{stats.backlogPrzepisy} sklasyfikowanych jako przepisy</span>).
             {stats.lastRefresh && (
               <> Odświeżono: {new Date(stats.lastRefresh).toLocaleString("pl-PL")}.</>
-            )}
+            )}{" "}
+            Zielone wartości pod metrykami to przyrost od poprzedniego odświeżenia.
           </p>
         </div>
         {visible.length > 0 && (
@@ -148,6 +176,15 @@ export default function TikTokBacklog({
                 <th className="px-4 py-3 font-medium">Opis filmu</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Dodano</th>
                 <th className="px-4 py-3 font-medium whitespace-nowrap">Wyświetlenia</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Polubienia</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Komentarze</th>
+                <th className="px-4 py-3 font-medium whitespace-nowrap">Zapisy</th>
+                <th
+                  className="px-4 py-3 font-medium whitespace-nowrap"
+                  title="Zaangażowanie: (polubienia + komentarze + zapisy + udostępnienia) / wyświetlenia"
+                >
+                  ER
+                </th>
                 <th className="px-4 py-3 font-medium">Typ</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -165,19 +202,11 @@ export default function TikTokBacklog({
                       </a>
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">{fmtDate(r.uploadedTs)}</td>
-                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">
-                      {fmtViews(r.viewCount)}
-                      {r.viewCount != null && r.prevViews != null && r.viewCount !== r.prevViews && (
-                        <span
-                          className={`block text-xs ${r.viewCount > r.prevViews ? "text-emerald-600" : "text-gray-400"}`}
-                          title={`Poprzedni snapshot (${r.prevSnapshotOn}): ${r.prevViews.toLocaleString("pl-PL")}`}
-                        >
-                          {r.viewCount > r.prevViews ? "+" : "−"}
-                          {fmtViews(Math.abs(r.viewCount - r.prevViews))} od{" "}
-                          {new Date(r.prevSnapshotOn!).toLocaleDateString("pl-PL", { day: "numeric", month: "short" })}
-                        </span>
-                      )}
-                    </td>
+                    <MetricCell value={r.viewCount} prev={r.prev?.viewCount} prevOn={r.prev?.capturedOn} />
+                    <MetricCell value={r.likeCount} prev={r.prev?.likeCount} prevOn={r.prev?.capturedOn} />
+                    <MetricCell value={r.commentCount} prev={r.prev?.commentCount} prevOn={r.prev?.capturedOn} />
+                    <MetricCell value={r.saveCount} prev={r.prev?.saveCount} prevOn={r.prev?.capturedOn} />
+                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600">{engagementRate(r)}</td>
                     <td className="px-4 py-3 align-top">
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs ${

@@ -21,6 +21,10 @@ type FlatEntry = {
   description?: string;
   duration?: number;
   view_count?: number;
+  like_count?: number;
+  comment_count?: number;
+  save_count?: number;
+  repost_count?: number;
 };
 
 export type BacklogRunResult = {
@@ -92,8 +96,10 @@ export async function runTiktokBacklog(
     // przyrost widać już po pierwszym odświeżeniu po wdrożeniu, nie po drugim.
     // Musi iść przed pętlą upsertów, bo ta nadpisuje view_count i refreshed_at.
     await db.execute(sql`
-      insert into tiktok_view_snapshots (video_id, view_count, captured_on)
-      select c.video_id, c.view_count, coalesce(c.refreshed_at::date, current_date)
+      insert into tiktok_view_snapshots
+        (video_id, view_count, like_count, comment_count, save_count, repost_count, captured_on)
+      select c.video_id, c.view_count, c.like_count, c.comment_count, c.save_count,
+             c.repost_count, coalesce(c.refreshed_at::date, current_date)
       from tiktok_catalog c
       where c.view_count is not null
         and not exists (select 1 from tiktok_view_snapshots s where s.video_id = c.video_id)
@@ -105,6 +111,13 @@ export async function runTiktokBacklog(
     for (const e of entries) {
       const url = e.url || `${SOCIAL_TIKTOK_URL.replace(/\/$/, "")}/video/${e.id}`;
       const caption = (e.title || e.description || "").trim() || null;
+      const stats = {
+        viewCount: e.view_count ?? null,
+        likeCount: e.like_count ?? null,
+        commentCount: e.comment_count ?? null,
+        saveCount: e.save_count ?? null,
+        repostCount: e.repost_count ?? null,
+      };
       const res = await db
         .insert(tiktokCatalog)
         .values({
@@ -112,11 +125,11 @@ export async function runTiktokBacklog(
           url,
           caption,
           durationSec: e.duration != null ? Math.round(e.duration) : null,
-          viewCount: e.view_count ?? null,
+          ...stats,
         })
         .onConflictDoUpdate({
           target: tiktokCatalog.videoId,
-          set: { caption, viewCount: e.view_count ?? null, refreshedAt: new Date() },
+          set: { caption, ...stats, refreshedAt: new Date() },
         })
         .returning({ classifiedAt: tiktokCatalog.classifiedAt });
       if (res[0] && res[0].classifiedAt == null) fresh++;
@@ -124,11 +137,15 @@ export async function runTiktokBacklog(
     // Dzienny snapshot wyświetleń całego katalogu - historia przyrostów dla
     // backlogu. Drugi refresh tego samego dnia nadpisuje dzisiejszy wiersz.
     await db.execute(sql`
-      insert into tiktok_view_snapshots (video_id, view_count, captured_on)
-      select video_id, view_count, current_date from tiktok_catalog
+      insert into tiktok_view_snapshots
+        (video_id, view_count, like_count, comment_count, save_count, repost_count, captured_on)
+      select video_id, view_count, like_count, comment_count, save_count, repost_count, current_date
+      from tiktok_catalog
       where view_count is not null
       on conflict (video_id, captured_on)
-      do update set view_count = excluded.view_count`);
+      do update set view_count = excluded.view_count, like_count = excluded.like_count,
+        comment_count = excluded.comment_count, save_count = excluded.save_count,
+        repost_count = excluded.repost_count`);
     log(`Katalog zaktualizowany (${fresh} nowych/nieklasyfikowanych).`);
   }
 

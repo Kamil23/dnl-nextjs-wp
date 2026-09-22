@@ -5,20 +5,26 @@ import { db, dbSchema } from "./db";
 
 const { tiktokCatalog, imports, recipes } = dbSchema;
 
-export type BacklogRow = {
+export type SnapshotStats = {
+  viewCount: number | null;
+  likeCount: number | null;
+  commentCount: number | null;
+  saveCount: number | null;
+  repostCount: number | null;
+};
+
+export type BacklogRow = SnapshotStats & {
   id: number;
   videoId: string;
   url: string;
   caption: string | null;
   durationSec: number | null;
-  viewCount: number | null;
   kind: "przepis" | "inne" | "niejasne" | null;
   // Uniksowy czas publikacji filmu (sekundy) wyliczony z ID.
   uploadedTs: number | null;
-  // Poprzedni snapshot wyświetleń (sprzed ostatniego odświeżenia): baza do
-  // pokazania przyrostu. Null, dopóki nie ma co najmniej dwóch snapshotów.
-  prevViews: number | null;
-  prevSnapshotOn: string | null;
+  // Przedostatni snapshot statystyk (ostatni = stan bieżący po odświeżeniu):
+  // baza do pokazania przyrostów. Null, dopóki nie ma dwóch snapshotów.
+  prev: (SnapshotStats & { capturedOn: string }) | null;
 };
 
 // TikTok koduje datę publikacji w ID filmu: górne 32 bity 64-bitowego ID to
@@ -40,33 +46,54 @@ const NOT_IMPORTED = sql`
     where r.video_url like '%' || ${tiktokCatalog.videoId} || '%'
   )`;
 
+// Przedostatni snapshot każdego filmu (ostatni = stan bieżący po odświeżeniu),
+// jednym zapytaniem okienkowym zamiast skorelowanych podzapytań per metryka.
+async function prevSnapshots(): Promise<Map<string, SnapshotStats & { capturedOn: string }>> {
+  const res: any = await db.execute(sql`
+    select video_id, view_count, like_count, comment_count, save_count, repost_count,
+           captured_on::text as captured_on
+    from (select s.*, row_number() over (partition by video_id order by captured_on desc) as rn
+          from tiktok_view_snapshots s) t
+    where rn = 2`);
+  const rows: any[] = Array.isArray(res) ? res : res.rows;
+  return new Map(
+    rows.map((r) => [
+      String(r.video_id),
+      {
+        viewCount: r.view_count,
+        likeCount: r.like_count,
+        commentCount: r.comment_count,
+        saveCount: r.save_count,
+        repostCount: r.repost_count,
+        capturedOn: r.captured_on,
+      },
+    ])
+  );
+}
+
 export async function listBacklog(): Promise<BacklogRow[]> {
-  return db
-    .select({
-      id: tiktokCatalog.id,
-      videoId: tiktokCatalog.videoId,
-      url: tiktokCatalog.url,
-      caption: tiktokCatalog.caption,
-      durationSec: tiktokCatalog.durationSec,
-      viewCount: tiktokCatalog.viewCount,
-      kind: tiktokCatalog.kind,
-      uploadedTs: UPLOADED_TS,
-      // Przedostatni snapshot (ostatni = stan bieżący po odświeżeniu).
-      // Kolumna korelacji zapisana dosłownie: w liście SELECT drizzle renderuje
-      // ${tiktokCatalog.videoId} bez prefiksu tabeli i podzapytanie związałoby
-      // ją z własnym aliasem "s" (brak korelacji, losowy wiersz).
-      prevViews: sql<number | null>`(
-        select s.view_count from tiktok_view_snapshots s
-        where s.video_id = "tiktok_catalog"."video_id"
-        order by s.captured_on desc offset 1 limit 1)`,
-      prevSnapshotOn: sql<string | null>`(
-        select s.captured_on::text from tiktok_view_snapshots s
-        where s.video_id = "tiktok_catalog"."video_id"
-        order by s.captured_on desc offset 1 limit 1)`,
-    })
-    .from(tiktokCatalog)
-    .where(NOT_IMPORTED)
-    .orderBy(sql`${UPLOADED_TS} desc nulls last, ${tiktokCatalog.viewCount} desc nulls last`);
+  const [rows, prev] = await Promise.all([
+    db
+      .select({
+        id: tiktokCatalog.id,
+        videoId: tiktokCatalog.videoId,
+        url: tiktokCatalog.url,
+        caption: tiktokCatalog.caption,
+        durationSec: tiktokCatalog.durationSec,
+        viewCount: tiktokCatalog.viewCount,
+        likeCount: tiktokCatalog.likeCount,
+        commentCount: tiktokCatalog.commentCount,
+        saveCount: tiktokCatalog.saveCount,
+        repostCount: tiktokCatalog.repostCount,
+        kind: tiktokCatalog.kind,
+        uploadedTs: UPLOADED_TS,
+      })
+      .from(tiktokCatalog)
+      .where(NOT_IMPORTED)
+      .orderBy(sql`${UPLOADED_TS} desc nulls last, ${tiktokCatalog.viewCount} desc nulls last`),
+    prevSnapshots(),
+  ]);
+  return rows.map((r) => ({ ...r, prev: prev.get(r.videoId) ?? null }));
 }
 
 export async function backlogStats() {
