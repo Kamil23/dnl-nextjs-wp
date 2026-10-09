@@ -4,7 +4,7 @@ import { useState } from "react";
 import AdminShell from "../../../components/admin/admin-shell";
 import { isAdminRequest } from "../../../lib/admin-auth";
 import { getPathStats, type PathStats } from "../../../lib/server/ga";
-import { getVideoDetail, type VideoDetail } from "../../../lib/tiktok-backlog";
+import { ACTIVE_IMPORT_STATUSES, getVideoDetail, type VideoDetail } from "../../../lib/tiktok-backlog";
 
 // Szczegóły filmu z katalogu TikTok: osadzony odtwarzacz, pełne statystyki
 // z pochodnymi (ER, tempo, vs mediana profilu), wykres i tabela historii
@@ -126,6 +126,7 @@ export default function TikTokVideoDetail({
   const engagement =
     (video.likeCount ?? 0) + (video.commentCount ?? 0) + (video.saveCount ?? 0) + (video.repostCount ?? 0);
   const hashtags = video.caption?.match(/#[\p{L}\p{N}_]+/gu) ?? [];
+  const importActive = !!importRow && (ACTIVE_IMPORT_STATUSES as readonly string[]).includes(importRow.status);
 
   async function enqueue() {
     setQueued("sending");
@@ -170,9 +171,13 @@ export default function TikTokVideoDetail({
               <Link href={`/admin/przepisy/${recipe.id}`} className="text-emerald-700 underline text-xs">
                 ✓ ma przepis: {recipe.title ?? recipe.slug}
               </Link>
-            ) : importRow ? (
+            ) : importRow && importActive ? (
               <Link href="/admin/tiktok" className="text-blue-700 underline text-xs">
                 w kolejce importu ({importRow.status})
+              </Link>
+            ) : importRow ? (
+              <Link href="/admin/tiktok" className="text-gray-500 underline text-xs">
+                poprzedni import: {importRow.status === "rejected" ? "odrzucony" : importRow.status === "failed" ? "błąd" : importRow.status}
               </Link>
             ) : (
               <span className="text-xs text-gray-400">w backlogu (bez przepisu)</span>
@@ -182,7 +187,7 @@ export default function TikTokVideoDetail({
             </a>
           </div>
         </div>
-        {!recipe && !importRow && (
+        {!recipe && !importActive && (
           <button
             onClick={enqueue}
             disabled={queued === "sending" || queued === "ok"}
@@ -194,7 +199,9 @@ export default function TikTokVideoDetail({
                 ? "Dodaję..."
                 : queued === "error"
                   ? "Ponów"
-                  : "Do kolejki importu"}
+                  : importRow
+                    ? "Ponów import"
+                    : "Do kolejki importu"}
           </button>
         )}
       </div>

@@ -40,11 +40,16 @@ const UPLOADED_TS = sql<number | null>`
   end`;
 
 // Nie w imports (po video_id lub URL zawierającym id) i nie w recipes.video_url.
+// Odrzucony / nieudany / zduplikowany import nie blokuje ponownego dodania
+// do kolejki (ten sam zestaw co ACTIVE_STATUSES w pages/api/admin/imports).
+export const ACTIVE_IMPORT_STATUSES = ["pending", "processing", "ready", "approved"] as const;
+
 const NOT_IMPORTED = sql`
   not exists (
     select 1 from ${imports} i
-    where i.video_id = ${tiktokCatalog.videoId}
-       or i.tiktok_url like '%/' || ${tiktokCatalog.videoId} || '%'
+    where (i.video_id = ${tiktokCatalog.videoId}
+       or i.tiktok_url like '%/' || ${tiktokCatalog.videoId} || '%')
+      and i.status in ('pending', 'processing', 'ready', 'approved')
   )
   and not exists (
     select 1 from ${recipes} r
@@ -98,8 +103,9 @@ export async function listBacklog(): Promise<BacklogRow[]> {
           where r.video_url like '%' || "tiktok_catalog"."video_id" || '%')`,
         inQueue: sql<boolean>`exists (
           select 1 from imports i
-          where i.video_id = "tiktok_catalog"."video_id"
-             or i.tiktok_url like '%/' || "tiktok_catalog"."video_id" || '%')`,
+          where (i.video_id = "tiktok_catalog"."video_id"
+             or i.tiktok_url like '%/' || "tiktok_catalog"."video_id" || '%')
+            and i.status in ('pending', 'processing', 'ready', 'approved'))`,
       })
       .from(tiktokCatalog)
       .orderBy(sql`${UPLOADED_TS} desc nulls last, ${tiktokCatalog.viewCount} desc nulls last`),
@@ -177,6 +183,8 @@ export async function getVideoDetail(videoId: string): Promise<VideoDetail | nul
       .where(
         sql`${imports.videoId} = ${videoId} or ${imports.tiktokUrl} like ${"%/" + videoId + "%"}`
       )
+      // najnowszy import; status decyduje, czy film jest "w kolejce" czy do ponowienia
+      .orderBy(sql`${imports.id} desc`)
       .limit(1),
     db
       .select({ id: recipes.id, slug: recipes.slug, title: recipes.title })

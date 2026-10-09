@@ -85,8 +85,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ ok: true });
   }
 
+  // Ponowienie po błędzie albo po odrzuceniu: od nowa, bez starego draftu.
+  // Pliki z poprzedniego przebiegu worker wymienia przy publikacji klatek.
   if (action === "retry") {
-    await db.update(imports).set({ status: "pending", operatorNotes: null }).where(eq(imports.id, id));
+    if (!["failed", "rejected"].includes(imp.status)) {
+      return res.status(400).json({ error: "Ponowić można tylko import nieudany lub odrzucony" });
+    }
+    await db
+      .update(imports)
+      .set({ status: "pending", operatorNotes: null, aiDraft: null, progress: null, recipeId: null })
+      .where(eq(imports.id, id));
     return res.json({ ok: true });
   }
 

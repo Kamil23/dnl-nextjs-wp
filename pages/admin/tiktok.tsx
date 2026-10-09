@@ -365,8 +365,12 @@ export default function AdminTikTok({ imports: initial }) {
                     </>
                   );
                 })()}
-                {imp.status === "failed" && (
-                  <button onClick={() => act(imp.id, "retry")} className="text-sm text-gray-600 hover:text-gray-900">
+                {(imp.status === "failed" || imp.status === "rejected") && (
+                  <button
+                    onClick={() => act(imp.id, "retry")}
+                    title={imp.status === "rejected" ? "Przetwórz film od nowa (nowy draft)" : "Spróbuj ponownie"}
+                    className="text-sm text-gray-600 hover:text-gray-900"
+                  >
                     ↻ Ponów
                   </button>
                 )}

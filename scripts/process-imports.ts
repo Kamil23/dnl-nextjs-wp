@@ -194,6 +194,10 @@ function publishFile(importId: number, file: string): string {
 }
 
 function publishFrames(importId: number, frames: string[]): string[] {
+  // Ponowiony import publikuje od nowa: resztki z poprzedniego przebiegu
+  // (inna liczba klatek, stary hero AI) nie mogą się mieszać z nowymi
+  const baseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
+  fs.rmSync(path.join(baseDir, "imports", String(importId)), { recursive: true, force: true });
   return frames.map((f) => publishFile(importId, f));
 }
 
@@ -985,6 +989,8 @@ async function processCleanupRequests(): Promise<number> {
     .where(dsql`${imports.aiDraft}->'cleanupRequest' is not null`);
   let done = 0;
   for (const imp of rows) {
+    // Ponowiony import (pending/processing) sam wymienia pliki; stare zlecenie jest nieaktualne
+    if (imp.status === "pending" || imp.status === "processing") continue;
     const draft = imp.aiDraft as any;
     const req = draft?.cleanupRequest as { keep?: string[]; deleteRow?: boolean } | null;
     if (!req) continue;
