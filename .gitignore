@@ -40,3 +40,6 @@ next-env.d.ts
 
 # TikTok import frames (generated at runtime)
 /public/uploads
+
+# Jednorazowy audyt przepisów (eksport + propozycje; docs/audyt-przepisow-runbook.md)
+/audit

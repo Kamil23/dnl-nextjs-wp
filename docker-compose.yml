@@ -76,6 +76,9 @@ services:
       # "Porcje z AI" w /admin/qc wołają estimateMacros (OpenAI) w kontenerze web.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      # Mocniejszy model do dopełniania braków i wartości odżywczych
+      # (domyślnie gpt-6-sol; przestawialne w /admin/tiktok -> Ustawienia AI)
+      OPENAI_STRONG_MODEL: ${OPENAI_STRONG_MODEL:-}
     volumes:
       # TikTok frames also served from public/ (belt-and-suspenders; the app now
       # emits absolute image URLs so next/image fetches them via Caddy anyway).
@@ -104,7 +107,13 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_STRONG_MODEL: ${OPENAI_STRONG_MODEL:-}
+      OPENAI_CHEAP_MODEL: ${OPENAI_CHEAP_MODEL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      AI_COMPAT_BASE_URL: ${AI_COMPAT_BASE_URL:-}
+      AI_COMPAT_API_KEY: ${AI_COMPAT_API_KEY:-}
+      AI_COMPAT_MODEL: ${AI_COMPAT_MODEL:-}
       # Nano Banana 2. Domyslnie 3.1 - gemini-2.5-flash-image jest wylaczany
       # 2 X 2026, wiec nie zostawiamy go jako fallback w kodzie.
       GEMINI_IMAGE_MODEL: ${GEMINI_IMAGE_MODEL:-gemini-3.1-flash-image}
@@ -134,6 +143,7 @@ services:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_STRONG_MODEL: ${OPENAI_STRONG_MODEL:-}
       # npm run indexnow:submit-all (jednorazowe zgłoszenie wszystkich URL-i)
       INDEXNOW_KEY: ${INDEXNOW_KEY:-}
       # TikTok import frames are written here (shared media volume, served by Caddy)

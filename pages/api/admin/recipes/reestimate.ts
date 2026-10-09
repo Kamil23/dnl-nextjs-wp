@@ -4,6 +4,7 @@ import { requireAdminApi } from "../../../../lib/admin-auth";
 import { db, dbSchema } from "../../../../lib/db";
 import { estimateMacros } from "../../../../lib/server/estimate-macros";
 import { syncRecipeToSearch } from "../../../../lib/search-sync";
+import { getAiModels } from "../../../../lib/server/ai-models";
 
 // QC auto-fix "Porcje z AI": AI niezależnie ocenia liczbę porcji z listy
 // składników, a my ustawiamy servings = assumedServings i przeliczamy makra na
@@ -32,7 +33,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // servings=null → estymator dzieli przez własną, realistyczną ocenę porcji
-    const m = await estimateMacros(r.title, null, list);
+    const { nutrition: model } = await getAiModels(db);
+    const m = await estimateMacros(r.title, null, list, { model });
     const servings = m.assumedServings > 0 ? m.assumedServings : 1;
 
     await db
@@ -43,6 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         protein: m.protein != null ? String(m.protein) : null,
         fat: m.fat != null ? String(m.fat) : null,
         carbs: m.carbs != null ? String(m.carbs) : null,
+        nutritionBreakdown: { ...m.breakdown, servings, servingsSource: "ai-estimate" },
       })
       .where(eq(recipes.id, id));
 

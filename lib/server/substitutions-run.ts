@@ -4,6 +4,7 @@
 // przycisku w /admin/zamienniki). Instancja drizzle od wołającego.
 import { and, asc, desc, eq, notExists, sql } from "drizzle-orm";
 import * as schema from "../db/schema";
+import { chatJson } from "./ai-chat";
 
 const { recipes, ingredientGroups, ingredients, substitutions } = schema;
 
@@ -30,19 +31,9 @@ async function askForSubstitutions(
   kcal: number | null,
   items: string[]
 ): Promise<AiItem[]> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4o",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
+  const { data: parsed } = await chatJson<{ items?: AiItem[] }>({
+    model: process.env.OPENAI_MODEL || "gpt-4o",
+    system:
             "Jesteś Roksaną, autorką polskiego bloga kulinarnego Dieta na luzie. " +
             "Piszesz ciepło i konkretnie, prostym językiem, bez wykładów. Nie używasz długiego myślnika. " +
             "Dla 3 do 6 najważniejszych składników przepisu podaj po jednym sprawdzonym zamienniku, " +
@@ -56,21 +47,12 @@ async function askForSubstitutions(
             "kcalDelta to orientacyjna zmiana kalorii NA PORCJĘ po zamianie: liczba całkowita, " +
             "ujemna gdy wychodzi lżej, 0 gdy zmiana pomijalna. " +
             "Pomiń składniki bazowe, których nie da się sensownie zastąpić.",
-        },
-        {
-          role: "user",
-          content:
+    user:
             `Przepis: ${title}\n` +
             `Kalorie na porcję: ${kcal ?? "nieznane"}\n` +
             `Lista składników (każda linia to jedna pozycja, przepisuj dosłownie):\n` +
             items.join("\n"),
-        },
-      ],
-    }),
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-  const json = await res.json();
-  const parsed = JSON.parse(json.choices[0].message.content.replace(/^```json?\s*|\s*```$/g, ""));
   return Array.isArray(parsed?.items) ? parsed.items : [];
 }
 

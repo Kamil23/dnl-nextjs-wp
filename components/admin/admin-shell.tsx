@@ -31,6 +31,7 @@ const NAV: NavGroup[] = [
     items: [
       { label: "Wyszukiwania", href: "/admin/szukania", icon: "🔍" },
       { label: "QC danych", href: "/admin/qc", icon: "✅" },
+      { label: "Propozycje zmian", href: "/admin/propozycje", icon: "📝" },
     ],
   },
   {

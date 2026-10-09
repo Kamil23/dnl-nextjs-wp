@@ -3,11 +3,24 @@
  *
  * Picks `pending` rows from the `imports` table and for each one:
  *   1. downloads the video + caption (yt-dlp)
- *   2. extracts frames (ffmpeg; ~1 per 2.5 s, 8-24 total) and the audio track
- *   3. builds a structured recipe draft with an AI model:
- *      - GEMINI_API_KEY    -> Gemini (frames + audio natively; free tier, no Whisper needed)
- *      - ANTHROPIC_API_KEY -> Claude (frames + Whisper transcript if OPENAI_API_KEY is set)
- *   4. saves the draft -> status `ready`; the operator reviews it in /admin/tiktok
+ *   2. extracts frames (ffmpeg 1 fps -> dedupe + sharpness, lib/server/video-frames)
+ *   3. transcribes the audio (Whisper, with timestamps)
+ *   4. drafts the recipe with the "draft" model (vision: a sample of frames
+ *      + timestamped transcript + caption) - steps carry a time window
+ *   5. assigns frames to steps with a separate vision call (all unique frames,
+ *      lib/server/assign-frames) and closes it deterministically (lib/frame-assign)
+ *   6. audits completeness (lib/import-review); when confidence != high or
+ *      something is missing, the "refine" model fills the gaps and every
+ *      inferred value is recorded in aiDraft.aiFilled
+ *   7. computes nutrition from an explicit ingredient breakdown
+ *      (lib/server/nutrition-ai + lib/nutrition-calc) with the "nutrition" model
+ *   8. saves the draft -> status `ready`; the operator reviews it in /admin/tiktok
+ *
+ * Models per stage come from app_settings (ai_models, editable in the admin)
+ * with env fallbacks (OPENAI_MODEL / OPENAI_STRONG_MODEL). Providers other than
+ * OpenAI (Gemini / Claude / OpenAI-compatible) still work for the draft stage;
+ * stages 5-7 need OPENAI_API_KEY and are skipped without it (the draft is then
+ * flagged as unverified).
  *
  * Requirements: yt-dlp and ffmpeg on PATH, one AI key in the environment.
  * Run: npm run imports:process   (cron-friendly; exits when the queue is empty)
@@ -22,8 +35,8 @@ import { promisify } from "util";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { estimateMacros } from "../lib/server/estimate-macros";
-import { and, desc, eq, isNotNull, like, ne, or } from "drizzle-orm";
+import sharp from "sharp";
+import { and, desc, eq, isNotNull, like, ne, or, sql as dsql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import Anthropic from "@anthropic-ai/sdk";
@@ -33,6 +46,14 @@ import * as schema from "../lib/db/schema";
 import { runTiktokBacklog } from "../lib/server/tiktok-backlog-run";
 import { runSubstitutionsGenerate } from "../lib/server/substitutions-run";
 import { enhanceHeroToFile } from "../lib/server/enhance-hero";
+import { chatJson, type ChatPart } from "../lib/server/ai-chat";
+import { getAiModels, type AiModels } from "../lib/server/ai-models";
+import { extractFrames, sampleFrames, type ExtractedFrame } from "../lib/server/video-frames";
+import { assignFramesWithAi } from "../lib/server/assign-frames";
+import { refineDraft } from "../lib/server/refine-draft";
+import { buildBreakdown } from "../lib/server/nutrition-ai";
+import { reviewDraft } from "../lib/import-review";
+import { frameInfos, ingredientLines, type ImportDraft, type TranscriptSegment } from "../lib/import-draft";
 
 const run = promisify(execFile);
 const sql = postgres(process.env.DATABASE_URL!, { max: 2 });
@@ -72,9 +93,10 @@ const RecipeDraft = z.object({
       title: optStr,
       body: z.string(),
       tip: optStr,
-      frameIndex: optNum.describe(
-        "Numer klatki (1-N), która najlepiej pokazuje ten krok; null gdy żadna nie pasuje"
-      ),
+      startSec: optNum.describe("Sekunda rolki, w której ten krok się zaczyna (z transkrypcji); null gdy nie wiadomo"),
+      endSec: optNum.describe("Sekunda rolki, w której ten krok się kończy; null gdy nie wiadomo"),
+      // Tylko providery bez osobnego etapu przypisania klatek (Gemini/Claude bez klucza OpenAI)
+      frameIndex: optNum.describe("Numer klatki (1-N) ilustrującej krok; null gdy żadna nie pasuje"),
     })
   ),
   heroFrameIndex: optNum.describe(
@@ -158,27 +180,6 @@ async function findDuplicate(impId: number, videoId: string) {
   return rec ? { importId: null, recipeId: rec.id } : null;
 }
 
-async function extractFrames(videoPath: string, dir: string) {
-  const framesDir = path.join(dir, "frames");
-  fs.mkdirSync(framesDir, { recursive: true });
-  // Even sampling across the whole clip regardless of its length
-  const { stdout } = await run("ffprobe", [
-    "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", videoPath,
-  ]);
-  const duration = Math.max(1, parseFloat(stdout.trim()) || 30);
-  // ~1 frame per 2.5 s so every step of the recipe is on some frame (the
-  // model assigns them to steps), clamped so short clips don't produce
-  // near-duplicates and long ones don't blow up the AI payload
-  const maxFrames = Math.min(24, Math.max(8, Math.round(duration / 2.5)));
-  const fps = maxFrames / duration;
-  // 1080px wide: good enough for the model AND as hero-image candidates
-  await run("ffmpeg", [
-    "-i", videoPath, "-vf", `fps=${fps},scale=1080:-2`, "-frames:v", String(maxFrames),
-    "-q:v", "3", path.join(framesDir, "frame-%02d.jpg"),
-  ], { timeout: 120_000 });
-  return fs.readdirSync(framesDir).sort().map((f) => path.join(framesDir, f));
-}
-
 // Frames double as hero-image candidates - publish them under /uploads.
 // In production the worker (tools container) and the web server are separate
 // containers, so frames must land on the shared media volume (UPLOADS_DIR),
@@ -216,13 +217,17 @@ async function extractAudio(videoPath: string, dir: string): Promise<string> {
   return audioPath;
 }
 
-async function transcribe(videoPath: string, dir: string): Promise<string | null> {
+type Transcript = { text: string; segments: TranscriptSegment[] };
+
+async function transcribe(videoPath: string, dir: string): Promise<Transcript | null> {
   if (!process.env.OPENAI_API_KEY) return null;
   const audioPath = await extractAudio(videoPath, dir);
   const form = new FormData();
   form.append("file", new Blob([fs.readFileSync(audioPath)]), "audio.mp3");
   form.append("model", "whisper-1");
   form.append("language", "pl");
+  // verbose_json = segmenty z czasem; z nich model wyznacza okna czasowe kroków
+  form.append("response_format", "verbose_json");
   const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -230,7 +235,22 @@ async function transcribe(videoPath: string, dir: string): Promise<string | null
   });
   if (!res.ok) throw new Error(`Whisper: ${res.status} ${await res.text()}`);
   const json = await res.json();
-  return json.text || null;
+  const segments: TranscriptSegment[] = Array.isArray(json.segments)
+    ? json.segments
+        .map((sg: any) => ({ start: Number(sg.start) || 0, end: Number(sg.end) || 0, text: String(sg.text ?? "").trim() }))
+        .filter((sg: TranscriptSegment) => sg.text)
+    : [];
+  const text = (json.text || segments.map((sg) => sg.text).join(" ") || "").trim();
+  return text ? { text, segments } : null;
+}
+
+const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+
+// Transkrypcja z czasami do promptu: "[0:04] Dziś robimy..."
+function transcriptForPrompt(t: Transcript | null): string {
+  if (!t) return "(brak transkrypcji)";
+  if (!t.segments.length) return t.text;
+  return t.segments.map((sg) => `[${mmss(sg.start)}] ${sg.text}`).join("\n");
 }
 
 const SYSTEM_PROMPT =
@@ -249,12 +269,9 @@ const SYSTEM_PROMPT =
   "TAGI: pole tags[] to 2-5 slugów wybranych WYŁĄCZNIE z listy dozwolonych tagów; nie wymyślaj " +
   "własnych. Najwyżej jeden tag z grupy 'sezon' i tylko wtedy, gdy przepis naprawdę pasuje " +
   "do okresu (np. sernik na zimno -> sezon-lato). " +
-  "KLATKI: klatki wideo są ponumerowane chronologicznie (Klatka 1..N). Do każdego kroku przypisz " +
-  "w polu frameIndex numer klatki, która najlepiej ten krok ilustruje (moment czynności, nie planszę " +
-  "tytułową); jeśli żadna klatka nie pasuje, zostaw null zamiast naciągać. Ta sama klatka może " +
-  "ilustrować najwyżej jeden krok. W polu heroFrameIndex wskaż klatkę najlepszą na zdjęcie główne: " +
-  "gotowe, wyeksponowane danie, ostry i apetyczny kadr; przy porównywalnych kadrach wybierz ten " +
-  "z jak najmniejszą ilością nałożonych napisów i grafik. " +
+  "CZAS KROKÓW: transkrypcja ma znaczniki czasu [m:ss], a klatki podany czas w sekundach. Dla każdego kroku " +
+  "podaj startSec i endSec (sekundy od początku rolki), w których ta czynność się dzieje; null gdy nie wiadomo. " +
+  "Kroki muszą iść chronologicznie. " +
   "Pole 'about' to sekcja 'Kilka słów o tym przepisie' pod przepisem - pisz ją tak, jakby Roksana " +
   "opowiadała czytelniczce przy kawie: pierwsza osoba, konkrety o smaku, konsystencji i okazji " +
   "('robię go, gdy...'), naturalnie wplecione frazy, których ludzie szukają w Google. " +
@@ -265,6 +282,18 @@ const SYSTEM_PROMPT =
   "ZAKAZ ABSOLUTNY: nigdy nie używaj długiego myślnika (-) ani półpauzy (–) w tekstach opisowych " +
   "(about, lead, seoDescription, kroki) - to najbardziej rozpoznawalny znak tekstu od AI; " +
   "zamiast tego stawiaj przecinek, dwukropek albo kropkę.";
+
+// Dla providerów bez osobnego etapu przypisania klatek (brak klucza OpenAI)
+const FRAMES_HINT =
+  " KLATKI: klatki wideo są ponumerowane chronologicznie (Klatka 1..N). Do każdego kroku przypisz " +
+  "w polu frameIndex numer klatki, która najlepiej ten krok ilustruje (moment czynności, nie planszę " +
+  "tytułową); jeśli żadna klatka nie pasuje, zostaw null zamiast naciągać. Ta sama klatka może " +
+  "ilustrować najwyżej jeden krok. W polu heroFrameIndex wskaż klatkę najlepszą na zdjęcie główne: " +
+  "gotowe, wyeksponowane danie, ostry i apetyczny kadr; przy porównywalnych kadrach wybierz ten " +
+  "z jak najmniejszą ilością nałożonych napisów i grafik.";
+
+type PromptFrame = { thumbPath: string; t: number };
+const frameLabel = (f: PromptFrame, i: number) => `Klatka ${i + 1} (t=${Math.round(f.t)} s):`;
 
 // ---------- Gemini path (free tier; understands the audio track natively) ----------
 
@@ -296,6 +325,8 @@ const GEMINI_SCHEMA = {
           title: { type: "STRING", nullable: true },
           body: { type: "STRING" },
           tip: { type: "STRING", nullable: true },
+          startSec: { type: "NUMBER", nullable: true },
+          endSec: { type: "NUMBER", nullable: true },
           frameIndex: { type: "NUMBER", nullable: true },
         },
         required: ["body"],
@@ -330,20 +361,21 @@ const GEMINI_SCHEMA = {
 };
 
 async function draftRecipeGemini(
-  frames: string[],
+  frames: PromptFrame[],
   audioPath: string | null,
   caption: string,
   categoryOptions: string,
-  tagOptions: string
+  tagOptions: string,
+  withFramesHint: boolean
 ) {
   // Numbered labels before each frame so frameIndex/heroFrameIndex in the
   // draft can point back at a concrete image
   const parts: any[] = frames.flatMap((f, i) => [
-    { text: `Klatka ${i + 1}:` },
+    { text: frameLabel(f, i) },
     {
       inline_data: {
         mime_type: "image/jpeg",
-        data: fs.readFileSync(f).toString("base64"),
+        data: fs.readFileSync(f.thumbPath).toString("base64"),
       },
     },
   ]);
@@ -374,7 +406,7 @@ async function draftRecipeGemini(
         "x-goog-api-key": process.env.GEMINI_API_KEY!,
       },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT + (withFramesHint ? FRAMES_HINT : "") }] },
         contents: [{ role: "user", parts }],
         generationConfig: {
           responseMimeType: "application/json",
@@ -399,24 +431,25 @@ type CompatConfig = { baseUrl: string; apiKey: string; model: string };
 
 async function draftRecipeOpenAICompat(
   cfg: CompatConfig,
-  frames: string[],
-  transcript: string | null,
+  frames: PromptFrame[],
+  transcript: string,
   caption: string,
   categoryOptions: string,
-  tagOptions: string
+  tagOptions: string,
+  withFramesHint: boolean
 ) {
-  const content: any[] = frames.flatMap((f, i) => [
-    { type: "text", text: `Klatka ${i + 1}:` },
+  const content: ChatPart[] = frames.flatMap((f, i): ChatPart[] => [
+    { type: "text", text: frameLabel(f, i) },
     {
       type: "image_url",
-      image_url: { url: `data:image/jpeg;base64,${fs.readFileSync(f).toString("base64")}` },
+      image_url: { url: `data:image/jpeg;base64,${fs.readFileSync(f.thumbPath).toString("base64")}` },
     },
   ]);
   content.push({
     type: "text",
     text:
       `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
-      `Transkrypcja audio:\n${transcript || "(brak transkrypcji)"}\n\n` +
+      `Transkrypcja audio (z czasem):\n${transcript}\n\n` +
       `Dozwolone kategorie (slug - nazwa):\n${categoryOptions}\n\n` +
       `Dozwolone tagi (slug - nazwa, wg grup):\n${tagOptions}\n\n` +
       "Odtwórz z tego kompletny przepis do publikacji na blogu. " +
@@ -424,58 +457,55 @@ async function draftRecipeOpenAICompat(
       "o tym przepisie', 2-3 akapity rozdzielone pustą linią), categorySlugs[] (1-2 slugi z listy " +
       "dozwolonych), difficulty ('latwy'|'sredni'|'trudny'|null), ingredientGroups " +
       "[{title|null, items[]}], steps " +
-      "[{title|null, body, tip|null, frameIndex|null (numer klatki 1-N ilustrującej krok)}], " +
-      "heroFrameIndex|null (numer klatki najlepszej na zdjęcie główne), prepTimeMin|null, " +
+      "[{title|null, body, tip|null, startSec|null, endSec|null" +
+      (withFramesHint ? ", frameIndex|null (numer klatki 1-N ilustrującej krok)" : "") +
+      "}], " +
+      (withFramesHint ? "heroFrameIndex|null (numer klatki najlepszej na zdjęcie główne), " : "") +
+      "prepTimeMin|null, " +
       "totalTimeMin|null, servings|null, kcal|null, protein|null, fat|null, carbs|null, " +
       "seoTitle, seoDescription, keywords, tags[] (slugi z listy dozwolonych), " +
       "confidence ('high'|'medium'|'low'), notes|null, " +
       "sponsor|null ({brand, code|null, note|null} - współpraca reklamowa, jeśli występuje).",
   });
 
-  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${cfg.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: cfg.model,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content },
-      ],
-      response_format: { type: "json_object" },
-    }),
+  const { data } = await chatJson({
+    model: cfg.model,
+    system: SYSTEM_PROMPT + (withFramesHint ? FRAMES_HINT : ""),
+    user: content,
+    baseUrl: cfg.baseUrl,
+    apiKey: cfg.apiKey,
+    maxTokens: 12000,
   });
-  if (!res.ok) throw new Error(`AI compat: ${res.status} ${await res.text()}`);
-  const json = await res.json();
-  const text = json.choices?.[0]?.message?.content ?? "";
-  return RecipeDraft.parse(JSON.parse(text.replace(/^```json?\s*|\s*```$/g, "")));
+  return RecipeDraft.parse(data);
 }
 
 // ---------- Claude path ----------
 
 async function draftRecipe(
   client: Anthropic,
-  frames: string[],
-  transcript: string | null,
+  frames: PromptFrame[],
+  transcript: string,
   caption: string,
   categoryOptions: string,
-  tagOptions: string
+  tagOptions: string,
+  withFramesHint: boolean
 ) {
-  const imageBlocks = frames.map((f) => ({
-    type: "image" as const,
-    source: {
-      type: "base64" as const,
-      media_type: "image/jpeg" as const,
-      data: fs.readFileSync(f).toString("base64"),
+  const imageBlocks = frames.flatMap((f, i) => [
+    { type: "text" as const, text: frameLabel(f, i) },
+    {
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: "image/jpeg" as const,
+        data: fs.readFileSync(f.thumbPath).toString("base64"),
+      },
     },
-  }));
+  ]);
 
   const response = await client.messages.parse({
     model: "claude-opus-4-8",
     max_tokens: 16000,
-    system: SYSTEM_PROMPT,
+    system: SYSTEM_PROMPT + (withFramesHint ? FRAMES_HINT : ""),
     messages: [
       {
         role: "user",
@@ -485,7 +515,7 @@ async function draftRecipe(
             type: "text",
             text:
               `Opis posta z TikToka:\n${caption || "(brak)"}\n\n` +
-              `Transkrypcja audio:\n${transcript || "(brak transkrypcji)"}\n\n` +
+              `Transkrypcja audio (z czasem):\n${transcript}\n\n` +
               `Dozwolone kategorie (slug - nazwa):\n${categoryOptions}\n\n` +
               `Dozwolone tagi (slug - nazwa, wg grup):\n${tagOptions}\n\n` +
               "Odtwórz z tego kompletny przepis do publikacji na blogu.",
@@ -506,14 +536,14 @@ type Provider =
   | { kind: "claude"; client: Anthropic }
   | { kind: "openai-compat"; cfg: CompatConfig };
 
-function pickProvider(): Provider | null {
+function pickProvider(models: AiModels): Provider | null {
   if (process.env.OPENAI_API_KEY) {
     return {
       kind: "openai",
       cfg: {
         baseUrl: "https://api.openai.com/v1",
         apiKey: process.env.OPENAI_API_KEY,
-        model: process.env.OPENAI_MODEL || "gpt-4o",
+        model: models.draft,
       },
     };
   }
@@ -564,7 +594,7 @@ async function loadTagOptions() {
   };
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 8;
 
 // Progress lands in the DB (live view in /admin/tiktok) and in the terminal
 async function setProgress(impId: number, step: number, label: string) {
@@ -576,8 +606,11 @@ async function setProgress(impId: number, step: number, label: string) {
     .where(eq(imports.id, impId));
 }
 
+const hasOpenAI = () => !!process.env.OPENAI_API_KEY;
+
 async function processOne(
   provider: Provider,
+  models: AiModels,
   imp: typeof imports.$inferSelect,
   cats: { options: string; allowed: Set<string> },
   tagVocab: { options: string; allowed: Set<string> }
@@ -613,16 +646,21 @@ async function processOne(
       }
     }
 
-    await setProgress(imp.id, 2, "Wyciąganie klatek z wideo...");
-    const frames = await extractFrames(videoPath, dir);
+    await setProgress(imp.id, 2, "Wyciąganie i odsiewanie klatek z wideo...");
+    const frames: ExtractedFrame[] = await extractFrames(videoPath, dir);
+    console.log(`[${imp.id}] ${frames.length} unikalnych klatek`);
+    // Etap przypisania klatek jest osobny (OpenAI). Bez klucza OpenAI model
+    // draftu dostaje wszystkie klatki i sam wskazuje frameIndex (stara ścieżka).
+    const separateAssign = hasOpenAI();
+    const promptFrames: PromptFrame[] = separateAssign ? sampleFrames(frames, 12) : frames;
 
-    let draft;
-    let transcript: string | null = null;
+    let draft: z.infer<typeof RecipeDraft>;
+    let transcript: Transcript | null = null;
     if (provider.kind === "gemini") {
       await setProgress(imp.id, 3, "Przygotowanie ścieżki audio...");
       const audioPath = await extractAudio(videoPath, dir).catch(() => null);
       await setProgress(imp.id, 4, "Gemini ogląda i słucha rolki...");
-      draft = await draftRecipeGemini(frames, audioPath, caption, cats.options, tagVocab.options);
+      draft = await draftRecipeGemini(promptFrames, audioPath, caption, cats.options, tagVocab.options, !separateAssign);
     } else {
       await setProgress(imp.id, 3, "Transkrypcja audio (Whisper)...");
       transcript = await transcribe(videoPath, dir).catch((e) => {
@@ -630,11 +668,12 @@ async function processOne(
         return null;
       });
       const modelName = provider.kind === "claude" ? "Claude" : provider.cfg.model;
-      await setProgress(imp.id, 4, `${modelName} analizuje ${frames.length} klatek i transkrypcję...`);
+      await setProgress(imp.id, 4, `${modelName} analizuje ${promptFrames.length} klatek i transkrypcję...`);
+      const tx = transcriptForPrompt(transcript);
       if (provider.kind === "claude") {
-        draft = await draftRecipe(provider.client, frames, transcript, caption, cats.options, tagVocab.options);
+        draft = await draftRecipe(provider.client, promptFrames, tx, caption, cats.options, tagVocab.options, !separateAssign);
       } else {
-        draft = await draftRecipeOpenAICompat(provider.cfg, frames, transcript, caption, cats.options, tagVocab.options);
+        draft = await draftRecipeOpenAICompat(provider.cfg, promptFrames, tx, caption, cats.options, tagVocab.options, !separateAssign);
       }
     }
 
@@ -642,60 +681,161 @@ async function processOne(
     draft.categorySlugs = (draft.categorySlugs ?? []).filter((c: string) => cats.allowed.has(c));
     draft.tags = (draft.tags ?? []).filter((t: string) => tagVocab.allowed.has(t));
 
-    // Fallback: the model is told to always estimate macros, but if it still
-    // left kcal empty, estimate from the ingredients so no imported recipe ships
-    // without nutrition. Non-fatal - a failure just leaves kcal null.
-    if (draft.kcal == null) {
-      const macroItems = (draft.ingredientGroups ?? [])
-        .flatMap((g: any) => g.items ?? [])
-        .map((s: any) => String(s).trim())
-        .filter(Boolean);
-      if (macroItems.length) {
-        try {
-          const m = await estimateMacros(draft.title ?? "przepis", draft.servings ?? null, macroItems);
-          draft.kcal = m.kcal;
-          draft.protein ??= m.protein;
-          draft.fat ??= m.fat;
-          draft.carbs ??= m.carbs;
-          if (draft.servings == null && m.assumedServings) draft.servings = m.assumedServings;
-          console.log(`[${imp.id}] makra doszacowane fallbackiem: ${m.kcal} kcal/porcję`);
-        } catch (e: any) {
-          console.warn(`[${imp.id}] fallback makr nieudany: ${e.message?.slice(0, 100)}`);
-        }
+    // Published URLs for frames (the admin and accept endpoint deal in URLs)
+    const frameUrlList = publishFrames(imp.id, frames.map((f) => f.path));
+    const urlAt = (i: number | null) => (i != null && i >= 0 && i < frameUrlList.length ? frameUrlList[i] : null);
+    const usedModels: NonNullable<ImportDraft["models"]> = { draft: provider.kind === "claude" ? "claude-opus-4-8" : provider.kind === "gemini" ? process.env.GEMINI_MODEL || "gemini-2.5-flash" : provider.cfg.model };
+
+    // ---- 5. frames -> steps
+    let stepImages: (string | null)[] = draft.steps.map(() => null);
+    let stepCandidates: string[][] = draft.steps.map(() => []);
+    let heroFrame: string | null = null;
+    let heroCandidates: string[] = [];
+    if (separateAssign) {
+      await setProgress(imp.id, 5, `Dobieranie klatek do ${draft.steps.length} kroków (${frames.length} klatek)...`);
+      try {
+        const res = await assignFramesWithAi({
+          title: draft.title,
+          steps: draft.steps.map((st) => ({ body: st.body, title: st.title, startSec: st.startSec, endSec: st.endSec })),
+          frames: frames.map((f, i) => ({ url: frameUrlList[i], t: f.t, sharpness: f.sharpness, thumbPath: f.thumbPath })),
+          model: models.draft,
+        });
+        stepImages = res.stepImages.map(urlAt);
+        stepCandidates = res.stepCandidates.map((ids) => ids.map(urlAt).filter((u): u is string => !!u));
+        heroFrame = urlAt(res.heroIndex);
+        heroCandidates = res.heroCandidates.map(urlAt).filter((u): u is string => !!u);
+        usedModels.assign = models.draft;
+      } catch (e: any) {
+        console.warn(`[${imp.id}] przypisanie klatek nieudane: ${e.message?.slice(0, 160)}`);
       }
+    } else {
+      const frameAt = (n: number | null) => {
+        const i = n == null ? NaN : Math.round(n) - 1;
+        return urlAt(Number.isInteger(i) ? i : null);
+      };
+      stepImages = draft.steps.map((st) => frameAt(st.frameIndex));
+      heroFrame = frameAt(draft.heroFrameIndex);
+      heroCandidates = heroFrame ? [heroFrame] : [];
     }
 
-    // Hero image is NOT auto-generated anymore. The operator reviews the raw
-    // frames and, if wanted, triggers the AI cleanup on demand in /admin/tiktok.
-    const heroEnhanced: string | null = null;
-
-    await setProgress(imp.id, 5, "Zapisywanie draftu...");
-    const frameUrls = publishFrames(imp.id, frames);
-    // Resolve frameIndex/heroFrameIndex to published URLs right away, so the
-    // admin preview and the accept endpoint deal only in URLs
-    const frameAt = (n: number | null) => {
-      const i = n == null ? NaN : Math.round(n);
-      return i >= 1 && i <= frameUrls.length ? frameUrls[i - 1] : null;
+    // Draft w docelowym kształcie (bez pól roboczych frameIndex/heroFrameIndex)
+    let full: ImportDraft = {
+      ...draft,
+      ingredientGroups: (draft.ingredientGroups ?? []).map((g) => ({ title: g.title ?? null, items: g.items ?? [] })),
+      keywords: draft.keywords ?? "",
+      difficulty: draft.difficulty ?? null,
+      notes: draft.notes ?? null,
+      sponsor: draft.sponsor
+        ? { brand: draft.sponsor.brand, code: draft.sponsor.code ?? null, note: draft.sponsor.note ?? null }
+        : null,
+      prepTimeMin: draft.prepTimeMin ?? null,
+      totalTimeMin: draft.totalTimeMin ?? null,
+      servings: draft.servings ?? null,
+      kcal: draft.kcal ?? null,
+      protein: draft.protein ?? null,
+      fat: draft.fat ?? null,
+      carbs: draft.carbs ?? null,
+      steps: draft.steps.map((st, i) => ({
+        title: st.title ?? null,
+        body: st.body,
+        tip: st.tip ?? null,
+        startSec: st.startSec ?? null,
+        endSec: st.endSec ?? null,
+        image: stepImages[i],
+        frameCandidates: stepCandidates[i],
+      })),
+      heroFrame,
+      heroEnhanced: null,
+      heroCandidates,
+      frames: frames.map((f, i) => ({ url: frameUrlList[i], t: f.t, sharpness: f.sharpness })),
+      videoDurationSec: durationSec,
+      videoViews: viewCount,
+      transcriptSegments: transcript?.segments ?? null,
+      aiFilled: [],
+      models: usedModels,
     };
+    delete (full as any).frameIndex;
+    delete (full as any).heroFrameIndex;
+
+    // ---- 6. audyt + dopełnienie
+    const review1 = reviewDraft(full);
+    const gapCodes = new Set(["ingredients-no-amount", "few-steps", "servings-missing", "time-missing", "no-ingredients"]);
+    const needsRefine = full.confidence !== "high" || review1.issues.some((i) => gapCodes.has(i.code));
+    if (needsRefine && hasOpenAI()) {
+      await setProgress(imp.id, 6, `Dopełnianie braków (${models.refine})...`);
+      try {
+        const r = await refineDraft({
+          draft: full,
+          caption,
+          transcript: transcript?.text ?? null,
+          issues: review1.issues.filter((i) => i.code !== "kcal-missing"),
+          model: models.refine,
+        });
+        full = { ...r.draft, aiFilled: r.filled, refinedWith: r.model };
+        usedModels.refine = r.model;
+        console.log(`[${imp.id}] dopełniono ${r.filled.length} pól (${r.filled.filter((f) => f.basis === "inferred").length} wywnioskowanych)`);
+      } catch (e: any) {
+        console.warn(`[${imp.id}] dopełnianie nieudane: ${e.message?.slice(0, 160)}`);
+      }
+    } else {
+      await setProgress(imp.id, 6, needsRefine ? "Dopełnianie pominięte (brak OPENAI_API_KEY)" : "Draft kompletny, dopełnianie zbędne");
+    }
+
+    // ---- 7. wartości odżywcze z rozbicia składników
+    const lines = ingredientLines(full);
+    if (hasOpenAI() && lines.length) {
+      await setProgress(imp.id, 7, `Liczenie wartości odżywczych ze składników (${models.nutrition})...`);
+      try {
+        const servingsFilled = (full.aiFilled ?? []).find((f) => f.field === "servings");
+        const nutrition = await buildBreakdown({
+          title: full.title,
+          lines,
+          servings: full.servings ?? null,
+          servingsSource: servingsFilled ? (servingsFilled.basis === "inferred" ? "ai-estimate" : servingsFilled.basis === "caption" ? "caption" : "transcript") : "draft",
+          context: caption?.slice(0, 600) || null,
+          model: models.nutrition,
+          draftPerServing: { kcal: full.kcal ?? undefined, protein: full.protein ?? undefined, fat: full.fat ?? undefined, carbs: full.carbs ?? undefined },
+        });
+        full.nutrition = nutrition;
+        usedModels.nutrition = nutrition.model;
+        if (nutrition.perServing) {
+          full.kcal = nutrition.perServing.kcal;
+          full.protein = nutrition.perServing.protein;
+          full.fat = nutrition.perServing.fat;
+          full.carbs = nutrition.perServing.carbs;
+        }
+        if (full.servings == null && nutrition.servings) full.servings = nutrition.servings;
+        console.log(`[${imp.id}] odżywcze: ${nutrition.perServing?.kcal ?? "?"} kcal/porcję przy ${nutrition.servings ?? "?"} porcjach (${nutrition.issues.length} uwag)`);
+      } catch (e: any) {
+        console.warn(`[${imp.id}] wartości odżywcze nieudane: ${e.message?.slice(0, 160)}`);
+        full.nutrition = null;
+      }
+    } else if (!hasOpenAI()) {
+      await setProgress(imp.id, 7, "Wartości odżywcze niezweryfikowane (brak OPENAI_API_KEY)");
+    }
+    full.review = reviewDraft(full);
+    if (!hasOpenAI()) {
+      full.review.issues.unshift({
+        severity: "warning",
+        code: "unverified",
+        message: "Brak OPENAI_API_KEY: wartości odżywcze pochodzą z modelu wideo i nie zostały przeliczone ze składników.",
+      });
+    }
+
+    await setProgress(imp.id, 8, "Zapisywanie draftu...");
     await db
       .update(imports)
       .set({
         status: "ready",
-        aiDraft: {
-          ...draft,
-          steps: draft.steps.map((s) => ({ ...s, image: frameAt(s.frameIndex) })),
-          heroFrame: frameAt(draft.heroFrameIndex),
-          heroEnhanced,
-          frames: frameUrls,
-          videoDurationSec: durationSec,
-          videoViews: viewCount,
-        },
-        transcript,
+        aiDraft: full,
+        transcript: transcript?.text ?? null,
         videoPath: null,
         progress: null,
       })
       .where(eq(imports.id, imp.id));
-    console.log(`[${imp.id}] ✓ Draft gotowy: "${draft.title}" (confidence: ${draft.confidence})`);
+    console.log(
+      `[${imp.id}] ✓ Draft gotowy: "${full.title}" (pewność: ${full.confidence}, ${full.review.issues.length} uwag, ${full.review.blocking ? "BLOKADA" : "do akceptacji"})`
+    );
   } catch (e: any) {
     console.error(`[${imp.id}] ✗ ${e.message}`);
     await db
@@ -709,7 +849,7 @@ async function processOne(
 
 const NO_AI_KEY_HELP =
   "Ustaw jeden z:\n" +
-  "  OPENAI_API_KEY        (vision + transkrypcja Whisper jednym kluczem; model przez OPENAI_MODEL, domyślnie gpt-4o)\n" +
+  "  OPENAI_API_KEY        (vision + transkrypcja Whisper jednym kluczem; modele przez OPENAI_MODEL / OPENAI_STRONG_MODEL lub panel)\n" +
   "  GEMINI_API_KEY        (darmowy tier, rozumie audio; klucz z aistudio.google.com)\n" +
   "  ANTHROPIC_API_KEY     (Claude)\n" +
   "  AI_COMPAT_BASE_URL + AI_COMPAT_API_KEY + AI_COMPAT_MODEL (Kimi/Moonshot, OpenRouter itp. - model musi mieć vision)";
@@ -720,16 +860,17 @@ async function processQueue(): Promise<number> {
   const pending = await db.select().from(imports).where(eq(imports.status, "pending"));
   if (pending.length === 0) return 0;
 
-  const provider = pickProvider();
+  const models = await getAiModels(db);
+  const provider = pickProvider(models);
   if (!provider) {
     console.error(`W kolejce czeka ${pending.length} importów, ale brak klucza AI w środowisku.\n${NO_AI_KEY_HELP}`);
     return -1;
   }
 
-  console.log(`Silnik AI: ${provider.kind}`);
+  console.log(`Silnik AI: ${provider.kind} (draft ${models.draft}, dopełnianie ${models.refine}, odżywcze ${models.nutrition})`);
   const [cats, tagVocab] = await Promise.all([loadCategoryOptions(), loadTagOptions()]);
   for (const imp of pending) {
-    await processOne(provider, imp, cats, tagVocab);
+    await processOne(provider, models, imp, cats, tagVocab);
   }
   return pending.length;
 }
@@ -745,7 +886,7 @@ async function processEnhanceRequests(): Promise<number> {
     const draft = imp.aiDraft as any;
     const frame: string | undefined = draft?.enhanceRequest?.frame;
     if (!frame) continue;
-    const frames: string[] = Array.isArray(draft.frames) ? draft.frames : [];
+    const frames: string[] = frameInfos(draft).map((f) => f.url);
     if (!frames.includes(frame)) {
       await db
         .update(imports)
@@ -767,6 +908,112 @@ async function processEnhanceRequests(): Promise<number> {
       await db
         .update(imports)
         .set({ aiDraft: { ...draft, enhanceRequest: null, enhanceError: String(e.message).slice(0, 300) } })
+        .where(eq(imports.id, imp.id));
+    }
+    done++;
+  }
+  return done;
+}
+
+// "Dobierz klatki ponownie" z panelu: aiDraft.reassignRequest = true. Miniatury
+// dla modelu odtwarzamy z opublikowanych pełnych klatek do katalogu tymczasowego.
+async function processReassignRequests(): Promise<number> {
+  const rows = await db
+    .select()
+    .from(imports)
+    .where(and(eq(imports.status, "ready"), dsql`${imports.aiDraft}->>'reassignRequest' = 'true'`));
+  let done = 0;
+  for (const imp of rows) {
+    const draft = imp.aiDraft as ImportDraft;
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dnl-reassign-"));
+    try {
+      if (!hasOpenAI()) throw new Error("Brak OPENAI_API_KEY");
+      const models = await getAiModels(db);
+      const infos = frameInfos(draft);
+      const frames = [] as { url: string; t: number | null; sharpness?: number | null; thumbPath: string }[];
+      for (let i = 0; i < infos.length; i++) {
+        const src = urlToPath(infos[i].url);
+        if (!fs.existsSync(src)) continue;
+        const thumb = path.join(tmp, `t-${i}.jpg`);
+        await sharp(src).resize(512, null, { fit: "inside" }).jpeg({ quality: 80 }).toFile(thumb);
+        frames.push({ ...infos[i], thumbPath: thumb });
+      }
+      if (!frames.length) throw new Error("Brak plików klatek na dysku");
+      const res = await assignFramesWithAi({
+        title: draft.title,
+        steps: draft.steps.map((st) => ({ body: st.body, title: st.title, startSec: st.startSec, endSec: st.endSec })),
+        frames,
+        model: models.draft,
+      });
+      const urlAt = (i: number | null) => (i != null && frames[i] ? frames[i].url : null);
+      const next: ImportDraft = {
+        ...draft,
+        steps: draft.steps.map((st, i) => ({
+          ...st,
+          image: urlAt(res.stepImages[i]),
+          frameCandidates: res.stepCandidates[i].map(urlAt).filter((u): u is string => !!u),
+        })),
+        heroFrame: urlAt(res.heroIndex) ?? draft.heroFrame,
+        heroCandidates: res.heroCandidates.map(urlAt).filter((u): u is string => !!u),
+        models: { ...(draft.models ?? {}), assign: models.draft },
+        reassignRequest: null,
+        reassignError: null,
+      };
+      await db.update(imports).set({ aiDraft: next }).where(eq(imports.id, imp.id));
+      console.log(`[${imp.id}] 🖼 Klatki dobrane ponownie`);
+    } catch (e: any) {
+      console.error(`[${imp.id}] Ponowne dobranie klatek nieudane: ${e.message}`);
+      await db
+        .update(imports)
+        .set({ aiDraft: { ...draft, reassignRequest: null, reassignError: String(e.message).slice(0, 300) } })
+        .where(eq(imports.id, imp.id));
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+    done++;
+  }
+  return done;
+}
+
+// Sprzątanie plików po decyzji operatora (web ma media tylko do odczytu):
+// aiDraft.cleanupRequest = { keep: [url...] }. Pusta lista keep = cały katalog
+// importu znika; gdy wiersz ma status rejected i deleteRow, kasujemy też wiersz.
+async function processCleanupRequests(): Promise<number> {
+  const rows = await db
+    .select()
+    .from(imports)
+    .where(dsql`${imports.aiDraft}->'cleanupRequest' is not null`);
+  let done = 0;
+  for (const imp of rows) {
+    const draft = imp.aiDraft as any;
+    const req = draft?.cleanupRequest as { keep?: string[]; deleteRow?: boolean } | null;
+    if (!req) continue;
+    const keep = new Set((req.keep ?? []).map((u: string) => path.basename(u)));
+    const dir = path.join(process.env.UPLOADS_DIR || path.join(process.cwd(), "public", "uploads"), "imports", String(imp.id));
+    let removed = 0;
+    try {
+      if (fs.existsSync(dir)) {
+        for (const f of fs.readdirSync(dir)) {
+          if (keep.has(f)) continue;
+          fs.rmSync(path.join(dir, f), { force: true });
+          removed++;
+        }
+        if (keep.size === 0) fs.rmSync(dir, { recursive: true, force: true });
+      }
+      if (req.deleteRow) {
+        await db.delete(imports).where(eq(imports.id, imp.id));
+      } else {
+        await db
+          .update(imports)
+          .set({ aiDraft: { ...draft, cleanupRequest: null, cleanedAt: new Date().toISOString() } })
+          .where(eq(imports.id, imp.id));
+      }
+      console.log(`[${imp.id}] 🧹 Usunięto ${removed} plików${req.deleteRow ? " i wiersz importu" : ""}`);
+    } catch (e: any) {
+      console.error(`[${imp.id}] Sprzątanie nieudane: ${e.message}`);
+      await db
+        .update(imports)
+        .set({ aiDraft: { ...draft, cleanupRequest: null, cleanupError: String(e.message).slice(0, 300) } })
         .where(eq(imports.id, imp.id));
     }
     done++;
@@ -852,6 +1099,8 @@ async function main() {
   if (!process.argv.includes("--watch")) {
     const n = await processQueue();
     await processEnhanceRequests();
+    await processReassignRequests();
+    await processCleanupRequests();
     await processJobs();
     if (n === 0) console.log("Kolejka pusta.");
     await sql.end();
@@ -892,6 +1141,8 @@ async function main() {
     }
     try {
       await processEnhanceRequests();
+      await processReassignRequests();
+      await processCleanupRequests();
     } catch (e) {
       console.error(e);
     }

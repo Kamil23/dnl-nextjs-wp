@@ -4,6 +4,13 @@ import { requireAdminApi } from "../../../../lib/admin-auth";
 import { db, dbSchema } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slugify";
 import { syncRecipeToSearch } from "../../../../lib/search-sync";
+import { frameUrls, ingredientLines, type ImportDraft } from "../../../../lib/import-draft";
+import { reviewDraft } from "../../../../lib/import-review";
+import { recompute, type NutritionBreakdown, type NutritionItem } from "../../../../lib/nutrition-calc";
+import { getAiModels, isValidModelId } from "../../../../lib/server/ai-models";
+import { buildBreakdown } from "../../../../lib/server/nutrition-ai";
+import { refineDraft } from "../../../../lib/server/refine-draft";
+import { parseShoppingLine } from "../../../../lib/quantity";
 
 const { imports, recipes, ingredientGroups, ingredients, steps, tags, recipeTags, categories, recipeCategories } = dbSchema;
 
@@ -19,6 +26,32 @@ function aboutToHtml(about: unknown): string | null {
     .join("\n");
 }
 
+const num = (v: unknown): number | null => {
+  if (v === null || v === "") return null;
+  const n = typeof v === "string" ? parseFloat(v.replace(",", ".")) : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+// Przeliczenie pól na porcję z rozbicia + świeży audyt; jedno miejsce, żeby
+// każda akcja (patch/refine/recalc) zostawiała draft w spójnym stanie
+function finalize(d: ImportDraft): ImportDraft {
+  const next = { ...d };
+  if (next.nutrition?.perServing) {
+    next.kcal = next.nutrition.perServing.kcal;
+    next.protein = next.nutrition.perServing.protein;
+    next.fat = next.nutrition.perServing.fat;
+    next.carbs = next.nutrition.perServing.carbs;
+    if (next.nutrition.servings) next.servings = next.nutrition.servings;
+  }
+  next.review = reviewDraft(next);
+  return next;
+}
+
+async function saveDraft(id: number, d: ImportDraft) {
+  await db.update(imports).set({ aiDraft: d }).where(eq(imports.id, id));
+  return d;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!requireAdminApi(req, res)) return;
   const id = parseInt(req.query.id as string, 10);
@@ -26,8 +59,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const [imp] = await db.select().from(imports).where(eq(imports.id, id));
   if (!imp) return res.status(404).json({ error: "Not found" });
+  const draft = (imp.aiDraft ?? null) as ImportDraft | null;
 
   if (req.method === "DELETE") {
+    // Klatki leżą na wolumenie mediów, do którego web ma tylko odczyt: gdy są,
+    // wiersz zostaje jako rejected ze zleceniem dla workera (kasuje pliki i wiersz)
+    if (draft && frameUrls(draft).length) {
+      await db
+        .update(imports)
+        .set({ status: "rejected", aiDraft: { ...draft, cleanupRequest: { keep: [], deleteRow: true } } })
+        .where(eq(imports.id, id));
+      return res.json({ ok: true, deferred: true });
+    }
     await db.delete(imports).where(eq(imports.id, id));
     return res.json({ ok: true });
   }
@@ -37,7 +80,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const action = req.body?.action;
 
   if (action === "reject") {
-    await db.update(imports).set({ status: "rejected" }).where(eq(imports.id, id));
+    const patch = draft && frameUrls(draft).length ? { aiDraft: { ...draft, cleanupRequest: { keep: [] } } } : {};
+    await db.update(imports).set({ status: "rejected", ...patch }).where(eq(imports.id, id));
     return res.json({ ok: true });
   }
 
@@ -59,34 +103,173 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.json({ ok: true });
   }
 
+  // Od tego miejsca każda akcja wymaga gotowego draftu
+  if (imp.status !== "ready" || !draft) {
+    return res.status(400).json({ error: "Draft nie jest gotowy" });
+  }
+  const frames = frameUrls(draft);
+
   // On-demand hero cleanup: the operator picked a frame and hit "Generuj AI
   // hero". Web can't do the image work itself (media is mounted ro here and the
   // frame dirs are root-owned by the worker), so we just record the request on
   // the draft; the worker picks it up (has the media rw + the image key) and
   // writes heroEnhanced back. The admin polls until it appears.
   if (action === "enhance") {
-    if (imp.status !== "ready" || !imp.aiDraft) {
-      return res.status(400).json({ error: "Draft nie jest gotowy" });
-    }
-    const draft = imp.aiDraft as any;
     const frame = typeof req.body?.frame === "string" ? req.body.frame : "";
-    const frames: string[] = Array.isArray(draft.frames) ? draft.frames : [];
     // Whitelist to a known published frame - also blocks path traversal
     if (!frames.includes(frame)) {
       return res.status(400).json({ error: "Nieznana klatka" });
     }
-    await db
-      .update(imports)
-      .set({ aiDraft: { ...draft, enhanceRequest: { frame }, enhanceError: null } })
-      .where(eq(imports.id, id));
+    await saveDraft(id, { ...draft, enhanceRequest: { frame }, enhanceError: null });
     return res.status(202).json({ ok: true, queued: true });
   }
 
-  if (action === "accept") {
-    if (imp.status !== "ready" || !imp.aiDraft) {
-      return res.status(400).json({ error: "Draft nie jest gotowy" });
+  // Ponowne dobranie klatek do kroków: worker ma pliki klatek, web nie
+  if (action === "reassign-frames") {
+    await saveDraft(id, { ...draft, reassignRequest: true, reassignError: null });
+    return res.status(202).json({ ok: true, queued: true });
+  }
+
+  // Punktowe poprawki operatora w drafcie (klatka kroku, gramy, porcje, czasy)
+  if (action === "patch") {
+    const p = req.body?.patch ?? {};
+    let next: ImportDraft = { ...draft };
+
+    if (Array.isArray(p.steps)) {
+      next.steps = next.steps.map((st, i) => {
+        const change = p.steps.find((x: any) => Number(x?.i) === i);
+        if (!change || !("image" in change)) return st;
+        const img = change.image;
+        if (img !== null && !frames.includes(img)) return st;
+        return { ...st, image: img };
+      });
     }
-    const d = imp.aiDraft as any;
+    if ("heroFrame" in p && (p.heroFrame === null || frames.includes(p.heroFrame))) {
+      next.heroFrame = p.heroFrame;
+    }
+    if ("servings" in p) {
+      const s = num(p.servings);
+      next.servings = s && s > 0 ? Math.round(s) : null;
+      if (next.nutrition) {
+        next.nutrition = recompute(next.nutrition, { servings: next.servings, servingsSource: "operator" });
+      }
+    }
+    if ("prepTimeMin" in p) next.prepTimeMin = num(p.prepTimeMin);
+    if ("totalTimeMin" in p) next.totalTimeMin = num(p.totalTimeMin);
+    if (p.nutrition && next.nutrition && Array.isArray(p.nutrition.items)) {
+      const items: NutritionItem[] = next.nutrition.items.map((it, i) => {
+        const change = p.nutrition.items.find((x: any) => Number(x?.i) === i);
+        if (!change) return it;
+        const out = { ...it };
+        if ("grams" in change) {
+          const g = num(change.grams);
+          out.grams = g != null && g >= 0 ? g : null;
+          out.gramsSource = "operator";
+        }
+        if ("excluded" in change) out.excluded = !!change.excluded;
+        if (change.per100 && typeof change.per100 === "object") {
+          const kcal = num(change.per100.kcal);
+          const protein = num(change.per100.protein);
+          const fat = num(change.per100.fat);
+          const carbs = num(change.per100.carbs);
+          if (kcal != null && protein != null && fat != null && carbs != null) {
+            out.per100 = { kcal, protein, fat, carbs };
+          }
+        }
+        return out;
+      });
+      next.nutrition = recompute(next.nutrition, { items });
+    }
+    // Ręczne wartości na porcję, gdy nie ma rozbicia (np. brak klucza OpenAI)
+    if (!next.nutrition && p.manualNutrition) {
+      const m = p.manualNutrition;
+      if ("kcal" in m) next.kcal = num(m.kcal);
+      if ("protein" in m) next.protein = num(m.protein);
+      if ("fat" in m) next.fat = num(m.fat);
+      if ("carbs" in m) next.carbs = num(m.carbs);
+    }
+    next = finalize(next);
+    await saveDraft(id, next);
+    return res.json({ ok: true, draft: next });
+  }
+
+  // Dopełnianie braków mocniejszym modelem (tekst, synchronicznie)
+  if (action === "refine") {
+    try {
+      const models = await getAiModels(db);
+      const model = isValidModelId(req.body?.model) ? req.body.model : models.refine;
+      const review = reviewDraft(draft);
+      const r = await refineDraft({
+        draft,
+        caption: imp.caption,
+        transcript: imp.transcript,
+        issues: review.issues,
+        model,
+      });
+      let next: ImportDraft = {
+        ...r.draft,
+        aiFilled: [...(draft.aiFilled ?? []), ...r.filled],
+        refinedWith: r.model,
+        models: { ...(draft.models ?? {}), refine: r.model },
+      };
+      // składniki mogły się zmienić: rozbicie przestaje być aktualne
+      const before = ingredientLines(draft).join("\n");
+      const after = ingredientLines(next).join("\n");
+      if (before !== after && next.nutrition) {
+        next.nutrition = {
+          ...next.nutrition,
+          issues: [
+            ...next.nutrition.issues.filter((i) => i.code !== "stale"),
+            { severity: "warning", code: "stale", message: "Składniki zmieniły się po dopełnieniu; policz wartości odżywcze ponownie.", field: "ingredients" },
+          ],
+        };
+      }
+      next = finalize(next);
+      await saveDraft(id, next);
+      return res.json({ ok: true, draft: next, filled: r.filled.length });
+    } catch (e: any) {
+      return res.status(502).json({ error: e.message?.slice(0, 300) || "Dopełnianie nieudane" });
+    }
+  }
+
+  // Wartości odżywcze: pełne rozbicie od nowa wybranym modelem (tekst, synchronicznie)
+  if (action === "recalc-nutrition") {
+    const lines = ingredientLines(draft);
+    if (!lines.length) return res.status(400).json({ error: "Draft nie ma składników" });
+    try {
+      const models = await getAiModels(db);
+      const model = isValidModelId(req.body?.model) ? req.body.model : models.nutrition;
+      const servings = draft.servings && draft.servings > 0 ? draft.servings : null;
+      const nutrition: NutritionBreakdown = await buildBreakdown({
+        title: draft.title,
+        lines,
+        servings,
+        servingsSource: servings ? draft.nutrition?.servingsSource ?? "draft" : undefined,
+        context: imp.caption?.slice(0, 600) ?? null,
+        model,
+        draftPerServing: draft.nutrition?.draftPerServing ?? null,
+      });
+      const next = finalize({ ...draft, nutrition, models: { ...(draft.models ?? {}), nutrition: model } });
+      await saveDraft(id, next);
+      return res.json({ ok: true, draft: next });
+    } catch (e: any) {
+      return res.status(502).json({ error: e.message?.slice(0, 300) || "Przeliczenie nieudane" });
+    }
+  }
+
+  if (action === "accept") {
+    const d = finalize(draft);
+    // Blokada niezależna od UI: błędy zawsze, ostrzeżenia bez potwierdzenia
+    if (d.review?.blocking) {
+      return res.status(400).json({
+        error: "Draft ma błędy blokujące: " + d.review.issues.filter((i) => i.severity === "error").map((i) => i.message).join(" "),
+        review: d.review,
+      });
+    }
+    if (d.review && d.review.issues.length && req.body?.confirmed !== true) {
+      return res.status(400).json({ error: "Potwierdź, że sprawdziłeś ostrzeżenia (porcje i wartości odżywcze).", review: d.review });
+    }
+
     // slug/uri are unique - a re-imported recipe (same title as an existing
     // one) must land under a suffixed slug instead of blowing up the insert
     const baseSlug = slugify(d.title || `tiktok-${id}`) || `tiktok-${id}`;
@@ -107,8 +290,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (typeof req.body?.heroImage === "string" && req.body.heroImage) ||
       d.heroEnhanced ||
       d.heroFrame ||
-      d.frames?.[0] ||
+      frames[0] ||
       null;
+
+    // Gramatura per składnik z rozbicia -> kolumny amount/unit/name
+    const byLine = new Map<string, NutritionItem>();
+    for (const it of d.nutrition?.items ?? []) byLine.set(it.line.trim(), it);
 
     let acceptError: unknown = null;
     const recipeId = await db.transaction(async (tx) => {
@@ -124,21 +311,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           sponsor: d.sponsor ?? null,
           lead: d.lead ?? null,
           contentHtml: aboutToHtml(d.about),
-          difficulty: ["latwy", "sredni", "trudny"].includes(d.difficulty) ? d.difficulty : null,
+          difficulty: ["latwy", "sredni", "trudny"].includes(d.difficulty as string) ? (d.difficulty as any) : null,
           videoUrl: imp.tiktokUrl,
           videoDurationSec: d.videoDurationSec ?? null,
-          videoViews: Number.isFinite(d.videoViews) ? d.videoViews : null,
+          videoViews: Number.isFinite(d.videoViews as number) ? d.videoViews : null,
           authorName: "Roksana",
-          prepTimeMin: d.prepTimeMin ?? null,
-          totalTimeMin: d.totalTimeMin ?? null,
-          servings: d.servings ?? null,
-          kcal: d.kcal ?? null,
+          prepTimeMin: d.prepTimeMin != null ? Math.round(d.prepTimeMin) : null,
+          totalTimeMin: d.totalTimeMin != null ? Math.round(d.totalTimeMin) : null,
+          servings: d.servings != null ? Math.round(d.servings) : null,
+          kcal: d.kcal != null ? Math.round(d.kcal) : null,
           protein: d.protein?.toString() ?? null,
           fat: d.fat?.toString() ?? null,
           carbs: d.carbs?.toString() ?? null,
           keywords: d.keywords ?? null,
           seoTitle: d.seoTitle ?? null,
           seoDescription: d.seoDescription ?? null,
+          reviewMeta: {
+            confidence: d.confidence,
+            notes: d.notes ?? null,
+            aiFilled: d.aiFilled ?? [],
+            issues: d.review?.issues ?? [],
+            models: d.models ?? null,
+            importId: id,
+            acceptedAt: new Date().toISOString(),
+          },
+          nutritionBreakdown: d.nutrition ?? null,
           publishedAt: new Date(),
         })
         .returning({ id: recipes.id });
@@ -152,14 +349,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .values({ recipeId: recipe.id, title: g.title ?? null, position: gPos++ })
           .returning({ id: ingredientGroups.id });
         await tx.insert(ingredients).values(
-          items.map((rawText: string, i: number) => ({ groupId: group.id, rawText, position: i }))
+          items.map((rawText: string, i: number) => {
+            const it = byLine.get(rawText.trim());
+            const parsed = parseShoppingLine(rawText);
+            return {
+              groupId: group.id,
+              rawText,
+              position: i,
+              amount: it?.grams != null ? String(it.grams) : parsed.qty != null ? String(parsed.qty) : null,
+              unit: it?.grams != null ? "g" : parsed.kind === "count" && parsed.forms ? parsed.forms[0] : parsed.kind === "volume" ? "ml" : null,
+              name: it?.name ?? (parsed.name || null),
+            };
+          })
         );
       }
 
-      const stepRows = (d.steps ?? []).filter((s: any) => s.body);
+      const stepRows = (d.steps ?? []).filter((s) => s.body);
       if (stepRows.length) {
         await tx.insert(steps).values(
-          stepRows.map((s: any, i: number) => ({
+          stepRows.map((s, i) => ({
             recipeId: recipe.id,
             position: i,
             title: s.title ?? null,
@@ -208,9 +416,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
+      // Sprzątanie: zostają tylko klatki, których przepis używa
+      const keep = Array.from(
+        new Set([heroImage, d.heroEnhanced, ...stepRows.map((s) => s.image)].filter((u): u is string => !!u))
+      );
       await tx
         .update(imports)
-        .set({ status: "approved", recipeId: recipe.id })
+        .set({ status: "approved", recipeId: recipe.id, aiDraft: { ...d, cleanupRequest: { keep } } })
         .where(eq(imports.id, id));
 
       return recipe.id;

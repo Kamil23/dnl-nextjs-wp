@@ -24,7 +24,7 @@ export type QcInput = {
 };
 
 export type QcSeverity = "error" | "warning";
-export type QcIssue = { severity: QcSeverity; code: string; message: string };
+export type QcIssue = { severity: QcSeverity; code: string; message: string; field?: string };
 
 // Plausible per-serving bounds. Deliberately wide - we only want to catch clear
 // data-entry mistakes, not police unusual-but-real recipes.
@@ -41,10 +41,22 @@ function n(v: number | null): number | null {
   return v == null || Number.isNaN(Number(v)) ? null : Number(v);
 }
 
-export function checkRecipe(r: QcInput): QcIssue[] {
+// Reguły dla wartości odżywczych NA PORCJĘ, wspólne dla QC opublikowanych
+// przepisów i audytu draftu z importu (lib/import-review), żeby obie strony
+// liczyły dokładnie to samo.
+export type NutritionQcInput = {
+  kcal: number | null;
+  protein: number | null;
+  fat: number | null;
+  carbs: number | null;
+  servings: number | null;
+  ingredientCount: number;
+};
+
+export function nutritionIssues(r: NutritionQcInput): QcIssue[] {
   const issues: QcIssue[] = [];
-  const add = (severity: QcSeverity, code: string, message: string) =>
-    issues.push({ severity, code, message });
+  const add = (severity: QcSeverity, code: string, message: string, field?: string) =>
+    issues.push({ severity, code, message, field });
 
   const kcal = n(r.kcal);
   const protein = n(r.protein);
@@ -53,14 +65,15 @@ export function checkRecipe(r: QcInput): QcIssue[] {
 
   // --- Kalorie na porcję ---
   if (kcal == null) {
-    add("warning", "kcal-missing", "Brak kaloryczności.");
+    add("warning", "kcal-missing", "Brak kaloryczności.", "kcal");
   } else if (kcal <= 0) {
-    add("error", "kcal-invalid", `Kaloryczność ≤ 0 (${kcal}).`);
+    add("error", "kcal-invalid", `Kaloryczność ≤ 0 (${kcal}).`, "kcal");
   } else if (kcal > KCAL_HARD_MAX) {
     add(
       "error",
       "kcal-too-high",
-      `Nieprawdopodobna kaloryczność na porcję: ${kcal} kcal. Sprawdź, czy to nie wartość dla całości (podziel przez liczbę porcji).`
+      `Nieprawdopodobna kaloryczność na porcję: ${kcal} kcal. Sprawdź, czy to nie wartość dla całości (podziel przez liczbę porcji).`,
+      "kcal"
     );
   } else if (kcal > KCAL_SOFT_MAX) {
     // Wysokie kcal + 1 porcja + dużo składników = to prawie na pewno cały
@@ -69,13 +82,14 @@ export function checkRecipe(r: QcInput): QcIssue[] {
       add(
         "warning",
         "servings-suspicious",
-        `Podejrzana liczba porcji: ${kcal} kcal przy ${r.servings ?? "-"} porcji i ${r.ingredientCount} składnikach - to prawdopodobnie kilka porcji. Użyj „Porcje z AI”.`
+        `Podejrzana liczba porcji: ${kcal} kcal przy ${r.servings ?? "-"} porcji i ${r.ingredientCount} składnikach - to prawdopodobnie kilka porcji. Użyj „Porcje z AI”.`,
+        "servings"
       );
     } else {
-      add("warning", "kcal-high", `Wysoka kaloryczność na porcję: ${kcal} kcal - do weryfikacji.`);
+      add("warning", "kcal-high", `Wysoka kaloryczność na porcję: ${kcal} kcal - do weryfikacji.`, "kcal");
     }
   } else if (kcal < KCAL_MIN) {
-    add("warning", "kcal-low", `Bardzo niska kaloryczność na porcję: ${kcal} kcal - do weryfikacji.`);
+    add("warning", "kcal-low", `Bardzo niska kaloryczność na porcję: ${kcal} kcal - do weryfikacji.`, "kcal");
   }
 
   // --- Makra: wartości skrajne / ujemne ---
@@ -86,11 +100,11 @@ export function checkRecipe(r: QcInput): QcIssue[] {
   ];
   for (const [val, label, max, code] of macroChecks) {
     if (val == null) continue;
-    if (val < 0) add("error", `${code}-negative`, `Ujemna wartość ${label}: ${val} g.`);
-    else if (val > max) add("warning", `${code}-too-high`, `Nieprawdopodobna ilość ${label} na porcję: ${val} g.`);
+    if (val < 0) add("error", `${code}-negative`, `Ujemna wartość ${label}: ${val} g.`, code);
+    else if (val > max) add("warning", `${code}-too-high`, `Nieprawdopodobna ilość ${label} na porcję: ${val} g.`, code);
   }
   if (protein == null && fat == null && carbs == null) {
-    add("warning", "macros-missing", "Brak makroskładników (białko/tłuszcze/węgle).");
+    add("warning", "macros-missing", "Brak makroskładników (białko/tłuszcze/węgle).", "protein");
   }
 
   // --- Spójność makr z kcal (Atwater: 4/9/4 kcal/g) ---
@@ -101,15 +115,24 @@ export function checkRecipe(r: QcInput): QcIssue[] {
       add(
         "warning",
         "macro-mismatch",
-        `Makra nie zgadzają się z kaloriami: z białka/tłuszczu/węgli wychodzi ~${fromMacros} kcal, a podano ${kcal} kcal (różnica ${Math.round(drift * 100)}%).`
+        `Makra nie zgadzają się z kaloriami: z białka/tłuszczu/węgli wychodzi ~${fromMacros} kcal, a podano ${kcal} kcal (różnica ${Math.round(drift * 100)}%).`,
+        "kcal"
       );
     }
   }
 
   // --- Porcje ---
   if (r.servings == null || r.servings <= 0) {
-    add("warning", "servings-missing", "Brak liczby porcji - bez niej nie da się przeliczyć makr ani skalować przepisu.");
+    add("warning", "servings-missing", "Brak liczby porcji - bez niej nie da się przeliczyć makr ani skalować przepisu.", "servings");
   }
+
+  return issues;
+}
+
+export function checkRecipe(r: QcInput): QcIssue[] {
+  const issues: QcIssue[] = nutritionIssues(r);
+  const add = (severity: QcSeverity, code: string, message: string) =>
+    issues.push({ severity, code, message });
 
   // --- Kompletność treści ---
   // Bez struktury, ale z treścią HTML (stary WP) = renderuje się, lecz traci

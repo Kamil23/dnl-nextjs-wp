@@ -239,6 +239,10 @@ Jeśli 80/443 są wolne - zostaje nasze Caddy bez zmian. (Ustalimy na podstawie 
 
 **Import z TikToka wisi w „W kolejce"** - sprawdź `docker compose ps worker` (musi być up) i `docker compose logs -f worker`; najczęstsza przyczyna to brak klucza AI w `.env` (`OPENAI_API_KEY` lub `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`).
 
+**Modele AI importu** - `OPENAI_MODEL` (draft z wideo, dobieranie klatek) i `OPENAI_STRONG_MODEL` (dopełnianie braków, wartości odżywcze; domyślnie `gpt-6-sol`) to tylko wartości domyślne; realnie używane modele przestawisz w `/admin/tiktok` → „Ustawienia AI" bez redeploya. Po aktualizacji z nową tabelą/kolumnami (`recipe_proposals`, `recipes.review_meta`, `recipes.nutrition_breakdown`) uruchom `docker compose run --rm tools npm run db:push`.
+
+**Klatki importu na dysku** - worker kasuje nieużywane klatki po akceptacji i cały katalog po odrzuceniu/usunięciu importu (zlecenie `cleanupRequest` w `ai_draft`); katalogi sprzed tej zmiany można usunąć ręcznie z `/srv/dnl/media/uploads/imports/<id>` dla importów ze statusem rejected.
+
 **`docker compose build web` nie widzi bazy** - db musi być `up`/healthy przed buildem. Build używa `network: host` i łączy się z `127.0.0.1:5432`.
 
 **`db:push` mówi „No changes detected", a aplikacja rzuca `column ... does not exist`** - obraz `tools` jest stary. Przebuduj go: `docker compose build tools`, potem powtórz `db:push`/`search:reindex` (patrz callout w „Jak robić aktualizacje").

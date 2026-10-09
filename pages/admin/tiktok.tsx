@@ -4,6 +4,9 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { desc } from "drizzle-orm";
 import AdminShell from "../../components/admin/admin-shell";
+import AiSettings from "../../components/admin/ai-settings";
+import DraftPreview from "../../components/admin/draft-preview";
+import type { ImportDraft } from "../../lib/import-draft";
 import { isAdminRequest } from "../../lib/admin-auth";
 import { db, dbSchema } from "../../lib/db";
 
@@ -44,141 +47,6 @@ function SourceMaterials({ caption, transcript }: { caption?: string | null; tra
   );
 }
 
-function DraftPreview({ draft, heroFrame, onPickFrame, onEnhance, enhancing, onZoom }: { draft: any; heroFrame: string | null; onPickFrame: (url: string) => void; onEnhance: (frame: string) => void; enhancing: boolean; onZoom: (url: string) => void }) {
-  if (!draft) return null;
-  return (
-    <div className="mt-3 bg-gray-50 rounded-lg p-4 text-sm space-y-2">
-      {draft.frames?.length > 0 && (
-        <div>
-          <div className="font-medium text-gray-500 text-xs uppercase mb-2">
-            Zdjęcie główne - kliknij klatkę, aby wybrać
-            {draft.heroEnhanced && <span className="normal-case font-normal"> (✨ = klatka poprawiona przez AI)</span>}
-            {draft.heroFrame && <span className="normal-case font-normal"> (★ = propozycja AI)</span>}
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {[...(draft.heroEnhanced ? [draft.heroEnhanced] : []), ...draft.frames].map((f: string) => (
-              <div key={f} className="relative shrink-0 group">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={f}
-                  alt=""
-                  onClick={() => onPickFrame(f)}
-                  className={`h-32 rounded-lg cursor-pointer border-4 transition ${
-                    (heroFrame ?? draft.heroEnhanced ?? draft.heroFrame ?? draft.frames[0]) === f
-                      ? "border-amber-500"
-                      : "border-transparent hover:border-gray-300"
-                  }`}
-                />
-                {draft.heroEnhanced === f && (
-                  <span className="absolute top-1 left-1 text-[10px] font-semibold bg-black/60 text-white rounded px-1.5 py-0.5">
-                    ✨ AI
-                  </span>
-                )}
-                {draft.heroFrame === f && (
-                  <span className="absolute top-1 right-1 text-amber-500 drop-shadow">★</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onZoom(f)}
-                  title="Podejrzyj w pełnym rozmiarze"
-                  className="absolute bottom-1 right-1 bg-black/60 text-white rounded px-1.5 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 transition"
-                >
-                  🔍
-                </button>
-              </div>
-            ))}
-          </div>
-          {(() => {
-            // Enhance a RAW frame (the picked one, or the AI-suggested star,
-            // never an already-enhanced image)
-            const pick = heroFrame ?? draft.heroFrame ?? draft.frames[0];
-            const target = draft.frames.includes(pick) ? pick : (draft.heroFrame ?? draft.frames[0]);
-            return (
-              <button
-                type="button"
-                onClick={() => onEnhance(target)}
-                disabled={enhancing || !target}
-                className="mt-1 inline-flex items-center gap-1.5 bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-gray-700 disabled:opacity-50"
-              >
-                {enhancing ? "⏳ Generuję zdjęcie..." : "✨ Generuj AI hero z zaznaczonej klatki"}
-              </button>
-            );
-          })()}
-          <p className="text-[11px] text-gray-400">
-            Koszt ~$0.07 (Gemini). Bez tego przepis dostanie surową klatkę jako zdjęcie główne.
-          </p>
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <strong>{draft.title}</strong>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${
-          draft.confidence === "high" ? "bg-green-100 text-green-800"
-          : draft.confidence === "medium" ? "bg-yellow-100 text-yellow-800"
-          : "bg-red-100 text-red-700"
-        }`}>
-          pewność: {draft.confidence}
-        </span>
-      </div>
-      <p className="text-gray-600">{draft.lead}</p>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        {(draft.categorySlugs ?? []).map((s: string) => (
-          <span key={s} className="bg-gray-900 text-white rounded-full px-2.5 py-0.5">{s}</span>
-        ))}
-        {(draft.categorySlugs ?? []).length === 0 && (
-          <span className="bg-red-100 text-red-700 rounded-full px-2.5 py-0.5">brak kategorii!</span>
-        )}
-        {draft.difficulty && (
-          <span className="bg-gray-200 text-gray-700 rounded-full px-2.5 py-0.5">
-            trudność: {draft.difficulty}
-          </span>
-        )}
-      </div>
-      {draft.about && (
-        <div>
-          <div className="font-medium text-gray-500 text-xs uppercase mb-1">
-            Kilka słów o tym przepisie
-          </div>
-          <p className="text-gray-600 whitespace-pre-line">{draft.about}</p>
-        </div>
-      )}
-      <div className="grid sm:grid-cols-2 gap-3">
-        <div>
-          <div className="font-medium text-gray-500 text-xs uppercase mb-1">Składniki</div>
-          <ul className="list-disc ml-4 text-gray-700">
-            {(draft.ingredientGroups ?? []).flatMap((g: any) => g.items ?? []).map((i: string, n: number) => (
-              <li key={n}>{i}</li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <div className="font-medium text-gray-500 text-xs uppercase mb-1">Kroki</div>
-          <ol className="list-decimal ml-4 text-gray-700 space-y-2">
-            {(draft.steps ?? []).map((s: any, n: number) => (
-              <li key={n}>
-                <div className="flex items-start gap-2">
-                  <span className="flex-1">{s.body}</span>
-                  {s.image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.image} alt="" className="h-14 rounded shrink-0" />
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </div>
-      <div className="text-xs text-gray-500">
-        ⏱ {draft.totalTimeMin ?? "?"} min · 🍽 {draft.servings ?? "?"} porcji · 🔥 {draft.kcal ?? "?"} kcal
-      </div>
-      {draft.notes && (
-        <p className="text-xs bg-amber-50 border border-amber-100 text-amber-900 rounded p-2">
-          ⚠️ {draft.notes}
-        </p>
-      )}
-    </div>
-  );
-}
-
 export default function AdminTikTok({ imports: initial }) {
   const router = useRouter();
   const [rows, setRows] = useState(initial);
@@ -192,6 +60,16 @@ export default function AdminTikTok({ imports: initial }) {
   const [heroFrames, setHeroFrames] = useState<Record<number, string>>({});
   const [actErrors, setActErrors] = useState<Record<number, string>>({});
   const [enhancingId, setEnhancingId] = useState<number | null>(null);
+  const [reassigningId, setReassigningId] = useState<number | null>(null);
+  // Potwierdzenie ostrzeżeń przed akceptacją (per import)
+  const [confirmed, setConfirmed] = useState<Record<number, boolean>>({});
+  const [aiModels, setAiModels] = useState<{ refine: string; nutrition: string; available: string[] } | null>(null);
+  useEffect(() => {
+    fetch("/api/admin/ai-settings")
+      .then((r) => r.json())
+      .then((d) => d.models && setAiModels({ refine: d.models.refine, nutrition: d.models.nutrition, available: d.available ?? [] }))
+      .catch(() => {});
+  }, []);
   // Full-size frame preview (lightbox); null = closed
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [workerRunning, setWorkerRunning] = useState(false);
@@ -229,6 +107,43 @@ export default function AdminTikTok({ imports: initial }) {
     }, 2500);
     return () => clearInterval(t);
   }, [enhancingId]);
+
+  // Analogicznie dla ponownego dobierania klatek (worker czyści reassignRequest)
+  useEffect(() => {
+    if (reassigningId == null) return;
+    const t = setInterval(async () => {
+      const res = await fetch("/api/admin/imports/");
+      if (!res.ok) return;
+      const fresh = await res.json();
+      setRows(fresh);
+      const d = fresh.find((r: any) => r.id === reassigningId)?.aiDraft;
+      if (d && !d.reassignRequest) {
+        if (d.reassignError) setActErrors((e) => ({ ...e, [reassigningId]: d.reassignError }));
+        setReassigningId(null);
+      }
+    }, 2500);
+    return () => clearInterval(t);
+  }, [reassigningId]);
+
+  async function reassign(id: number) {
+    setActErrors((e) => ({ ...e, [id]: "" }));
+    const res = await fetch(`/api/admin/imports/${id}/`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reassign-frames" }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActErrors((e) => ({ ...e, [id]: data.error || `Błąd serwera (${res.status})` }));
+      return;
+    }
+    setReassigningId(id);
+    fetch("/api/admin/imports/process/", { method: "POST" }).catch(() => {});
+  }
+
+  function updateDraft(id: number, draft: ImportDraft) {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, aiDraft: draft } : r)));
+  }
 
   const pendingCount = rows.filter((r) => r.status === "pending").length;
 
@@ -299,7 +214,7 @@ export default function AdminTikTok({ imports: initial }) {
     const res = await fetch(`/api/admin/imports/${id}/`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, heroImage: heroFrames[id] ?? null }),
+      body: JSON.stringify({ action, heroImage: heroFrames[id] ?? null, confirmed: !!confirmed[id] }),
     });
     if (!res.ok) {
       const msg = await res
@@ -365,6 +280,8 @@ export default function AdminTikTok({ imports: initial }) {
         </p>
       )}
 
+      <AiSettings />
+
       {(pendingCount > 0 || workerRunning) && (
         <div className="flex items-center gap-3 mb-8 -mt-2">
           <button
@@ -408,19 +325,46 @@ export default function AdminTikTok({ imports: initial }) {
                 <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_LABELS[imp.status]?.cls}`}>
                   {STATUS_LABELS[imp.status]?.label ?? imp.status}
                 </span>
-                {imp.status === "ready" && (
-                  <>
-                    <button onClick={() => setExpanded(expanded === imp.id ? null : imp.id)} className="text-sm text-gray-600 hover:text-gray-900">
-                      {expanded === imp.id ? "Zwiń" : "Podgląd"}
-                    </button>
-                    <button onClick={() => act(imp.id, "accept")} className="text-sm text-green-600 hover:text-green-800 font-medium">
-                      ✓ Akceptuj → edytor
-                    </button>
-                    <button onClick={() => act(imp.id, "reject")} className="text-sm text-red-500 hover:text-red-700">
-                      ✕ Odrzuć
-                    </button>
-                  </>
-                )}
+                {imp.status === "ready" && (() => {
+                  const review = (imp.aiDraft as ImportDraft | null)?.review ?? null;
+                  const blocking = !!review?.blocking;
+                  const warnings = !!review && !blocking && review.issues.length > 0;
+                  const errors = review?.issues.filter((i) => i.severity === "error").length ?? 0;
+                  const canAccept = !blocking && (!warnings || !!confirmed[imp.id]);
+                  return (
+                    <>
+                      <button onClick={() => setExpanded(expanded === imp.id ? null : imp.id)} className="text-sm text-gray-600 hover:text-gray-900">
+                        {expanded === imp.id ? "Zwiń" : "Podgląd"}
+                      </button>
+                      {blocking && (
+                        <span className="text-xs text-red-600" title="Otwórz podgląd i popraw błędy">
+                          ⛔ {errors} {errors === 1 ? "błąd" : "błędy"}
+                        </span>
+                      )}
+                      {warnings && (
+                        <label className="text-xs text-amber-700 flex items-center gap-1 cursor-pointer" title="Ostrzeżenia z audytu są w podglądzie">
+                          <input
+                            type="checkbox"
+                            checked={!!confirmed[imp.id]}
+                            onChange={(e) => setConfirmed((c) => ({ ...c, [imp.id]: e.target.checked }))}
+                          />
+                          sprawdziłem porcje i wartości
+                        </label>
+                      )}
+                      <button
+                        onClick={() => act(imp.id, "accept")}
+                        disabled={!canAccept}
+                        title={blocking ? "Najpierw popraw błędy w podglądzie" : warnings && !confirmed[imp.id] ? "Zaznacz potwierdzenie" : ""}
+                        className="text-sm text-green-600 hover:text-green-800 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        ✓ Akceptuj → edytor
+                      </button>
+                      <button onClick={() => act(imp.id, "reject")} className="text-sm text-red-500 hover:text-red-700">
+                        ✕ Odrzuć
+                      </button>
+                    </>
+                  );
+                })()}
                 {imp.status === "failed" && (
                   <button onClick={() => act(imp.id, "retry")} className="text-sm text-gray-600 hover:text-gray-900">
                     ↻ Ponów
@@ -468,14 +412,21 @@ export default function AdminTikTok({ imports: initial }) {
             )}
             {expanded === imp.id && (
               <>
-                <DraftPreview
-                  draft={imp.aiDraft}
-                  heroFrame={heroFrames[imp.id] ?? null}
-                  onPickFrame={(url) => setHeroFrames((h) => ({ ...h, [imp.id]: url }))}
-                  onEnhance={(frame) => enhance(imp.id, frame)}
-                  enhancing={enhancingId === imp.id}
-                  onZoom={setLightbox}
-                />
+                {imp.aiDraft && (
+                  <DraftPreview
+                    importId={imp.id}
+                    draft={imp.aiDraft as ImportDraft}
+                    heroFrame={heroFrames[imp.id] ?? null}
+                    onPickFrame={(url) => setHeroFrames((h) => ({ ...h, [imp.id]: url }))}
+                    onEnhance={(frame) => enhance(imp.id, frame)}
+                    enhancing={enhancingId === imp.id}
+                    onReassign={() => reassign(imp.id)}
+                    reassigning={reassigningId === imp.id}
+                    onZoom={setLightbox}
+                    onDraftChange={(d) => updateDraft(imp.id, d)}
+                    models={aiModels}
+                  />
+                )}
                 <SourceMaterials caption={imp.caption} transcript={imp.transcript} />
               </>
             )}
@@ -486,8 +437,10 @@ export default function AdminTikTok({ imports: initial }) {
       <p className="text-xs text-gray-400 mt-8">
         Worker: na serwerze kolejkę przetwarza automatycznie serwis <code>worker</code> (docker
         compose); lokalnie przycisk „Przetwórz kolejkę" albo <code>npm run imports:process</code>.
-        Silnik AI: <code>OPENAI_API_KEY</code> (gpt-4o + Whisper) - alternatywnie Gemini, Claude
-        lub dowolne API zgodne z OpenAI (szczegóły w .env.example).
+        Silnik AI: <code>OPENAI_API_KEY</code> (Whisper + modele z sekcji „Ustawienia AI” powyżej;
+        domyślne z <code>OPENAI_MODEL</code> i <code>OPENAI_STRONG_MODEL</code>). Draft bez klucza OpenAI
+        (Gemini, Claude, API zgodne z OpenAI) pomija dobieranie klatek, dopełnianie i przeliczanie
+        wartości odżywczych (szczegóły w .env.example).
       </p>
 
       {lightbox && (

@@ -7,6 +7,7 @@ import { promisify } from "util";
 import { eq, isNull, sql } from "drizzle-orm";
 import * as schema from "../db/schema";
 import { SOCIAL_TIKTOK_URL } from "../constants";
+import { chatJson } from "./ai-chat";
 
 const run = promisify(execFile);
 const { tiktokCatalog } = schema;
@@ -47,34 +48,15 @@ async function fetchProfile(log: (s: string) => void): Promise<FlatEntry[]> {
 }
 
 async function classifyBatch(items: { id: number; caption: string }[]) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: CHEAP_MODEL,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "Klasyfikujesz opisy filmów z TikToka autorki bloga kulinarnego. " +
-            'Zwracasz WYŁĄCZNIE JSON: {"wyniki":[{"id":liczba,"przepis":true|false}]}. ' +
-            "przepis=true, gdy film pokazuje jedzenie do przygotowania (przepis, gotowanie, wypiek). " +
-            "przepis=false dla vlogów, zakupów, porad niekulinarnych, lifestyle.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify(items.map((i) => ({ id: i.id, opis: i.caption.slice(0, 300) }))),
-        },
-      ],
-    }),
+  const { data: parsed } = await chatJson<{ wyniki?: { id: number; przepis: boolean }[] }>({
+    model: CHEAP_MODEL,
+    system:
+      "Klasyfikujesz opisy filmów z TikToka autorki bloga kulinarnego. " +
+      'Zwracasz WYŁĄCZNIE JSON: {"wyniki":[{"id":liczba,"przepis":true|false}]}. ' +
+      "przepis=true, gdy film pokazuje jedzenie do przygotowania (przepis, gotowanie, wypiek). " +
+      "przepis=false dla vlogów, zakupów, porad niekulinarnych, lifestyle.",
+    user: JSON.stringify(items.map((i) => ({ id: i.id, opis: i.caption.slice(0, 300) }))),
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-  const json = await res.json();
-  const parsed = JSON.parse(json.choices[0].message.content);
   const map = new Map<number, boolean>();
   for (const w of parsed.wyniki ?? []) {
     if (typeof w.id === "number" && typeof w.przepis === "boolean") map.set(w.id, w.przepis);

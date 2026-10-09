@@ -113,6 +113,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             : null,
           publishedAt: b.publishedAt ? new Date(b.publishedAt) : existing.publishedAt,
           updatedAt: new Date(),
+          // Publikacja = operator zatwierdził pola dopełnione przez AI; uwagi zostają
+          ...(status === "published" && existing.reviewMeta && (existing.reviewMeta as any).aiFilled?.length
+            ? { reviewMeta: { ...(existing.reviewMeta as any), aiFilled: [], aiFilledApprovedAt: new Date().toISOString() } }
+            : {}),
+          ...(b.nutritionBreakdown && typeof b.nutritionBreakdown === "object"
+            ? { nutritionBreakdown: b.nutritionBreakdown }
+            : {}),
         })
         .where(eq(recipes.id, id));
 

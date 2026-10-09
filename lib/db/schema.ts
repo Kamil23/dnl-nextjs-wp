@@ -61,6 +61,13 @@ export const recipes = pgTable(
     source: text("source", { enum: ["manual", "tiktok", "wp_import"] })
       .notNull()
       .default("manual"),
+    // Ślad po imporcie z TikToka do przejrzenia przed publikacją:
+    // { confidence, notes, aiFilled[], issues[], acceptedAt }. Publikacja
+    // czyści aiFilled (operator to zatwierdził).
+    reviewMeta: jsonb("review_meta"),
+    // Jawne rozbicie składników na gramy + per 100 g (lib/nutrition-calc),
+    // z którego policzono kcal/makra. Pozwala przeliczać porcje dokładnie.
+    nutritionBreakdown: jsonb("nutrition_breakdown"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
@@ -554,3 +561,37 @@ export const appSettings = pgTable("app_settings", {
   value: jsonb("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+// Propozycje zmian w opublikowanych przepisach z jednorazowego audytu
+// (sesja Claude, docs/audyt-przepisow-runbook.md). Audyt nigdy nie pisze do
+// recipes: operator zatwierdza każdą propozycję w /admin/propozycje; `before`
+// pozwala cofnąć zastosowaną zmianę jeden do jednego.
+export const recipeProposals = pgTable(
+  "recipe_proposals",
+  {
+    id: serial("id").primaryKey(),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    // ścieżka pola: servings | kcal | protein | fat | carbs | prepTimeMin | cookTimeMin |
+    // totalTimeMin | title | lead | ingredientGroups[g].items[i] | steps[n].body | steps[n].title | steps[n].tip
+    path: text("path").notNull(),
+    before: jsonb("before"),
+    after: jsonb("after"),
+    reason: text("reason").notNull(),
+    severity: text("severity", { enum: ["error", "warning", "polish"] }).notNull().default("warning"),
+    confidence: text("confidence", { enum: ["high", "medium", "low"] }).notNull().default("medium"),
+    basis: text("basis", { enum: ["ingredients-math", "source-text", "knowledge"] }).notNull().default("knowledge"),
+    // np. claude-audit-2026-10
+    source: text("source").notNull(),
+    status: text("status", { enum: ["pending", "applied", "rejected", "reverted", "failed"] })
+      .notNull()
+      .default("pending"),
+    // powód odrzucenia przez walidację QC przy zastosowaniu
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    appliedAt: timestamp("applied_at", { withTimezone: true }),
+    revertedAt: timestamp("reverted_at", { withTimezone: true }),
+  },
+  (t) => [index("recipe_proposals_recipe_status_idx").on(t.recipeId, t.status)]
+);

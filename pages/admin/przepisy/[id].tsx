@@ -89,6 +89,8 @@ export default function RecipeEditor({ initial, allCategories }) {
       ...form,
       status: statusOverride ?? form.status,
       tags: tagsText.split(",").map((t) => t.trim()).filter(Boolean),
+      // świeże rozbicie z "Oszacuj z AI" trafia do bazy razem z wartościami
+      nutritionBreakdown: estimate?.breakdown ?? undefined,
     };
     const res = await fetch(`/api/admin/recipes/${initial.id}`, {
       method: "PUT",
@@ -142,20 +144,28 @@ export default function RecipeEditor({ initial, allCategories }) {
     }
   }
 
-  // Przelicz makra pod inną liczbę porcji, korzystając z sum z ostatniej estymaty.
+  // Przelicz makra pod inną liczbę porcji: z sum ostatniej estymaty, a gdy
+  // jej nie było, z rozbicia zapisanego przy imporcie (recipes.nutrition_breakdown).
+  const breakdown = estimate?.breakdown ?? initial.nutritionBreakdown ?? null;
+  const totals = estimate
+    ? { kcal: estimate.totalKcal, protein: estimate.totalProtein, fat: estimate.totalFat, carbs: estimate.totalCarbs }
+    : breakdown?.totals ?? null;
   function applyServings(n: number) {
-    if (!estimate || n <= 0) return;
+    if (!totals || n <= 0) return;
     const per = (v: any) => (v != null ? String(Math.round((Number(v) / n) * 10) / 10) : "");
     setForm((f) => ({
       ...f,
       servings: String(n),
-      kcal: String(Math.round(Number(estimate.totalKcal) / n)),
-      protein: per(estimate.totalProtein),
-      fat: per(estimate.totalFat),
-      carbs: per(estimate.totalCarbs),
+      kcal: String(Math.round(Number(totals.kcal) / n)),
+      protein: per(totals.protein),
+      fat: per(totals.fat),
+      carbs: per(totals.carbs),
     }));
     setMessage({ ok: true, text: `Ustawiono ${n} porcji i przeliczono makra - zapisz, by utrwalić` });
   }
+  const reviewMeta = initial.reviewMeta ?? null;
+  const aiFilled: { field: string; value: unknown; reason: string; basis: string }[] = reviewMeta?.aiFilled ?? [];
+  const reviewIssues: { severity: string; message: string }[] = reviewMeta?.issues ?? [];
 
   async function remove() {
     if (!confirm(`Usunąć szkic „${form.title}"? Tej operacji nie można cofnąć.`)) return;
@@ -209,6 +219,47 @@ export default function RecipeEditor({ initial, allCategories }) {
           )}
         </div>
       </div>
+
+      {(aiFilled.length > 0 || reviewIssues.length > 0) && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+          <div className="font-medium text-amber-900 mb-1">
+            🤖 Ten przepis pochodzi z importu TikTok (pewność modelu: {reviewMeta?.confidence ?? "?"}):{" "}
+            {aiFilled.length} {aiFilled.length === 1 ? "pole uzupełniło" : "pól uzupełniło"} AI, {reviewIssues.length}{" "}
+            {reviewIssues.length === 1 ? "uwaga" : "uwag"} z audytu.
+          </div>
+          <p className="text-xs text-amber-800 mb-2">
+            Sprawdź te wartości przed publikacją. Po opublikowaniu lista pól AI znika (uznajemy, że je zatwierdzasz);
+            uwagi zostają w historii przepisu.
+          </p>
+          {aiFilled.length > 0 && (
+            <ul className="space-y-0.5 text-xs mb-2">
+              {aiFilled.map((f, i) => (
+                <li key={i}>
+                  <code className="bg-amber-100 rounded px-1">{f.field}</code>{" "}
+                  <strong>{typeof f.value === "object" ? JSON.stringify(f.value) : String(f.value)}</strong>
+                  <span className="text-amber-800"> · {f.reason}</span>
+                  <span className={f.basis === "inferred" ? "text-red-600 ml-1" : "text-amber-700 ml-1"}>[{f.basis}]</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {reviewIssues.length > 0 && (
+            <ul className="space-y-0.5 text-xs">
+              {reviewIssues.map((i, n) => (
+                <li key={n} className="flex items-start gap-2">
+                  <span className={`mt-1 inline-block h-2 w-2 rounded-full shrink-0 ${i.severity === "error" ? "bg-red-500" : "bg-amber-400"}`} />
+                  <span>{i.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {reviewMeta?.importId && (
+            <Link href="/admin/tiktok" className="text-xs underline text-amber-900 mt-2 inline-block">
+              Materiały źródłowe w imporcie #{reviewMeta.importId} →
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -426,6 +477,19 @@ export default function RecipeEditor({ initial, allCategories }) {
             >
               {estimating ? "Szacuję…" : "✨ Oszacuj kalorie i makro z AI"}
             </button>
+            {!estimate && breakdown?.totals && form.servings && (
+              <p className="text-xs text-gray-400 mt-2">
+                Rozbicie z importu: cały przepis {breakdown.totals.kcal} kcal ({breakdown.items?.length ?? 0} składników, model {breakdown.model}).
+                {breakdown.servingsEstimate && String(breakdown.servingsEstimate) !== String(form.servings) && (
+                  <>
+                    {" "}AI oceniało na {breakdown.servingsEstimate} porcji.{" "}
+                    <button type="button" onClick={() => applyServings(breakdown.servingsEstimate)} className="underline">
+                      Przelicz na {breakdown.servingsEstimate}
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
             {estimate?.assumedServings > 0 &&
               String(estimate.assumedServings) !== String(form.servings) && (
                 <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm">
