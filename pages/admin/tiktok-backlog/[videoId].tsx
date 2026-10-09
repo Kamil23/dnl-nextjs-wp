@@ -4,7 +4,8 @@ import { useState } from "react";
 import AdminShell from "../../../components/admin/admin-shell";
 import { isAdminRequest } from "../../../lib/admin-auth";
 import { getPathStats, type PathStats } from "../../../lib/server/ga";
-import { ACTIVE_IMPORT_STATUSES, getVideoDetail, type VideoDetail } from "../../../lib/tiktok-backlog";
+import { getVideoDetail, type VideoDetail } from "../../../lib/tiktok-backlog";
+import { ACTIVE_IMPORT_STATUSES } from "../../../lib/import-draft";
 
 // Szczegóły filmu z katalogu TikTok: osadzony odtwarzacz, pełne statystyki
 // z pochodnymi (ER, tempo, vs mediana profilu), wykres i tabela historii

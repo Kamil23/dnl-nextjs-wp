@@ -5,6 +5,11 @@ import type { QcIssue } from "./recipe-qc";
 
 export type FrameInfo = { url: string; t: number | null; sharpness?: number | null };
 
+// Statusy importu, które oznaczają "film jest w systemie" (blokują ponowne
+// dodanie do kolejki). Odrzucony / nieudany / duplikat nie blokują. Czysty
+// moduł, bo czytają to też strony po stronie przeglądarki.
+export const ACTIVE_IMPORT_STATUSES = ["pending", "processing", "ready", "approved"] as const;
+
 export type DraftStep = {
   title: string | null;
   body: string;

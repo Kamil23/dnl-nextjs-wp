@@ -41,8 +41,7 @@ const UPLOADED_TS = sql<number | null>`
 
 // Nie w imports (po video_id lub URL zawierającym id) i nie w recipes.video_url.
 // Odrzucony / nieudany / zduplikowany import nie blokuje ponownego dodania
-// do kolejki (ten sam zestaw co ACTIVE_STATUSES w pages/api/admin/imports).
-export const ACTIVE_IMPORT_STATUSES = ["pending", "processing", "ready", "approved"] as const;
+// do kolejki (lista: ACTIVE_IMPORT_STATUSES w lib/import-draft).
 
 const NOT_IMPORTED = sql`
   not exists (
