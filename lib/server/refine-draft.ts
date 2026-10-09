@@ -118,7 +118,7 @@ export async function refineDraft(opts: {
       field: f.field,
       value: f.value,
       reason: f.reason,
-      basis: (["caption", "transcript", "frames", "inferred"] as const).includes(f.basis) ? f.basis : "inferred",
+      basis: (["caption", "transcript", "frames", "inferred"] as string[]).includes(f.basis) ? f.basis : "inferred",
     }));
 
   return { draft: next, filled, model };

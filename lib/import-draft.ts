@@ -26,8 +26,12 @@ export type AiFilled = {
   field: string;
   value: unknown;
   reason: string;
-  basis: "caption" | "transcript" | "frames" | "inferred";
+  // instruction = konsekwencja instrukcji operatora ("Popraw wg instrukcji")
+  basis: "caption" | "transcript" | "frames" | "inferred" | "instruction";
 };
+
+// Ślad po "Popraw wg instrukcji" (co operator kazał, ile zmian weszło)
+export type InstructionLog = { at: string; text: string; applied: number; model?: string | null };
 
 export type TranscriptSegment = { start: number; end: number; text: string };
 
@@ -64,6 +68,7 @@ export type ImportDraft = {
   review?: { issues: QcIssue[]; blocking: boolean } | null;
   nutrition?: NutritionBreakdown | null;
   aiFilled?: AiFilled[];
+  instructions?: InstructionLog[];
   refinedWith?: string | null;
   models?: { draft?: string; assign?: string; refine?: string; nutrition?: string } | null;
   // żądania obsługiwane przez workera (web ma media tylko do odczytu)

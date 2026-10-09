@@ -182,3 +182,17 @@ export async function buildBreakdown(opts: BuildBreakdownOptions): Promise<Nutri
 
   return { ...base, issues };
 }
+
+// Rozbicie tylko dla wskazanych linii (np. składniki dodane instrukcją
+// operatora). Zwraca same pozycje; sumy liczy wołający przez recompute(),
+// ocena liczby porcji z fragmentu listy nie ma sensu, więc jest pomijana.
+export async function breakdownItemsFor(opts: {
+  title: string;
+  lines: string[];
+  context?: string | null;
+  model?: string;
+}): Promise<NutritionItem[]> {
+  if (!opts.lines.length) return [];
+  const b = await buildBreakdown({ title: opts.title, lines: opts.lines, servings: 1, servingsSource: "operator", context: opts.context, model: opts.model });
+  return b.items;
+}

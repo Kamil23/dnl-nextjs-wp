@@ -113,10 +113,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             : null,
           publishedAt: b.publishedAt ? new Date(b.publishedAt) : existing.publishedAt,
           updatedAt: new Date(),
-          // Publikacja = operator zatwierdził pola dopełnione przez AI; uwagi zostają
-          ...(status === "published" && existing.reviewMeta && (existing.reviewMeta as any).aiFilled?.length
-            ? { reviewMeta: { ...(existing.reviewMeta as any), aiFilled: [], aiFilledApprovedAt: new Date().toISOString() } }
-            : {}),
+          // Publikacja = operator zatwierdził pola dopełnione przez AI; uwagi zostają.
+          // Instrukcje z "Popraw wg instrukcji" dopisywane do śladu przepisu.
+          ...(() => {
+            const meta = { ...((existing.reviewMeta as any) ?? {}) };
+            let changed = false;
+            if (status === "published" && meta.aiFilled?.length) {
+              meta.aiFilled = [];
+              meta.aiFilledApprovedAt = new Date().toISOString();
+              changed = true;
+            }
+            const newInstr = Array.isArray(b.instructions)
+              ? b.instructions
+                  .filter((x: any) => x && typeof x.text === "string")
+                  .map((x: any) => ({ at: typeof x.at === "string" ? x.at : new Date().toISOString(), text: x.text.slice(0, 1000), applied: Number(x.applied) || 0 }))
+              : [];
+            if (newInstr.length) {
+              meta.instructions = [...(meta.instructions ?? []), ...newInstr];
+              changed = true;
+            }
+            return changed ? { reviewMeta: meta } : {};
+          })(),
           ...(b.nutritionBreakdown && typeof b.nutritionBreakdown === "object"
             ? { nutritionBreakdown: b.nutritionBreakdown }
             : {}),

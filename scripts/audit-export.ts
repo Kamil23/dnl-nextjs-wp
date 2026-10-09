@@ -24,6 +24,7 @@ import * as schema from "../lib/db/schema";
 import { checkRecipe } from "../lib/recipe-qc";
 import { getAiModels } from "../lib/server/ai-models";
 import { buildBreakdown } from "../lib/server/nutrition-ai";
+import { htmlToText } from "../lib/html-text";
 
 const client = postgres(process.env.DATABASE_URL!, { max: 2 });
 const db = drizzle(client, { schema });
@@ -36,20 +37,6 @@ const onlyIds = args.includes("--ids") && idsArg ? new Set(idsArg.split(",").map
 const outArg = args[args.indexOf("--out") + 1];
 const OUT = args.includes("--out") && outArg ? outArg : path.join(process.cwd(), "audit");
 const BATCH = 8;
-
-function htmlToText(html: string | null): string {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h\d)>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 async function main() {
   fs.mkdirSync(path.join(OUT, "recipes"), { recursive: true });

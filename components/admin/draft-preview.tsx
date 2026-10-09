@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { frameInfos, type AiFilled, type ImportDraft } from "../../lib/import-draft";
 import { itemMacro, type NutritionItem } from "../../lib/nutrition-calc";
 import type { QcIssue } from "../../lib/recipe-qc";
+import InstructBox from "./instruct-box";
+import type { RecipeChange, RecipeText } from "../../lib/recipe-ops";
 
 // Podgląd draftu z importu TikTok (/admin/tiktok). Operator widzi tu wszystko,
 // co trzeba sprawdzić przed akceptacją: uwagi audytu, pola dopełnione przez
@@ -374,6 +376,28 @@ export default function DraftPreview(p: Props) {
           🔥 <strong>{draft.kcal ?? "?"}</strong> kcal · B {draft.protein ?? "?"} · T {draft.fat ?? "?"} · W {draft.carbs ?? "?"} <span className="text-gray-400">na porcję</span>
         </div>
       </div>
+
+      {/* --- Popraw wg instrukcji --- */}
+      <InstructBox
+        recipe={{
+          title: draft.title ?? "",
+          lead: draft.lead ?? "",
+          about: draft.about ?? "",
+          ingredientGroups: (draft.ingredientGroups ?? []).map((g) => ({ title: g.title ?? null, items: g.items ?? [] })),
+          steps: (draft.steps ?? []).map((s) => ({ title: s.title ?? null, body: s.body, tip: s.tip ?? null })),
+          servings: draft.servings ?? null,
+          prepTimeMin: draft.prepTimeMin ?? null,
+          totalTimeMin: draft.totalTimeMin ?? null,
+          difficulty: draft.difficulty ?? null,
+        } satisfies RecipeText}
+        importId={importId}
+        models={p.models ? { refine: p.models.refine, available: p.models.available } : null}
+        onApply={async (ops: RecipeChange[], instruction: string) => {
+          const data = await call("apply-ops", { ops, instruction }, "apply-ops");
+          if (!data) throw new Error("Nie udało się zapisać zmian");
+          return data.message ?? null;
+        }}
+      />
 
       {/* --- Dopełnianie --- */}
       <div className="flex flex-wrap items-center gap-2">

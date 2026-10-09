@@ -1,10 +1,13 @@
 import { GetServerSideProps } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AdminShell from "../../../components/admin/admin-shell";
 import { isAdminRequest } from "../../../lib/admin-auth";
 import { getRecipeById, listAllCategories } from "../../../lib/queries";
+import InstructBox from "../../../components/admin/instruct-box";
+import { applyOps, touchesIngredients, type RecipeChange, type RecipeText } from "../../../lib/recipe-ops";
+import { htmlToText, isSimpleParagraphHtml, textToHtml } from "../../../lib/html-text";
 
 const inputCls =
   "mt-1 border border-gray-300 rounded-lg px-3 py-2 w-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-400";
@@ -61,6 +64,15 @@ export default function RecipeEditor({ initial, allCategories }) {
   const [estimating, setEstimating] = useState(false);
   const [estimate, setEstimate] = useState<any>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // "Popraw wg instrukcji": ślad do reviewMeta przy zapisie + modele do selectu
+  const [instructions, setInstructions] = useState<{ at: string; text: string; applied: number }[]>([]);
+  const [aiModels, setAiModels] = useState<{ refine: string; available: string[] } | null>(null);
+  useEffect(() => {
+    fetch("/api/admin/ai-settings")
+      .then((r) => r.json())
+      .then((d) => d.models && setAiModels({ refine: d.models.refine, available: d.available ?? [] }))
+      .catch(() => {});
+  }, []);
 
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -91,6 +103,7 @@ export default function RecipeEditor({ initial, allCategories }) {
       tags: tagsText.split(",").map((t) => t.trim()).filter(Boolean),
       // świeże rozbicie z "Oszacuj z AI" trafia do bazy razem z wartościami
       nutritionBreakdown: estimate?.breakdown ?? undefined,
+      instructions: instructions.length ? instructions : undefined,
     };
     const res = await fetch(`/api/admin/recipes/${initial.id}`, {
       method: "PUT",
@@ -101,6 +114,7 @@ export default function RecipeEditor({ initial, allCategories }) {
     if (res.ok) {
       const updated = await res.json();
       set("status", updated.status);
+      setInstructions([]);
       setMessage({ ok: true, text: "Zapisano ✓" });
     } else {
       const err = await res.json().catch(() => ({}));
@@ -163,6 +177,88 @@ export default function RecipeEditor({ initial, allCategories }) {
     }));
     setMessage({ ok: true, text: `Ustawiono ${n} porcji i przeliczono makra - zapisz, by utrwalić` });
   }
+  // Tekstowy kształt przepisu dla "Popraw wg instrukcji"; opis (contentHtml)
+  // edytowalny tylko, gdy to proste akapity (import TikTok), nie bogaty HTML z WP
+  const aboutEditable = isSimpleParagraphHtml(form.contentHtml);
+  const recipeText: RecipeText = {
+    title: form.title,
+    lead: form.lead,
+    about: aboutEditable ? htmlToText(form.contentHtml) : null,
+    ingredientGroups: form.ingredientGroups.map((g) => ({ title: g.title || null, items: g.items.filter((x) => x?.trim()) })),
+    steps: form.steps.filter((s) => s.body?.trim()).map((s) => ({ title: s.title || null, body: s.body, tip: s.tip || null })),
+    servings: form.servings ? Number(form.servings) : null,
+    prepTimeMin: form.prepTimeMin ? Number(form.prepTimeMin) : null,
+    totalTimeMin: form.totalTimeMin ? Number(form.totalTimeMin) : null,
+    difficulty: form.difficulty || null,
+  };
+
+  async function applyInstruction(ops: RecipeChange[], instruction: string): Promise<string | null> {
+    const result = applyOps(recipeText, ops);
+    if (!result.applied.length) throw new Error("Żadna zmiana nie przeszła walidacji");
+    const r = result.recipe;
+    // kroki: zachowaj zdjęcia po pozycji wejściowej (nowe kroki bez zdjęcia)
+    const oldSteps = form.steps.filter((s) => s.body?.trim());
+    const images = oldSteps.map((s) => s.image ?? "");
+    const stepAdds = result.applied.filter((o) => o.op === "add" && o.path === "steps").sort((a: any, b: any) => (a.index ?? 1e9) - (b.index ?? 1e9));
+    let shift = 0;
+    for (const a of stepAdds as any[]) {
+      const at = a.index == null || a.index < 0 || a.index > oldSteps.length ? images.length : a.index + shift;
+      images.splice(at, 0, "");
+      shift++;
+    }
+    for (const o of result.applied.filter((o) => o.op === "remove" && /^steps\[\d+\]$/.test(o.path))) {
+      let idx = Number(o.path.match(/\d+/)![0]);
+      for (const a of stepAdds as any[]) if ((a.index ?? 1e9) <= idx) idx++;
+      images.splice(idx, 1);
+    }
+    setForm((f) => ({
+      ...f,
+      title: r.title,
+      lead: r.lead,
+      contentHtml: aboutEditable && r.about != null ? textToHtml(r.about) ?? "" : f.contentHtml,
+      ingredientGroups: r.ingredientGroups.map((g) => ({ title: g.title ?? "", items: g.items })),
+      steps: r.steps.map((s, i) => ({ title: s.title ?? "", body: s.body, tip: s.tip ?? "", image: images[i] ?? "" })),
+      servings: r.servings != null ? String(r.servings) : f.servings,
+      prepTimeMin: r.prepTimeMin != null ? String(r.prepTimeMin) : f.prepTimeMin,
+      totalTimeMin: r.totalTimeMin != null ? String(r.totalTimeMin) : f.totalTimeMin,
+      difficulty: r.difficulty ?? f.difficulty,
+    }));
+    setInstructions((list) => [...list, { at: new Date().toISOString(), text: instruction, applied: result.applied.length }]);
+    const n = result.applied.length;
+    if (touchesIngredients(result.applied)) {
+      // estymacja na świeżych składnikach: stan formularza aktualizuje się asynchronicznie,
+      // więc liczymy z wyniku applyOps, nie z form
+      const items = r.ingredientGroups.flatMap((g) => g.items).map((x) => x.trim()).filter(Boolean);
+      setEstimating(true);
+      try {
+        const res = await fetch("/api/admin/recipes/estimate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: r.title, servings: r.servings ?? form.servings ?? null, ingredients: items }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Błąd estymacji");
+        setEstimate(data);
+        setForm((f) => ({
+          ...f,
+          kcal: String(data.kcal),
+          protein: data.protein != null ? String(data.protein) : "",
+          fat: data.fat != null ? String(data.fat) : "",
+          carbs: data.carbs != null ? String(data.carbs) : "",
+        }));
+        setMessage({ ok: true, text: `Wprowadzono ${n} zmian i przeliczono: ${data.kcal} kcal/porcję. Kliknij „Zapisz”, by utrwalić.` });
+        return `Wprowadzono ${n} zmian do formularza, nowe wartości: ${data.kcal} kcal/porcję. Pamiętaj o „Zapisz”.`;
+      } catch (e: any) {
+        setMessage({ ok: false, text: `Zmiany wprowadzone, ale estymacja nie powiodła się: ${e.message}` });
+        return `Wprowadzono ${n} zmian. Kalorii nie udało się przeliczyć, użyj „Oszacuj z AI”.`;
+      } finally {
+        setEstimating(false);
+      }
+    }
+    setMessage({ ok: true, text: `Wprowadzono ${n} zmian do formularza. Kliknij „Zapisz”, by utrwalić.` });
+    return `Wprowadzono ${n} zmian do formularza. Pamiętaj o „Zapisz”.`;
+  }
+
   const reviewMeta = initial.reviewMeta ?? null;
   const aiFilled: { field: string; value: unknown; reason: string; basis: string }[] = reviewMeta?.aiFilled ?? [];
   const reviewIssues: { severity: string; message: string }[] = reviewMeta?.issues ?? [];
@@ -220,7 +316,7 @@ export default function RecipeEditor({ initial, allCategories }) {
         </div>
       </div>
 
-      {(aiFilled.length > 0 || reviewIssues.length > 0) && (
+      {(aiFilled.length > 0 || reviewIssues.length > 0 || (reviewMeta?.instructions?.length ?? 0) > 0) && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
           <div className="font-medium text-amber-900 mb-1">
             🤖 Ten przepis pochodzi z importu TikTok (pewność modelu: {reviewMeta?.confidence ?? "?"}):{" "}
@@ -253,6 +349,11 @@ export default function RecipeEditor({ initial, allCategories }) {
               ))}
             </ul>
           )}
+          {Array.isArray(reviewMeta?.instructions) && reviewMeta.instructions.length > 0 && (
+            <p className="text-xs text-amber-800 mt-2">
+              Instrukcje operatora: {reviewMeta.instructions.map((x: any) => `„${x.text}” (${x.applied} zm.)`).join("; ")}
+            </p>
+          )}
           {reviewMeta?.importId && (
             <Link href="/admin/tiktok" className="text-xs underline text-amber-900 mt-2 inline-block">
               Materiały źródłowe w imporcie #{reviewMeta.importId} →
@@ -283,6 +384,15 @@ export default function RecipeEditor({ initial, allCategories }) {
               </label>
             </div>
           </Section>
+
+          <div className="mb-6">
+            <InstructBox recipe={recipeText} models={aiModels} onApply={applyInstruction} />
+            {!aboutEditable && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Treść artykułu tego przepisu to bogaty HTML (z WordPressa), więc instrukcje nie zmieniają opisu, tylko składniki, kroki i parametry.
+              </p>
+            )}
+          </div>
 
           <Section title="Składniki">
             {form.ingredientGroups.map((g, gi) => (

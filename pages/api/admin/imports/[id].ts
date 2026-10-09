@@ -11,19 +11,27 @@ import { getAiModels, isValidModelId } from "../../../../lib/server/ai-models";
 import { buildBreakdown } from "../../../../lib/server/nutrition-ai";
 import { refineDraft } from "../../../../lib/server/refine-draft";
 import { parseShoppingLine } from "../../../../lib/quantity";
+import { textToHtml } from "../../../../lib/html-text";
+import { applyOps, touchesIngredients, type RecipeChange, type RecipeText } from "../../../../lib/recipe-ops";
+import { breakdownItemsFor } from "../../../../lib/server/nutrition-ai";
 
 const { imports, recipes, ingredientGroups, ingredients, steps, tags, recipeTags, categories, recipeCategories } = dbSchema;
 
 // "Kilka słów o tym przepisie" arrives as plain paragraphs - wrap in <p>
-function aboutToHtml(about: unknown): string | null {
-  if (typeof about !== "string" || !about.trim()) return null;
-  const esc = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return about
-    .trim()
-    .split(/\n{2,}/)
-    .map((p) => `<p>${esc(p.trim()).replace(/\n/g, "<br/>")}</p>`)
-    .join("\n");
+const aboutToHtml = (about: unknown) => textToHtml(typeof about === "string" ? about : null);
+
+function draftToRecipeText(d: ImportDraft): RecipeText {
+  return {
+    title: d.title ?? "",
+    lead: d.lead ?? "",
+    about: d.about ?? "",
+    ingredientGroups: (d.ingredientGroups ?? []).map((g) => ({ title: g.title ?? null, items: [...(g.items ?? [])] })),
+    steps: (d.steps ?? []).map((st) => ({ title: st.title ?? null, body: st.body, tip: st.tip ?? null })),
+    servings: d.servings ?? null,
+    prepTimeMin: d.prepTimeMin ?? null,
+    totalTimeMin: d.totalTimeMin ?? null,
+    difficulty: d.difficulty ?? null,
+  };
 }
 
 const num = (v: unknown): number | null => {
@@ -263,6 +271,123 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (e: any) {
       return res.status(502).json({ error: e.message?.slice(0, 300) || "Przeliczenie nieudane" });
     }
+  }
+
+  // "Popraw wg instrukcji": operator zatwierdził operacje z podglądu
+  // (POST /api/admin/recipes/instruct). Nakładamy je na draft, kroki zachowują
+  // zdjęcia/okna czasowe po pozycji wejściowej, a dla zmienionych linii
+  // składników liczymy rozbicie odżywcze tylko dla nowych pozycji.
+  if (action === "apply-ops") {
+    const ops: RecipeChange[] = (Array.isArray(req.body?.ops) ? req.body.ops : []).filter(
+      (o: any) => o && typeof o.path === "string" && ["set", "add", "remove"].includes(o.op)
+    );
+    if (!ops.length) return res.status(400).json({ error: "Brak operacji" });
+    const instruction = String(req.body?.instruction ?? "").trim().slice(0, 1000);
+    const before = draftToRecipeText(draft);
+    const result = applyOps(before, ops);
+    if (!result.applied.length) {
+      return res.status(400).json({ error: "Żadna operacja nie przeszła walidacji", rejected: result.rejected });
+    }
+    const after = result.recipe;
+
+    // Kroki: dopasuj metadane (zdjęcie, kandydaci, czas) po pozycji WEJŚCIOWEJ,
+    // śledząc add/remove w kolejności, w jakiej applyOps je nakłada
+    const stepMeta = draft.steps.map((st) => ({ image: st.image ?? null, frameCandidates: st.frameCandidates ?? [], startSec: st.startSec ?? null, endSec: st.endSec ?? null }));
+    const metaByOutput: (typeof stepMeta[number] | null)[] = [...stepMeta];
+    const stepAdds = result.applied
+      .filter((o) => o.op === "add" && o.path === "steps")
+      .sort((a: any, b: any) => (a.index ?? 1e9) - (b.index ?? 1e9));
+    let shift = 0;
+    for (const a of stepAdds as any[]) {
+      const at = a.index == null || a.index < 0 || a.index > stepMeta.length ? metaByOutput.length : a.index + shift;
+      metaByOutput.splice(at, 0, null);
+      shift++;
+    }
+    const stepRemoves = result.applied.filter((o) => o.op === "remove" && /^steps\[\d+\]$/.test(o.path));
+    const removedInput = new Set(stepRemoves.map((o) => Number(o.path.match(/\d+/)![0])));
+    // pozycje wejściowe usuniętych → po przesunięciu add
+    const outputRemovals: number[] = [];
+    for (const ri of removedInput) {
+      let adj = ri;
+      for (const a of stepAdds as any[]) {
+        const w = a.index == null ? 1e9 : a.index;
+        if (w <= ri) adj++;
+      }
+      outputRemovals.push(adj);
+    }
+    for (const idx of outputRemovals.sort((a, b) => b - a)) metaByOutput.splice(idx, 1);
+
+    let next: ImportDraft = {
+      ...draft,
+      title: after.title,
+      lead: after.lead,
+      about: after.about ?? draft.about,
+      ingredientGroups: after.ingredientGroups,
+      steps: after.steps.map((st, i) => ({
+        title: st.title,
+        body: st.body,
+        tip: st.tip,
+        image: metaByOutput[i]?.image ?? null,
+        frameCandidates: metaByOutput[i]?.frameCandidates ?? [],
+        startSec: metaByOutput[i]?.startSec ?? null,
+        endSec: metaByOutput[i]?.endSec ?? null,
+      })),
+      servings: after.servings,
+      prepTimeMin: after.prepTimeMin,
+      totalTimeMin: after.totalTimeMin,
+      difficulty: after.difficulty,
+      aiFilled: [
+        ...(draft.aiFilled ?? []),
+        ...result.applied
+          .filter((o) => o.kind === "consequence")
+          .map((o) => ({
+            field: o.path,
+            value: o.op === "remove" ? "(usunięto)" : (o as any).value,
+            reason: o.reason || `konsekwencja instrukcji: ${instruction}`,
+            basis: "instruction" as const,
+          })),
+      ],
+      instructions: [...(draft.instructions ?? []), { at: new Date().toISOString(), text: instruction, applied: result.applied.length }],
+    };
+
+    // Rozbicie odżywcze: zostawiamy pozycje dla niezmienionych linii (w tym
+    // ręczne gramy operatora), liczymy tylko nowe/zmienione
+    let recalcNote = "";
+    if (touchesIngredients(result.applied)) {
+      const newLines = ingredientLines(next);
+      const oldItems = new Map<string, NutritionItem>();
+      for (const it of draft.nutrition?.items ?? []) if (!oldItems.has(it.line.trim())) oldItems.set(it.line.trim(), it);
+      const missing = newLines.filter((l) => !oldItems.has(l.trim()));
+      let fresh: NutritionItem[] = [];
+      if (missing.length && process.env.OPENAI_API_KEY) {
+        try {
+          const models = await getAiModels(db);
+          fresh = await breakdownItemsFor({ title: next.title, lines: missing, context: imp.caption?.slice(0, 600) ?? null, model: models.nutrition });
+        } catch (e: any) {
+          recalcNote = ` Nie udało się policzyć nowych składników: ${e.message?.slice(0, 120)}.`;
+        }
+      }
+      const freshByLine = new Map(fresh.map((it) => [it.line.trim(), it]));
+      const items: NutritionItem[] = newLines.map(
+        (l) =>
+          oldItems.get(l.trim()) ??
+          freshByLine.get(l.trim()) ?? { line: l, name: l, grams: null, gramsSource: "ai-estimate", per100: null, assumption: null }
+      );
+      if (draft.nutrition) {
+        next.nutrition = recompute(draft.nutrition, { items, servings: next.servings ?? draft.nutrition.servings });
+      }
+    }
+    next = finalize(next);
+    await saveDraft(id, next);
+    const kcalBefore = draft.kcal ?? null;
+    const kcalAfter = next.kcal ?? null;
+    const msg =
+      `Zapisano ${result.applied.length} zmian.` +
+      (touchesIngredients(result.applied) && kcalBefore != null && kcalAfter != null && kcalBefore !== kcalAfter
+        ? ` Wartości odżywcze: ${kcalBefore} → ${kcalAfter} kcal/porcję.`
+        : "") +
+      recalcNote;
+    return res.json({ ok: true, draft: next, applied: result.applied.length, rejected: result.rejected, message: msg });
   }
 
   if (action === "accept") {
