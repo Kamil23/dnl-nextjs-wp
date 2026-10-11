@@ -79,6 +79,9 @@ services:
       # Mocniejszy model do dopełniania braków i wartości odżywczych
       # (domyślnie gpt-6-sol; przestawialne w /admin/tiktok -> Ustawienia AI)
       OPENAI_STRONG_MODEL: ${OPENAI_STRONG_MODEL:-}
+      # Walidacja zapisu w edytorze: hero/zdjęcie kroku musi istnieć na wolumenie
+      # mediów (zamontowany niżej pod /srv/media, tylko do odczytu)
+      UPLOADS_DIR: /srv/media/uploads
     volumes:
       # TikTok frames also served from public/ (belt-and-suspenders; the app now
       # emits absolute image URLs so next/image fetches them via Caddy anyway).

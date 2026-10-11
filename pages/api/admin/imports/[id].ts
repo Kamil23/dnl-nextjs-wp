@@ -549,13 +549,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Sprzątanie: zostają tylko klatki, których przepis używa
-      const keep = Array.from(
-        new Set([heroImage, d.heroEnhanced, ...stepRows.map((s) => s.image)].filter((u): u is string => !!u))
-      );
+      // Klatki ZOSTAJĄ po akceptacji: operator często zmienia hero lub zdjęcie
+      // kroku później w edytorze (np. na pierwszą klatkę z gotowym daniem),
+      // a skasowana klatka = 404 na stronie. Sprzątanie tylko przy odrzuceniu
+      // i usunięciu importu.
       await tx
         .update(imports)
-        .set({ status: "approved", recipeId: recipe.id, aiDraft: { ...d, cleanupRequest: { keep } } })
+        .set({ status: "approved", recipeId: recipe.id, aiDraft: d })
         .where(eq(imports.id, id));
 
       return recipe.id;

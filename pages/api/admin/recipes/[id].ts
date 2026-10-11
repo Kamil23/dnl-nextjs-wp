@@ -6,6 +6,24 @@ import { db, dbSchema } from "../../../../lib/db";
 import { slugify } from "../../../../lib/slugify";
 import { syncRecipeToSearch, removeRecipeFromSearch } from "../../../../lib/search-sync";
 import { notifyIndexNow } from "../../../../lib/server/indexnow";
+import fs from "fs";
+import path from "path";
+
+// Zdjęcia z importów TikTok leżą na wolumenie mediów (web ma go pod
+// public/uploads, tylko do odczytu). Zapis hero/kroku wskazującego na plik,
+// którego nie ma, dałby 404 na stronie - lepiej odmówić zapisu z komunikatem.
+function missingLocalUpload(url: string | null): string | null {
+  if (!url || !url.startsWith("/uploads/")) return null;
+  const baseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
+  const rel = url.replace(/^\/uploads\//, "").split("?")[0];
+  if (rel.includes("..")) return url;
+  const full = path.join(baseDir, rel);
+  try {
+    return fs.existsSync(full) ? null : url;
+  } catch {
+    return null;
+  }
+}
 
 const {
   recipes,
@@ -67,6 +85,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const status = ["draft", "review", "published"].includes(b.status)
       ? b.status
       : existing.status;
+
+    const missing = [str(b.heroImage), ...(b.steps ?? []).map((s: any) => str(s?.image))]
+      .map(missingLocalUpload)
+      .filter((u): u is string => !!u);
+    if (missing.length) {
+      return res.status(400).json({
+        error: `Plik zdjęcia nie istnieje na serwerze: ${missing.join(", ")}. Wybierz inną klatkę (lista klatek jest w imporcie na /admin/tiktok).`,
+      });
+    }
 
     if (
       status === "published" &&
