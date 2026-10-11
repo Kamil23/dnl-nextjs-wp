@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useState } from "react";
 
 // Consent state lives in localStorage; GA (the only non-essential cookie
 // source) is mounted by _app only after "granted". The footer's "Ustawienia
@@ -22,6 +23,11 @@ export default function CookieConsent({
 }: {
   onDecision: (v: Consent) => void;
 }) {
+  // Accept is the one-tap path; refusing lives behind "Ustawienia
+  // zaawansowane" (still reachable in two taps, toggle starts unchecked).
+  const [advanced, setAdvanced] = useState(false);
+  const [stats, setStats] = useState(false);
+
   function decide(v: Consent) {
     localStorage.setItem(CONSENT_KEY, v);
     onDecision(v);
@@ -40,20 +46,52 @@ export default function CookieConsent({
           </Link>
           .
         </p>
-        <div className="grid grid-cols-2 gap-2">
+
+        {advanced && (
+          <div className="mb-4 space-y-3 border-t border-gray-100 pt-4 text-sm">
+            <label className="flex items-start justify-between gap-4">
+              <span>
+                <span className="block font-medium">Niezbędne</span>
+                <span className="block text-gray-500">Działanie strony, zapamiętanie tego wyboru.</span>
+              </span>
+              <input type="checkbox" checked disabled className="mt-1 h-4 w-4 accent-gray-900" />
+            </label>
+            <label className="flex items-start justify-between gap-4 cursor-pointer">
+              <span>
+                <span className="block font-medium">Statystyki</span>
+                <span className="block text-gray-500">Google Analytics, anonimowe dane o odwiedzinach.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={stats}
+                onChange={(e) => setStats(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-gray-900"
+              />
+            </label>
+          </div>
+        )}
+
+        <button
+          onClick={() => decide("granted")}
+          className="w-full rounded-full bg-gray-900 text-white px-4 py-3 text-sm font-semibold hover:bg-gray-700 transition-colors"
+        >
+          Zgadzam się
+        </button>
+        {advanced ? (
           <button
-            onClick={() => decide("denied")}
-            className="rounded-full border border-gray-300 px-4 py-2.5 text-sm font-medium hover:border-gray-900 transition-colors"
+            onClick={() => decide(stats ? "granted" : "denied")}
+            className="mt-2 w-full rounded-full border border-gray-300 px-4 py-2.5 text-sm font-medium hover:border-gray-900 transition-colors"
           >
-            Tylko niezbędne
+            Zapisz wybór
           </button>
+        ) : (
           <button
-            onClick={() => decide("granted")}
-            className="rounded-full bg-gray-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-gray-700 transition-colors"
+            onClick={() => setAdvanced(true)}
+            className="mt-3 block mx-auto text-xs text-gray-500 underline hover:text-gray-900"
           >
-            Zgadzam się
+            Ustawienia zaawansowane
           </button>
-        </div>
+        )}
       </div>
     </div>
   );
